@@ -1,0 +1,28 @@
+[submodule "references/refra"]
+	path = references/refra
+	url = https://github.com/IacobIonut01/ReFra.git
+	shallow = true
+[submodule "references/lavender-photos"]
+	path = references/lavender-photos
+	url = https://github.com/kaii-lb/LavenderPhotos.git
+	shallow = true
+[submodule "references/fossify-gallery"]
+	path = references/fossify-gallery
+	url = https://github.com/FossifyOrg/Gallery.git
+	shallow = true
+[submodule "references/rune-keyboard"]
+	path = references/rune-keyboard
+	url = https://github.com/Mesteriis/rune.keyboard.git
+	shallow = true
+[submodule "references/aves"]
+	path = references/aves
+	url = https://github.com/deckerst/aves.git
+	shallow = true
+[submodule "references/ente"]
+	path = references/ente
+	url = https://github.com/ente/ente.git
+	shallow = true
+[submodule "references/immich"]
+	path = references/immich
+	url = https://github.com/immich-app/immich.git
+	shallow = true

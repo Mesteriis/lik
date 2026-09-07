@@ -13,6 +13,9 @@ Lik (Лик) is an Android AI gallery. The repository contains a runnable scaffo
 - User-facing strings belong in English and Russian resources. Support system light/dark themes, large fonts and resizable windows.
 - Keep Android lifecycle code small; add packages and dependencies only when functionality needs them.
 - Never commit local SDK paths, signing material, build outputs or downloaded models.
+- `references/` contains pinned upstream Git submodules for research, not Gradle modules or app assets. Do not edit or build them as part of routine Lik work. Upstream tracked assets remain in their own repositories.
+- Keep `docs/FEATURE_MATRIX.md` and the README provenance table current as features are selected or implemented. Record source commit/files and distinguish ideas from copied code, plans from implementation, and repository licenses from model licenses.
+- Model work must support multiple installed models and coherent per-feature model sets; follow `docs/MODEL_ARCHITECTURE.md` as the current proposal. Do not copy Rune's global single-active-model cleanup into a multi-model store.
 - All ten launcher variants use the user-supplied PNGs in `app/src/main/res/drawable-nodpi/lik_emblem*.png`. Preserve their alpha channels; the adaptive background is a separate color resource.
 - Launcher alias names are persistent identities. Keep them stable across releases. Exactly one alias must be enabled; use the atomic PackageManager batch API and derive the selected icon from component state.
 
