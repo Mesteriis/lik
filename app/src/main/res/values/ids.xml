@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <item name="icon_classic" type="id" />
+  <item name="icon_emerald" type="id" />
+  <item name="icon_amethyst" type="id" />
+  <item name="icon_sapphire" type="id" />
+  <item name="icon_sunrise" type="id" />
+  <item name="icon_moonstone" type="id" />
+  <item name="icon_rose" type="id" />
+  <item name="icon_ice" type="id" />
+  <item name="icon_aurora" type="id" />
+  <item name="icon_amber" type="id" />
+</resources>

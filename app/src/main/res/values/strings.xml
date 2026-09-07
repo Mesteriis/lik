@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">Lik</string>
+  <string name="app_description">AI photo gallery</string>
+  <string name="gallery_placeholder">Your photos will find a home here.</string>
+  <string name="settings_title">Settings</string>
+  <string name="back">Back</string>
+  <string name="app_icon_title">App icon</string>
+  <string name="app_icon_description">Choose a look for Lik. Your home screen may take a moment to show the new icon.</string>
+  <string name="icon_change_failed">Could not change the icon. Please try again.</string>
+  <string name="icon_classic">Classic</string>
+  <string name="icon_emerald">Emerald</string>
+  <string name="icon_amethyst">Amethyst</string>
+  <string name="icon_sapphire">Sapphire</string>
+  <string name="icon_sunrise">Sunrise</string>
+  <string name="icon_moonstone">Moonstone</string>
+  <string name="icon_rose">Rose</string>
+  <string name="icon_ice">Ice</string>
+  <string name="icon_aurora">Aurora</string>
+  <string name="icon_amber">Amber</string>
+</resources>

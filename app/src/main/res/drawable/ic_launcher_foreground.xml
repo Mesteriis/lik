@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keep the supplied transparent artwork inside the adaptive icon's safe area. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:inset="16.6667%">
+  <bitmap
+      android:gravity="fill"
+      android:src="@drawable/lik_emblem" />
+</inset>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="lik_background">#151310</color>
+  <color name="lik_text_primary">#F4EDE2</color>
+  <color name="lik_text_secondary">#C0B5A4</color>
+  <color name="lik_accent">#ECC27D</color>
+</resources>

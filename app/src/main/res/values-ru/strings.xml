@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">Лик</string>
+  <string name="app_description">Галерея с искусственным интеллектом</string>
+  <string name="gallery_placeholder">Здесь будут ваши фотографии.</string>
+  <string name="settings_title">Настройки</string>
+  <string name="back">Назад</string>
+  <string name="app_icon_title">Иконка приложения</string>
+  <string name="app_icon_description">Выберите образ Лика. Иконка на главном экране может обновиться с небольшой задержкой.</string>
+  <string name="icon_change_failed">Не удалось сменить иконку. Попробуйте ещё раз.</string>
+  <string name="icon_classic">Классическая</string>
+  <string name="icon_emerald">Изумруд</string>
+  <string name="icon_amethyst">Аметист</string>
+  <string name="icon_sapphire">Сапфир</string>
+  <string name="icon_sunrise">Рассвет</string>
+  <string name="icon_moonstone">Лунный камень</string>
+  <string name="icon_rose">Роза</string>
+  <string name="icon_ice">Лёд</string>
+  <string name="icon_aurora">Северное сияние</string>
+  <string name="icon_amber">Янтарь</string>
+</resources>
