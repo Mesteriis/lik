@@ -54,8 +54,6 @@ class TimelineAdapter(
     }
     private var closed = false
 
-    init { setHasStableIds(true) }
-
     fun submit(items: List<TimelineEntry>, timelineLevel: TimelineLevel) {
         val previous = entries
         val previousLevel = level
@@ -123,7 +121,6 @@ class TimelineAdapter(
     fun entryAt(position: Int): TimelineEntry = entries[position]
 
     override fun getItemCount() = entries.size
-    override fun getItemId(position: Int) = entries[position].stableKey.hashCode().toLong()
     override fun getItemViewType(position: Int) = when (entries[position]) {
         is TimelineEntry.Header -> TYPE_HEADER
         is TimelineEntry.Photo -> TYPE_PHOTO

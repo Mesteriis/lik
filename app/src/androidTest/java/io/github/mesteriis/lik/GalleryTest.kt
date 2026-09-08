@@ -6,6 +6,9 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.media.ExifInterface
+import android.os.SystemClock
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
@@ -32,6 +35,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import io.github.mesteriis.lik.gallery.GalleryPhoto
 import io.github.mesteriis.lik.gallery.PhotoSource
+import io.github.mesteriis.lik.gallery.TimelineEntry
+import io.github.mesteriis.lik.gallery.TimelineLevel
 
 @RunWith(AndroidJUnit4::class)
 class GalleryTest {
@@ -65,6 +70,99 @@ class GalleryTest {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
             bitmap.recycle()
             output.toByteArray()
+        }
+    }
+
+    private fun dispatchPinch(
+        list: RecyclerView,
+        cancel: Boolean,
+    ) {
+        val downTime = SystemClock.uptimeMillis()
+        var eventTime = downTime
+        fun event(action: Int, firstX: Float, secondX: Float): MotionEvent {
+            val pointerCount = if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_UP) 1 else 2
+            return MotionEvent.obtain(
+            downTime,
+            eventTime.also { eventTime += 64 },
+            action,
+            pointerCount,
+            arrayOf(
+                MotionEvent.PointerProperties().apply { id = 0; toolType = MotionEvent.TOOL_TYPE_FINGER },
+                MotionEvent.PointerProperties().apply { id = 1; toolType = MotionEvent.TOOL_TYPE_FINGER },
+            ).copyOf(pointerCount),
+            arrayOf(
+                MotionEvent.PointerCoords().apply { x = firstX; y = 240f; pressure = 1f; size = 1f; touchMajor = 10f; touchMinor = 10f },
+                MotionEvent.PointerCoords().apply { x = secondX; y = 240f; pressure = 1f; size = 1f; touchMajor = 10f; touchMinor = 10f },
+            ).copyOf(pointerCount),
+            0,
+            0,
+            1f,
+            1f,
+            0,
+            0,
+            InputDevice.SOURCE_TOUCHSCREEN,
+            0,
+        )
+        }
+        fun send(action: Int, firstX: Float, secondX: Float) {
+            event(action, firstX, secondX).also { motion ->
+                list.dispatchTouchEvent(motion)
+                motion.recycle()
+            }
+        }
+        send(MotionEvent.ACTION_DOWN, 120f, 160f)
+        send(MotionEvent.ACTION_POINTER_DOWN or (1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT), 120f, 160f)
+        send(MotionEvent.ACTION_MOVE, 100f, 180f)
+        send(MotionEvent.ACTION_MOVE, 80f, 220f)
+        send(MotionEvent.ACTION_MOVE, 40f, 260f)
+        if (cancel) {
+            send(MotionEvent.ACTION_CANCEL, 80f, 220f)
+        } else {
+            send(MotionEvent.ACTION_POINTER_UP or (1 shl MotionEvent.ACTION_POINTER_INDEX_SHIFT), 80f, 220f)
+            send(MotionEvent.ACTION_UP, 80f, 220f)
+        }
+    }
+
+    @Test fun hashCollidingTimelineKeysDoNotEnableRecyclerViewStableIds() {
+        val adapter = TimelineAdapter(context, {}, {}, {})
+        val aa = GalleryPhoto(id = "Aa", source = PhotoSource.GOOGLE_IMPORT)
+        val bb = GalleryPhoto(id = "BB", source = PhotoSource.GOOGLE_IMPORT)
+        val entries = listOf(
+            TimelineEntry.Photo(aa, indexInGroup = 0, groupSize = 2),
+            TimelineEntry.Photo(bb, indexInGroup = 1, groupSize = 2),
+        )
+
+        assertEquals("photo:Aa".hashCode(), "photo:BB".hashCode())
+        adapter.submit(entries, TimelineLevel.PHOTO)
+
+        assertFalse(adapter.hasStableIds())
+        assertEquals(2, adapter.itemCount)
+    }
+
+    @Test fun completedPinchChangesOnlyOneTimelineLevelAndCancelledPinchChangesNone() {
+        instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_IMAGES)
+        addPhoto(Color.CYAN)
+        ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+            val loadedDeadline = System.nanoTime() + 5_000_000_000
+            var loaded = false
+            while (!loaded && System.nanoTime() < loadedDeadline) {
+                scenario.onActivity { activity ->
+                    loaded = (activity.findViewById<RecyclerView>(R.id.photo_timeline).adapter?.itemCount ?: 0) > 0
+                }
+                if (!loaded) Thread.sleep(50)
+            }
+            assertTrue(loaded)
+            scenario.onActivity { activity -> dispatchPinch(activity.findViewById(R.id.photo_timeline), cancel = false) }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertTrue(activity.findViewById<View>(R.id.timeline_level_photo).isSelected)
+            }
+            scenario.onActivity { activity -> dispatchPinch(activity.findViewById(R.id.photo_timeline), cancel = true) }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertTrue(activity.findViewById<View>(R.id.timeline_level_photo).isSelected)
+                assertFalse(activity.findViewById<View>(R.id.timeline_level_days).isSelected)
+            }
         }
     }
 

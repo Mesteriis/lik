@@ -19,6 +19,7 @@ import java.util.Locale
 class PhotoViewerActivity : ComponentActivity() {
     private lateinit var model: PhotoViewerViewModel
     private lateinit var image: ZoomImageView
+    private var shownBitmap: android.graphics.Bitmap? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,17 +47,17 @@ class PhotoViewerActivity : ComponentActivity() {
         }
         findViewById<ProgressBar>(R.id.viewer_progress).visibility = if (state.loading || state.deleting) View.VISIBLE else View.GONE
         findViewById<TextView>(R.id.viewer_error).visibility = if (state.error) View.VISIBLE else View.GONE
-        findViewById<Button>(R.id.viewer_previous).isEnabled = state.cursor?.hasPrevious == true && !state.loading
-        findViewById<Button>(R.id.viewer_next).isEnabled = state.cursor?.hasNext == true && !state.loading
+        findViewById<Button>(R.id.viewer_previous).isEnabled = state.cursor?.hasPrevious == true && !state.loading && !state.deleting
+        findViewById<Button>(R.id.viewer_next).isEnabled = state.cursor?.hasNext == true && !state.loading && !state.deleting
         findViewById<Button>(R.id.viewer_delete).apply {
             visibility = if (state.cursor?.current?.canDeleteCopy == true) View.VISIBLE else View.GONE
-            isEnabled = state.cursor?.current?.canDeleteCopy == true && !state.deleting
+            isEnabled = state.cursor?.current?.canDeleteCopy == true && !state.loading && !state.deleting && !state.error
         }
-        state.bitmap?.let {
-            if (image.tag != state.cursor?.current?.id) {
-                image.tag = state.cursor?.current?.id
-                image.setImageBitmap(it)
-            }
+        val currentId = state.cursor?.current?.id
+        if (image.tag != currentId || shownBitmap !== state.bitmap) {
+            image.tag = currentId
+            shownBitmap = state.bitmap
+            if (state.bitmap == null) image.setImageDrawable(null) else image.setImageBitmap(state.bitmap)
         }
         findViewById<TextView>(R.id.photo_details).text = state.details?.let(::formatDetails).orEmpty()
         if (!state.loading && !state.deleting && state.cursor?.photos?.isEmpty() == true) {

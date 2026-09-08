@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.media.ExifInterface
 import android.widget.ImageView
+import android.widget.Button
 import android.widget.TextView
 import android.view.View
 import androidx.lifecycle.ViewModelProvider
@@ -18,6 +19,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -198,6 +200,75 @@ class PhotoViewerTest {
             assertTrue(model?.state?.value?.cursor?.photos?.any { it.id == second } == true)
             assertTrue(model?.state?.value?.cursor?.current?.id != first)
             assertTrue(!File(library, "$first.image").exists())
+        }
+    }
+
+    @Test fun movingFromReadablePhotoToBrokenPhotoClearsImageAndDisablesDelete() {
+        val readable = addPhoto()
+        val broken = "e".repeat(64)
+        library.mkdirs()
+        File(library, "$broken.image").writeBytes(byteArrayOf(1, 2, 3))
+        val intent = Intent(context, PhotoViewerActivity::class.java)
+            .putExtra(PhotoViewerActivity.EXTRA_PHOTO_ID, readable)
+        ActivityScenario.launch<PhotoViewerActivity>(intent).use { scenario ->
+            var model: PhotoViewerViewModel? = null
+            val loadedDeadline = System.nanoTime() + 5_000_000_000
+            var loaded = false
+            while (!loaded && System.nanoTime() < loadedDeadline) {
+                scenario.onActivity { activity ->
+                    loaded = activity.findViewById<ImageView>(R.id.viewer_image).drawable != null
+                    model = ViewModelProvider(activity)[PhotoViewerViewModel::class.java]
+                }
+                if (!loaded) Thread.sleep(50)
+            }
+            assertTrue(loaded)
+            scenario.onActivity { activity ->
+                val cursor = requireNotNull(model?.state?.value?.cursor)
+                model?.move(cursor.photos.indexOfFirst { it.id == broken } - cursor.photos.indexOfFirst { it.id == readable })
+            }
+            val errorDeadline = System.nanoTime() + 5_000_000_000
+            var errored = false
+            while (!errored && System.nanoTime() < errorDeadline) {
+                scenario.onActivity { activity ->
+                    errored = activity.findViewById<TextView>(R.id.viewer_error).visibility == View.VISIBLE
+                }
+                if (!errored) Thread.sleep(50)
+            }
+            assertTrue(errored)
+            scenario.onActivity { activity ->
+                assertEquals(broken, model?.state?.value?.cursor?.current?.id)
+                assertEquals(null, activity.findViewById<ImageView>(R.id.viewer_image).drawable)
+                assertEquals("", activity.findViewById<TextView>(R.id.photo_details).text)
+                assertFalse(activity.findViewById<Button>(R.id.viewer_delete).isEnabled)
+            }
+        }
+    }
+
+    @Test fun twoRapidMovesAdvanceFromAThroughBToC() {
+        val first = addPhoto(width = 31)
+        val second = addPhoto(width = 32)
+        val third = addPhoto(width = 33)
+        val intent = Intent(context, PhotoViewerActivity::class.java)
+            .putExtra(PhotoViewerActivity.EXTRA_PHOTO_ID, first)
+        ActivityScenario.launch<PhotoViewerActivity>(intent).use { scenario ->
+            var model: PhotoViewerViewModel? = null
+            val readyDeadline = System.nanoTime() + 5_000_000_000
+            while (model?.state?.value?.bitmap == null && System.nanoTime() < readyDeadline) {
+                scenario.onActivity { activity -> model = ViewModelProvider(activity)[PhotoViewerViewModel::class.java] }
+                if (model?.state?.value?.bitmap == null) Thread.sleep(50)
+            }
+            val cursor = requireNotNull(model?.state?.value?.cursor)
+            val currentIndex = cursor.photos.indexOfFirst { it.id == first }
+            val direction = if (currentIndex <= cursor.photos.lastIndex - 2) 1 else -1
+            val expected = cursor.photos[currentIndex + (2 * direction)].id
+            scenario.onActivity {
+                model?.move(direction)
+                model?.move(direction)
+            }
+            val finalDeadline = System.nanoTime() + 5_000_000_000
+            while (model?.state?.value?.cursor?.current?.id != expected && System.nanoTime() < finalDeadline) Thread.sleep(50)
+            assertEquals(expected, model?.state?.value?.cursor?.current?.id)
+            assertFalse(first == model?.state?.value?.cursor?.current?.id)
         }
     }
 

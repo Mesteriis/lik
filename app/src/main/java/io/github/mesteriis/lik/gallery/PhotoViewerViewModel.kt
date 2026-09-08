@@ -41,55 +41,74 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
     private val worker = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
     private val generation = AtomicInteger()
+    private val contentRevision = AtomicInteger()
+    @Volatile private var requestedCursor: PhotoCursor? = null
     @Volatile private var closed = false
 
     fun start(photoId: String?) {
-        if (updates.value?.cursor != null || updates.value?.loading == true) return
+        if (requestedCursor != null || updates.value?.loading == true) return
+        val request = generation.incrementAndGet()
+        val revision = contentRevision.get()
+        publish(request, revision, ViewerState(loading = true))
         worker.execute {
             val context = getApplication<Application>()
             val hasAccess = context.checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED ||
                 context.checkSelfPermission(android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED
             val cursor = PhotoCursor(GalleryCatalog.load(context, hasAccess), photoId)
-            load(cursor)
+            requestedCursor = cursor
+            load(cursor, request = request, revision = revision)
         }
     }
 
     fun move(delta: Int) {
-        val cursor = updates.value?.cursor?.move(delta) ?: return
-        worker.execute { load(cursor) }
+        if (updates.value?.deleting == true) return
+        val cursor = (requestedCursor ?: updates.value?.cursor)?.move(delta) ?: return
+        requestedCursor = cursor
+        val request = generation.incrementAndGet()
+        val revision = contentRevision.get()
+        publish(request, revision, ViewerState(cursor = cursor, loading = true))
+        worker.execute { load(cursor, request = request, revision = revision) }
     }
 
     fun deleteCurrent() {
         val state = updates.value ?: return
         val current = state.cursor?.current ?: return
-        if (state.deleting) return
-        publish(state.copy(deleting = true))
+        if (state.loading || state.deleting || state.error) return
+        val request = generation.incrementAndGet()
+        val revision = contentRevision.incrementAndGet()
+        publish(request, revision, state.copy(deleting = true))
         worker.execute {
             try {
-                val importedId = GalleryCatalog.importedId(current.id) ?: return@execute publish(state.copy(deleting = false))
+                val importedId = GalleryCatalog.importedId(current.id)
+                    ?: return@execute publish(request, revision, state.copy(deleting = false))
                 PhotoLibrary.store(getApplication()).deletePhoto(importedId)
-                load(state.cursor.without(current.id), deleting = false)
+                val cursor = state.cursor.without(current.id)
+                requestedCursor = cursor
+                load(cursor, request = request, revision = revision)
             } catch (_: IOException) {
-                publish(state.copy(deleting = false, error = true))
+                publish(request, revision, state.copy(deleting = false, error = true))
             }
         }
     }
 
-    private fun load(cursor: PhotoCursor, deleting: Boolean = false) {
-        val request = generation.incrementAndGet()
+    private fun load(
+        cursor: PhotoCursor,
+        deleting: Boolean = false,
+        request: Int,
+        revision: Int,
+    ) {
         val photo = cursor.current
         if (photo == null) {
-            publish(ViewerState(cursor = cursor, deleting = deleting, error = true))
+            publish(request, revision, ViewerState(cursor = cursor, deleting = deleting, error = true))
             return
         }
-        publish(ViewerState(cursor = cursor, loading = true, deleting = deleting))
         val bitmap = try { GalleryCatalog.decode(getApplication(), photo, MAX_BITMAP_EDGE) } catch (_: Exception) { null }
-        if (closed || generation.get() != request) {
+        if (!isCurrent(request, revision)) {
             bitmap?.recycle()
             return
         }
         if (bitmap == null) {
-            publish(ViewerState(cursor = cursor, error = true, deleting = deleting))
+            publish(request, revision, ViewerState(cursor = cursor, error = true, deleting = deleting))
             return
         }
         val file = photo.file
@@ -119,16 +138,24 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
             bytes = photo.bytes.takeIf { it > 0 } ?: file?.length() ?: 0,
             addedAt = photo.addedAt.takeIf { it > 0 } ?: file?.lastModified() ?: 0,
         )
-        publish(ViewerState(cursor = cursor, bitmap = bitmap, details = details, deleting = deleting))
+        if (!isCurrent(request, revision)) {
+            bitmap.recycle()
+            return
+        }
+        publish(request, revision, ViewerState(cursor = cursor, bitmap = bitmap, details = details, deleting = deleting))
     }
 
-    private fun publish(state: ViewerState) {
-        main.post { if (!closed) updates.value = state }
+    private fun isCurrent(request: Int, revision: Int) =
+        !closed && generation.get() == request && contentRevision.get() == revision
+
+    private fun publish(request: Int, revision: Int, state: ViewerState) {
+        main.post { if (isCurrent(request, revision)) updates.value = state }
     }
 
     override fun onCleared() {
         closed = true
         generation.incrementAndGet()
+        contentRevision.incrementAndGet()
         worker.shutdownNow()
     }
 

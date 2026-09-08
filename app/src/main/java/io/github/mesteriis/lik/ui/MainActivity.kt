@@ -46,6 +46,7 @@ open class MainActivity : ComponentActivity() {
     private var pendingRestore = false
     private lateinit var libraryZone: ZoneId
     private var importSummaryEvents = ImportSummaryEvents()
+    private lateinit var timelinePinch: (android.view.MotionEvent) -> Boolean
 
     private val photoPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         refreshGallery()
@@ -142,23 +143,72 @@ open class MainActivity : ComponentActivity() {
 
     private fun installPinchGesture() {
         var scale = 1f
+        var cancelled = false
+        var completed = false
+        var capturing = false
+        var initialSpan = 0f
+        fun span(event: android.view.MotionEvent): Float {
+            if (event.pointerCount < 2) return 0f
+            val horizontal = event.getX(1) - event.getX(0)
+            val vertical = event.getY(1) - event.getY(0)
+            return kotlin.math.hypot(horizontal, vertical)
+        }
+        fun finishPinch() {
+            if (cancelled || completed) return
+            completed = true
+            when {
+                scale > 1.12f -> setLevel(ui.zoomIn().level)
+                scale < 0.89f -> setLevel(ui.zoomOut().level)
+            }
+        }
         val detector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-            override fun onScaleBegin(detector: ScaleGestureDetector): Boolean { scale = 1f; return true }
+            override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                scale = 1f
+                initialSpan = detector.currentSpan
+                cancelled = false
+                completed = false
+                return true
+            }
             override fun onScale(detector: ScaleGestureDetector): Boolean { scale *= detector.scaleFactor; return true }
             override fun onScaleEnd(detector: ScaleGestureDetector) {
-                when {
-                    scale > 1.12f -> setLevel(ui.zoomIn().level)
-                    scale < 0.89f -> setLevel(ui.zoomOut().level)
-                }
+                finishPinch()
             }
         })
+        timelinePinch = { event ->
+            cancelled = event.actionMasked == android.view.MotionEvent.ACTION_CANCEL
+            if (event.actionMasked == android.view.MotionEvent.ACTION_POINTER_DOWN) {
+                scale = 1f
+                initialSpan = span(event)
+                completed = false
+            }
+            detector.onTouchEvent(event)
+            if (event.actionMasked == android.view.MotionEvent.ACTION_MOVE && initialSpan > 0f) {
+                scale = span(event) / initialSpan
+            }
+            capturing = capturing || event.pointerCount > 1 || detector.isInProgress
+            val consume = capturing
+            when (event.actionMasked) {
+                android.view.MotionEvent.ACTION_POINTER_UP,
+                android.view.MotionEvent.ACTION_UP,
+                android.view.MotionEvent.ACTION_CANCEL -> {
+                    finishPinch()
+                    capturing = false
+                    initialSpan = 0f
+                }
+            }
+            consume
+        }
         recycler.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
-            override fun onInterceptTouchEvent(rv: RecyclerView, event: android.view.MotionEvent): Boolean {
-                detector.onTouchEvent(event)
-                return detector.isInProgress
+            override fun onInterceptTouchEvent(rv: RecyclerView, event: android.view.MotionEvent) =
+                dispatchTimelinePinch(event)
+
+            override fun onTouchEvent(rv: RecyclerView, event: android.view.MotionEvent) {
+                dispatchTimelinePinch(event)
             }
         })
     }
+
+    internal fun dispatchTimelinePinch(event: android.view.MotionEvent) = timelinePinch(event)
 
     private fun render(state: io.github.mesteriis.lik.imports.ImportState) {
         if (state.busy) findViewById<View>(R.id.import_summary).visibility = View.GONE
