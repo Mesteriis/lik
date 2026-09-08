@@ -25,6 +25,7 @@ data class GalleryPhoto(
     val bucketId: String? = null,
     val bucketName: String? = null,
     val relativePath: String? = null,
+    val exifOrientation: Int? = null,
 ) {
     val canDeleteCopy: Boolean get() = source == PhotoSource.GOOGLE_IMPORT && file != null
     val timelineAt: Long? get() = takenAt?.takeIf { it > 0 } ?: addedAt.takeIf { it > 0 }

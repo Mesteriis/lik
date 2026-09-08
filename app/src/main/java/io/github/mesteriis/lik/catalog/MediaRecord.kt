@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import androidx.room.ColumnInfo
 import io.github.mesteriis.lik.gallery.GalleryPhoto
 import io.github.mesteriis.lik.gallery.PhotoSource
 import java.io.File
@@ -16,6 +17,11 @@ enum class MediaDateSource { UNKNOWN, MEDIASTORE_TAKEN, MEDIASTORE_ADDED, EXIF, 
     Index(value = ["source", "sourceKey", "volumeName", "volumeVersion", "generationAdded"], unique = true),
     Index(value = ["source", "availability"]),
     Index(value = ["takenAt", "addedAt", "mediaId"]),
+    Index(value = ["availability", "sortAt", "mediaId"]),
+    Index(value = ["availability", "dayKey", "sortAt", "mediaId"]),
+    Index(value = ["availability", "weekKey", "sortAt", "mediaId"]),
+    Index(value = ["availability", "monthKey", "sortAt", "mediaId"]),
+    Index(value = ["availability", "yearKey", "sortAt", "mediaId"]),
 ])
 data class MediaRecord(
     @PrimaryKey val mediaId: String,
@@ -42,6 +48,14 @@ data class MediaRecord(
     val contentRevision: Long = 0,
     val availability: MediaAvailability = MediaAvailability.AVAILABLE,
     val lastSeenAt: Long,
+    @ColumnInfo(defaultValue = "-9223372036854775808") val sortAt: Long = takenAt ?: addedAt ?: Long.MIN_VALUE,
+    @ColumnInfo(defaultValue = "'undated'") val dayKey: String = "undated",
+    @ColumnInfo(defaultValue = "'undated'") val weekKey: String = "undated",
+    @ColumnInfo(defaultValue = "'undated'") val monthKey: String = "undated",
+    @ColumnInfo(defaultValue = "'undated'") val yearKey: String = "undated",
+    val exifRevision: Long? = null,
+    val exifOrientation: Int? = null,
+    @ColumnInfo(defaultValue = "''") val scanMarker: String = "",
 )
 
 fun MediaRecord.toGalleryPhoto(privateFile: (String) -> File): GalleryPhoto = GalleryPhoto(
@@ -54,4 +68,5 @@ fun MediaRecord.toGalleryPhoto(privateFile: (String) -> File): GalleryPhoto = Ga
     displayName = displayName, modifiedAt = modifiedAt, dateSource = dateSource,
     dateOffsetSeconds = dateOffsetSeconds, bucketId = bucketId, bucketName = bucketName,
     relativePath = relativePath,
+    exifOrientation = exifOrientation,
 )

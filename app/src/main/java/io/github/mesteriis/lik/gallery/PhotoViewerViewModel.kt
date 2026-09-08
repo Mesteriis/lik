@@ -11,6 +11,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import io.github.mesteriis.lik.imports.PhotoLibrary
+import io.github.mesteriis.lik.catalog.MediaDatabase
+import io.github.mesteriis.lik.catalog.MediaRepository
+import io.github.mesteriis.lik.catalog.toGalleryPhoto
+import io.github.mesteriis.lik.catalog.libraryZone
 import java.io.IOException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -44,6 +48,19 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
     private val contentRevision = AtomicInteger()
     @Volatile private var requestedCursor: PhotoCursor? = null
     @Volatile private var closed = false
+    private val dao get() = MediaDatabase.get(getApplication()).media()
+    private val repository get() = MediaRepository(MediaDatabase.get(getApplication()))
+    private val navigationPending = AtomicInteger()
+    private val scanSignal = android.os.CancellationSignal()
+
+    private fun window(id: String?): PhotoCursor {
+        id?.let(dao::get)?.takeIf { it.exifRevision != it.contentRevision }?.let { record ->
+            io.github.mesteriis.lik.catalog.CatalogExif.enrich(getApplication(), MediaDatabase.get(getApplication()), record, libraryZone(getApplication()))
+        }
+        return PhotoCursor(id?.let { repository.viewerWindow(it).map { record ->
+            record.toGalleryPhoto(PhotoLibrary.store(getApplication())::fileFor)
+        } }.orEmpty(), id)
+    }
 
     fun start(photoId: String?) {
         if (requestedCursor != null || updates.value?.loading == true) return
@@ -54,22 +71,33 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
             val context = getApplication<Application>()
             val hasAccess = context.checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED ||
                 context.checkSelfPermission(android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED
-            val cursor = PhotoCursor(GalleryCatalog.load(context, hasAccess), photoId)
+            try { GalleryCatalog.loadResult(context, hasAccess, scanSignal) }
+            catch (_: android.os.OperationCanceledException) { return@execute }
+            val cursor = window(photoId)
             requestedCursor = cursor
             load(cursor, request = request, revision = revision)
         }
     }
 
     fun move(delta: Int) {
-        if (updates.value?.deleting == true) return
+        if (updates.value?.deleting == true || delta == 0) return
         val current = requestedCursor ?: updates.value?.cursor ?: return
-        val cursor = current.move(delta)
-        if (cursor.current?.id == current.current?.id) return
-        requestedCursor = cursor
+        if (navigationPending.get() == 0 && ((delta < 0 && !current.hasPrevious) || (delta > 0 && !current.hasNext))) return
+        navigationPending.incrementAndGet()
         val request = generation.incrementAndGet()
         val revision = contentRevision.get()
-        publish(request, revision, ViewerState(cursor = cursor, loading = true))
-        worker.execute { load(cursor, request = request, revision = revision) }
+        publish(request, revision, ViewerState(cursor = current, loading = true))
+        worker.execute {
+            try {
+                val id = requestedCursor?.current?.id ?: return@execute
+                val record = dao.get(id) ?: return@execute
+                val target = if (delta == 1) dao.next(id, record.sortAt) else if (delta == -1) dao.previous(id, record.sortAt)
+                    else dao.page(1, (dao.rank(id, record.sortAt).toLong() + delta).coerceIn(0, (dao.availableCount() - 1).coerceAtLeast(0).toLong()).toInt()).firstOrNull()
+                val cursor = window(target?.mediaId ?: id)
+                requestedCursor = cursor
+                if (isCurrent(request, revision)) load(cursor, request = request, revision = revision)
+            } finally { navigationPending.decrementAndGet() }
+        }
     }
 
     fun deleteCurrent() {
@@ -84,7 +112,10 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
                 val importedId = GalleryCatalog.importedId(current.id)
                     ?: return@execute publish(request, revision, state.copy(deleting = false))
                 PhotoLibrary.store(getApplication()).deletePhoto(importedId)
-                val cursor = state.cursor.without(current.id)
+                val old = dao.get(current.id)
+                repository.reconcileImports(PhotoLibrary.store(getApplication()), System.currentTimeMillis(), libraryZone(getApplication()))
+                val adjacent = old?.let { dao.next(it.mediaId, it.sortAt) ?: dao.previous(it.mediaId, it.sortAt) }
+                val cursor = window(adjacent?.mediaId)
                 requestedCursor = cursor
                 load(cursor, request = request, revision = revision)
             } catch (_: IOException) {
@@ -116,14 +147,7 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
         val file = photo.file
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         if (file != null) BitmapFactory.decodeFile(file.path, options)
-        val orientation = if (file != null) try {
-            android.media.ExifInterface(file.path).getAttributeInt(
-                android.media.ExifInterface.TAG_ORIENTATION,
-                android.media.ExifInterface.ORIENTATION_NORMAL,
-            )
-        } catch (_: IOException) {
-            android.media.ExifInterface.ORIENTATION_NORMAL
-        } else android.media.ExifInterface.ORIENTATION_NORMAL
+        val orientation = photo.exifOrientation ?: android.media.ExifInterface.ORIENTATION_NORMAL
         val rawWidth = photo.width.takeIf { it > 0 } ?: options.outWidth.takeIf { it > 0 } ?: bitmap.width
         val rawHeight = photo.height.takeIf { it > 0 } ?: options.outHeight.takeIf { it > 0 } ?: bitmap.height
         val swapsAxes = orientation in setOf(
@@ -158,6 +182,7 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
         closed = true
         generation.incrementAndGet()
         contentRevision.incrementAndGet()
+        scanSignal.cancel()
         worker.shutdownNow()
     }
 

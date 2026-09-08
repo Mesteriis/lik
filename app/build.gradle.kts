@@ -60,6 +60,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
+
     lint {
         abortOnError = true
         checkReleaseBuilds = true
@@ -74,6 +76,8 @@ dependencies {
     implementation(libs.androidx.livedata)
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.paging)
+    implementation(libs.androidx.paging)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit4)
     androidTestImplementation(libs.androidx.test.core)

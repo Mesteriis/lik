@@ -12,6 +12,18 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListUpdateCallback
+import androidx.paging.AsyncPagingDataDiffer
+import io.github.mesteriis.lik.catalog.MediaDatabase
+import io.github.mesteriis.lik.catalog.CatalogPaging
+import io.github.mesteriis.lik.imports.PhotoLibrary
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 import io.github.mesteriis.lik.R
 import io.github.mesteriis.lik.gallery.GalleryCatalog
 import io.github.mesteriis.lik.gallery.GalleryPhoto
@@ -65,8 +77,55 @@ class TimelineAdapter(
     private val accessEpoch = ThumbnailAccessEpoch()
     private var chronologicalPhotoIds: List<String> = emptyList()
     private var closed = false
+    private val pagingScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var pagingJob: Job? = null
+    private var pagingLevel: TimelineLevel? = null
+    private var pagingAnchor: String? = null
+    private var pagingCallback: (() -> Unit)? = null
+    private val paging = AsyncPagingDataDiffer(
+        diffCallback = object : DiffUtil.ItemCallback<TimelineEntry>() {
+            override fun areItemsTheSame(oldItem: TimelineEntry, newItem: TimelineEntry) = oldItem.stableKey == newItem.stableKey
+            override fun areContentsTheSame(oldItem: TimelineEntry, newItem: TimelineEntry) = oldItem == newItem
+        },
+        updateCallback = object : ListUpdateCallback {
+            override fun onInserted(position: Int, count: Int) { syncPage(); notifyItemRangeInserted(position, count) }
+            override fun onRemoved(position: Int, count: Int) { syncPage(); notifyItemRangeRemoved(position, count) }
+            override fun onMoved(fromPosition: Int, toPosition: Int) { syncPage(); notifyItemMoved(fromPosition, toPosition) }
+            override fun onChanged(position: Int, count: Int, payload: Any?) { syncPage(); notifyItemRangeChanged(position, count, payload) }
+        },
+    )
+
+    private fun syncPage() {
+        entries = paging.snapshot().items
+        chronologicalPhotoIds = entries.mapNotNull { entry -> when (entry) {
+            is TimelineEntry.Photo -> entry.photo.id
+            is TimelineEntry.Period -> entry.cover.id
+            else -> null
+        } }
+    }
+
+    fun submitCatalog(timelineLevel: TimelineLevel, anchorId: String?, fallbackRank: Int, onPublished: () -> Unit): Boolean {
+        if (pagingLevel == timelineLevel && (anchorId == null || anchorId == pagingAnchor || positionForPhoto(anchorId) >= 0)) {
+            pagingAnchor = anchorId
+            return false
+        }
+        pagingJob?.cancel()
+        pagingAnchor = anchorId
+        pagingLevel = timelineLevel
+        level = timelineLevel
+        pagingCallback = onPublished
+        pagingJob = pagingScope.launch {
+            val catalog = CatalogPaging(MediaDatabase.get(context).media(), context.getString(R.string.timeline_undated), PhotoLibrary.store(context)::fileFor).apply { zone = zoneId }
+            catalog.flow(timelineLevel, anchorId, fallbackRank).collectLatest { paging.submitData(it) }
+        }
+        return true
+    }
 
     init {
+        paging.addOnPagesUpdatedListener {
+            syncPage()
+            pagingCallback?.also { pagingCallback = null }?.invoke()
+        }
         timelineController = TimelineController(timelineWorker, zoneId) { revision ->
             val difference = calculateDiff(revision.previous, revision.entries, revision.level)
             main.post {
@@ -169,9 +228,26 @@ class TimelineAdapter(
         return renderedPhotoAnchorCandidate(entry, chronologicalIndex(id), top, bottom)
     }
 
-    fun chronologicalIndex(id: String) = chronologicalPhotoIds.indexOf(id).coerceAtLeast(0)
+    fun chronologicalIndex(id: String): Int = entries.firstNotNullOfOrNull { entry -> when (entry) {
+        is TimelineEntry.Photo -> entry.catalogIndex?.takeIf { entry.photo.id == id }
+        is TimelineEntry.Period -> entry.catalogIndex?.takeIf { entry.cover.id == id }
+        else -> null
+    } } ?: chronologicalPhotoIds.indexOf(id).coerceAtLeast(0)
 
     fun positionForAnchor(anchor: GalleryAnchor): Int {
+        if (pagingLevel != null) {
+            val exact = positionForPhoto(anchor.photoId)
+            if (exact >= 0) return exact
+            val containingPeriod = entries.indexOfFirst { entry ->
+                entry is TimelineEntry.Period && entry.catalogIndex?.let {
+                    anchor.chronologicalIndex >= it && anchor.chronologicalIndex < it + entry.count
+                } == true
+            }
+            if (containingPeriod >= 0) return containingPeriod
+            val nearest = chronologicalPhotoIds.minByOrNull { kotlin.math.abs(chronologicalIndex(it) - anchor.chronologicalIndex) }
+                ?: return RecyclerView.NO_POSITION
+            return positionForPhoto(nearest)
+        }
         val resolvedId = anchor.resolveId(chronologicalPhotoIds) ?: return RecyclerView.NO_POSITION
         return positionForPhoto(resolvedId)
     }
@@ -195,6 +271,7 @@ class TimelineAdapter(
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        if (pagingLevel != null) paging.getItem(position)
         when (val entry = entries[position]) {
             is TimelineEntry.Header -> (holder as HeaderHolder).bind(entry)
             is TimelineEntry.Photo -> (holder as PhotoHolder).bind(entry)
@@ -310,6 +387,7 @@ class TimelineAdapter(
 
     fun close() {
         closed = true
+        pagingScope.cancel()
         timelineController.close()
         timelineWorker.shutdownNow()
         thumbnailLoader.close()

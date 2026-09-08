@@ -250,8 +250,11 @@ class PhotoViewerTest {
         val first = addPhoto(width = 31)
         val second = addPhoto(width = 32)
         val third = addPhoto(width = 33)
+        io.github.mesteriis.lik.gallery.GalleryCatalog.loadResult(context, false)
+        val order = io.github.mesteriis.lik.catalog.MediaDatabase.get(context).media().page(3, 0).map { it.mediaId }
+        val startId = order.first()
         val intent = Intent(context, PhotoViewerActivity::class.java)
-            .putExtra(PhotoViewerActivity.EXTRA_PHOTO_ID, first)
+            .putExtra(PhotoViewerActivity.EXTRA_PHOTO_ID, startId)
         ActivityScenario.launch<PhotoViewerActivity>(intent).use { scenario ->
             var model: PhotoViewerViewModel? = null
             val readyDeadline = System.nanoTime() + 5_000_000_000
@@ -259,10 +262,8 @@ class PhotoViewerTest {
                 scenario.onActivity { activity -> model = ViewModelProvider(activity)[PhotoViewerViewModel::class.java] }
                 if (model?.state?.value?.bitmap == null) Thread.sleep(50)
             }
-            val cursor = requireNotNull(model?.state?.value?.cursor)
-            val currentIndex = cursor.photos.indexOfFirst { it.id == first }
-            val direction = if (currentIndex <= cursor.photos.lastIndex - 2) 1 else -1
-            val expected = cursor.photos[currentIndex + (2 * direction)].id
+            val direction = 1
+            val expected = order[2]
             scenario.onActivity {
                 model?.move(direction)
                 model?.move(direction)
@@ -270,7 +271,22 @@ class PhotoViewerTest {
             val finalDeadline = System.nanoTime() + 5_000_000_000
             while (model?.state?.value?.cursor?.current?.id != expected && System.nanoTime() < finalDeadline) Thread.sleep(50)
             assertEquals(expected, model?.state?.value?.cursor?.current?.id)
-            assertFalse(first == model?.state?.value?.cursor?.current?.id)
+            assertFalse(startId == model?.state?.value?.cursor?.current?.id)
+        }
+    }
+
+    @Test fun viewerKeepsOnlyCurrentAndImmediateNeighbors() {
+        val ids = (1..12).map { addPhoto(width = 40 + it) }
+        val intent = Intent(context, PhotoViewerActivity::class.java).putExtra(PhotoViewerActivity.EXTRA_PHOTO_ID, ids[5])
+        ActivityScenario.launch<PhotoViewerActivity>(intent).use { scenario ->
+            var model: PhotoViewerViewModel? = null
+            val deadline = System.nanoTime() + 10_000_000_000
+            while (model?.state?.value?.bitmap == null && System.nanoTime() < deadline) {
+                scenario.onActivity { model = ViewModelProvider(it)[PhotoViewerViewModel::class.java] }
+                Thread.sleep(25)
+            }
+            assertEquals(ids[5], model?.state?.value?.cursor?.current?.id)
+            assertTrue(requireNotNull(model?.state?.value?.cursor).photos.size <= 3)
         }
     }
 

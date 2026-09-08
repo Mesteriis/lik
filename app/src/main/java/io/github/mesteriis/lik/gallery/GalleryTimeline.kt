@@ -30,6 +30,7 @@ sealed interface TimelineEntry {
         val photo: GalleryPhoto,
         val indexInGroup: Int,
         val groupSize: Int,
+        val catalogIndex: Int? = null,
     ) : TimelineEntry {
         override val stableKey = "photo:${photo.id}"
     }
@@ -42,6 +43,7 @@ sealed interface TimelineEntry {
         val samples: List<GalleryPhoto>,
         val photos: List<GalleryPhoto>,
         val targetLevel: TimelineLevel,
+        val catalogIndex: Int? = null,
     ) : TimelineEntry {
         override val stableKey = "period:$key"
     }

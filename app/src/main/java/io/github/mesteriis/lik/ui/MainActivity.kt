@@ -225,7 +225,7 @@ open class MainActivity : ComponentActivity() {
             }
         }
         photos = state.photos
-        selection = selection.retainAvailable(state.photos.filter { it.canDeleteCopy }.mapTo(mutableSetOf()) { it.id })
+        selection = selection.retainAvailable(selection.ids - state.deletedIds)
         if (!state.busy && state.deleted + state.deleteFailed > 0) {
             timeline.forget(state.deletedIds)
             selection = GallerySelection(state.deleteFailedIds)
@@ -270,7 +270,7 @@ open class MainActivity : ComponentActivity() {
                 }
             }
         }
-        if (!timeline.submit(photos, ui.level, publish)) publish()
+        if (!timeline.submitCatalog(ui.level, ui.anchorId, ui.anchorChronologicalIndex, publish)) publish()
         timeline.select(selection.ids)
         val buttons = mapOf(
             TimelineLevel.PHOTO to R.id.timeline_level_photo,
@@ -434,10 +434,7 @@ open class MainActivity : ComponentActivity() {
 
     @SuppressLint("UseKtx")
     private fun loadLibraryZone(): ZoneId {
-        val preferences = getSharedPreferences(PREFS, MODE_PRIVATE)
-        val saved = preferences.getString(PREF_LIBRARY_ZONE, null)
-        if (saved != null) return runCatching { ZoneId.of(saved) }.getOrDefault(ZoneId.systemDefault())
-        return ZoneId.systemDefault().also { preferences.edit().putString(PREF_LIBRARY_ZONE, it.id).apply() }
+        return io.github.mesteriis.lik.catalog.libraryZone(this)
     }
 
     override fun onResume() {
@@ -445,6 +442,8 @@ open class MainActivity : ComponentActivity() {
         findViewById<ImageView>(R.id.app_emblem).setImageResource(AppIconManager(this).selected().emblemRes)
         refreshGallery()
     }
+
+    override fun onStop() { model.stopObserving(); super.onStop() }
 
     override fun onSaveInstanceState(outState: Bundle) {
         captureAnchor()?.let { ui = ui.copy(anchorId = it.photoId, anchorOffset = it.relativeOffset, anchorChronologicalIndex = it.chronologicalIndex) }

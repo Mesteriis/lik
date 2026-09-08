@@ -13,6 +13,10 @@ import io.github.mesteriis.lik.gallery.GalleryCatalog
 import io.github.mesteriis.lik.gallery.GalleryPhoto
 import java.io.IOException
 import java.util.concurrent.Executors
+import android.database.ContentObserver
+import android.os.CancellationSignal
+import android.os.OperationCanceledException
+import android.provider.MediaStore
 
 enum class LibraryOperation { NONE, IMPORT, DELETE }
 enum class ImportFailureKind { SOURCE_UNAVAILABLE, INVALID_IMAGE, TOO_LARGE, STORAGE }
@@ -42,12 +46,33 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
     @Volatile private var closed = false
     @Volatile private var refreshRevision = 0L
     private val admissions = ImportAdmissions()
+    private var scanSignal: CancellationSignal? = null
+    private var observing = false
+    private val debounce = io.github.mesteriis.lik.catalog.ScanDebouncer({ action ->
+        val runnable = Runnable(action)
+        main.postDelayed(runnable, 250)
+        val cancel: () -> Unit = { main.removeCallbacks(runnable) }
+        cancel
+    }) { refresh(hasPhotoPermission()) }
+    private val observer = object : ContentObserver(main) {
+        override fun onChange(selfChange: Boolean) = debounce.changed()
+    }
 
     fun refresh(includeDevicePhotos: Boolean = false) {
+        debounce.cancel()
+        if (!observing) {
+            getApplication<Application>().contentResolver.registerContentObserver(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, true, observer)
+            observing = true
+        }
+        scanSignal?.cancel()
+        val signal = CancellationSignal().also { scanSignal = it }
         val revision = ++refreshRevision
         updates.value = requireNotNull(updates.value).copy(scanning = true, deviceSourceError = false, importedSourceError = false)
         worker.execute {
-            val loaded = GalleryCatalog.loadResult(getApplication(), includeDevicePhotos)
+            val loaded = try {
+                signal.throwIfCanceled()
+                GalleryCatalog.loadResult(getApplication(), includeDevicePhotos, signal)
+            } catch (_: OperationCanceledException) { return@execute }
             main.post {
                 if (!closed && revision == refreshRevision) {
                     updates.value = requireNotNull(updates.value).copy(
@@ -220,7 +245,13 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
         return context.checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
             context.checkSelfPermission(android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == android.content.pm.PackageManager.PERMISSION_GRANTED
     }
-    override fun onCleared() { closed = true; worker.shutdownNow() }
+    fun stopObserving() {
+        debounce.cancel()
+        scanSignal?.cancel()
+        if (observing) getApplication<Application>().contentResolver.unregisterContentObserver(observer)
+        observing = false
+    }
+    override fun onCleared() { closed = true; stopObserving(); worker.shutdownNow() }
 
     private fun PhotoStoreError.toImportFailure(): ImportFailureKind = when (this) {
         PhotoStoreError.EMPTY, PhotoStoreError.INVALID_IMAGE -> ImportFailureKind.INVALID_IMAGE

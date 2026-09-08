@@ -342,7 +342,18 @@ class GalleryTest {
                 assertTrue(requireNotNull(list.findViewHolderForAdapterPosition(adapter.positionForPhoto(importedId))).itemView.performLongClick())
                 list.scrollToPosition(adapter.positionForPhoto(requireNotNull(localId)))
             }
-            instrumentation.waitForIdleSync()
+            assertTrue(waitFor(5_000) {
+                var bound = false
+                scenario.onActivity { activity ->
+                    val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                    val position = (list.adapter as TimelineAdapter).positionForPhoto(requireNotNull(localId))
+                    if (position >= 0) {
+                        list.scrollToPosition(position)
+                        bound = list.findViewHolderForAdapterPosition(position) != null
+                    }
+                }
+                bound
+            })
             scenario.onActivity { activity ->
                 val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
                 val adapter = list.adapter as TimelineAdapter

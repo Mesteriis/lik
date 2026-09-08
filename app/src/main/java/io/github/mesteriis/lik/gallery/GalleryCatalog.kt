@@ -12,18 +12,28 @@ import io.github.mesteriis.lik.catalog.toGalleryPhoto
 import io.github.mesteriis.lik.imports.ImportedPhoto
 import io.github.mesteriis.lik.imports.PhotoLibrary
 import java.io.IOException
-import java.time.ZoneOffset
+import java.time.ZoneId
+import io.github.mesteriis.lik.catalog.ExifCaptureDate
+import android.os.CancellationSignal
+import android.os.OperationCanceledException
+import io.github.mesteriis.lik.catalog.MediaScanner
+import io.github.mesteriis.lik.catalog.MediaAvailability
+import io.github.mesteriis.lik.catalog.libraryZone
+import io.github.mesteriis.lik.catalog.CatalogExif
 
 object GalleryCatalog {
     fun load(context: Context, includeDevicePhotos: Boolean): List<GalleryPhoto> =
         loadResult(context, includeDevicePhotos).photos
 
     @Synchronized
-    fun loadResult(context: Context, includeDevicePhotos: Boolean): GalleryCatalogLoad {
+    fun loadResult(context: Context, includeDevicePhotos: Boolean, signal: CancellationSignal = CancellationSignal()): GalleryCatalogLoad {
         val store = PhotoLibrary.store(context)
-        val repository = MediaRepository(MediaDatabase.get(context))
+        val database = MediaDatabase.get(context)
+        val repository = MediaRepository(database)
+        val zone = libraryZone(context)
+        signal.throwIfCanceled()
         val importedSourceError = try {
-            repository.reconcileImports(store, System.currentTimeMillis())
+            repository.reconcileImports(store, System.currentTimeMillis(), zone)
             false
         } catch (_: IOException) {
             true
@@ -32,35 +42,43 @@ object GalleryCatalog {
         }
         // Enrichment is separate from the file inventory migration; a bad EXIF block is harmless.
         // A failed inventory has rolled back; keep the previous rows and avoid touching unavailable files.
-        if (!importedSourceError) repository.available().filter { it.source == MediaSource.GOOGLE_IMPORT && it.takenAt == null }
+        if (!importedSourceError) database.media().exifPending(60)
             .forEach { record ->
-                val photo = fromImported(ImportedPhoto(record.mediaId, store.fileFor(record.mediaId)))
-                photo.takenAt?.let { repository.enrichImportedCaptureDate(record.mediaId, it, photo.dateOffsetSeconds) }
+                signal.throwIfCanceled()
+                CatalogExif.enrich(context, database, record, zone)
             }
-        val queried = if (includeDevicePhotos) runCatching {
-            requireNotNull(DeviceMediaQuery.read(context)) { "MediaStore image query returned null" }
-        } else Result.success(emptyList())
-        repository.reconcileDevice(queried.getOrDefault(emptyList()))
+        val queried = runCatching {
+            if (includeDevicePhotos) {
+                val full = context.checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                MediaScanner(database, zone).scan(DeviceMediaQuery(context), full, signal)
+            } else database.media().markSource(MediaSource.DEVICE, MediaAvailability.INACCESSIBLE)
+        }
+        queried.exceptionOrNull()?.let {
+            if (it is OperationCanceledException) throw it
+            android.util.Log.w("LikCatalog", "Device scan could not commit", it)
+            database.media().markSource(MediaSource.DEVICE, MediaAvailability.INACCESSIBLE)
+        }
         return GalleryCatalogLoad(
-            photos = repository.available().map { it.toGalleryPhoto(store::fileFor) },
+            photos = database.media().page(60, 0).map { it.toGalleryPhoto(store::fileFor) },
             deviceSourceError = includeDevicePhotos && queried.isFailure,
             importedSourceError = importedSourceError,
         )
     }
 
     @SuppressLint("ExifInterface")
-    fun fromImported(photo: ImportedPhoto): GalleryPhoto {
+    fun fromImported(photo: ImportedPhoto, zone: ZoneId = ZoneId.systemDefault()): GalleryPhoto {
         val exif = try { android.media.ExifInterface(photo.file.path) } catch (_: Exception) { null }
-        val taken = try { exif?.dateTimeOriginal?.takeIf { it > 0 } } catch (_: Exception) { null }
-        val offset = try {
-            exif?.getAttribute(android.media.ExifInterface.TAG_OFFSET_TIME_ORIGINAL)?.let { ZoneOffset.of(it).totalSeconds }
-        } catch (_: Exception) { null }
+        val capture = ExifCaptureDate.parse(exif?.getAttribute(android.media.ExifInterface.TAG_DATETIME_ORIGINAL),
+            exif?.getAttribute(android.media.ExifInterface.TAG_OFFSET_TIME_ORIGINAL), zone)
+        val taken = capture?.instant
+        val offset = capture?.offset
         return GalleryPhoto(
             id = photo.id, source = PhotoSource.GOOGLE_IMPORT, file = photo.file,
             bytes = photo.file.length(), takenAt = taken, addedAt = photo.file.lastModified(),
             modifiedAt = photo.file.lastModified(), sourceRevision = photo.file.lastModified(),
             dateSource = if (taken != null) MediaDateSource.EXIF else MediaDateSource.FILE_MODIFIED,
             dateOffsetSeconds = offset,
+            exifOrientation = exif?.getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1) ?: 1,
         )
     }
 

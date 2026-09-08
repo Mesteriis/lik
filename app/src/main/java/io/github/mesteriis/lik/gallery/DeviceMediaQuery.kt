@@ -4,17 +4,25 @@ import android.content.ContentUris
 import android.content.Context
 import android.database.Cursor
 import android.provider.MediaStore
+import android.os.Bundle
+import android.os.CancellationSignal
+import android.content.ContentResolver
+import io.github.mesteriis.lik.catalog.MediaInventory
+import io.github.mesteriis.lik.catalog.VolumeState
 import io.github.mesteriis.lik.catalog.MediaDateSource
 import io.github.mesteriis.lik.catalog.MediaIdentity
 import io.github.mesteriis.lik.catalog.MediaRecord
 
-/** Full foreground inventory for now; incremental scanning and paging belong to Task 6. */
-internal object DeviceMediaQuery {
-    fun read(context: Context): List<MediaRecord>? {
-        val result = mutableListOf<MediaRecord>()
+/** Cursor windows and application batches remain bounded; no catalog-sized Kotlin inventory. */
+internal class DeviceMediaQuery(private val context: Context) : MediaInventory {
+    override fun volumes() = MediaStore.getExternalVolumeNames(context)
+    override fun state(volume: String) = VolumeState(MediaStore.getVersion(context, volume), MediaStore.getGeneration(context, volume),
+        context.checkSelfPermission(android.Manifest.permission.READ_MEDIA_IMAGES) == android.content.pm.PackageManager.PERMISSION_GRANTED)
+
+    override fun changed(volume: String, state: VolumeState, after: Long, signal: CancellationSignal, emit: (List<MediaRecord>) -> Unit) {
+        val result = ArrayList<MediaRecord>(128)
         val now = System.currentTimeMillis()
-        for (volume in MediaStore.getExternalVolumeNames(context).sorted()) {
-            val version = MediaStore.getVersion(context, volume)
+            val version = state.version
             val collection = MediaStore.Images.Media.getContentUri(volume)
             val projection = arrayOf(
                 MediaStore.Images.Media._ID, MediaStore.Images.Media.DISPLAY_NAME,
@@ -25,9 +33,15 @@ internal object DeviceMediaQuery {
                 MediaStore.Images.Media.GENERATION_MODIFIED, MediaStore.Images.Media.BUCKET_ID,
                 MediaStore.Images.Media.BUCKET_DISPLAY_NAME, MediaStore.Images.Media.RELATIVE_PATH,
             )
-            val cursor = context.contentResolver.query(collection, projection, null, null, null) ?: return null
+            val args = Bundle().apply {
+                putString(ContentResolver.QUERY_ARG_SQL_SELECTION, "generation_modified > ?")
+                putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, arrayOf(after.toString()))
+                putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, "_id ASC")
+            }
+            val cursor = requireNotNull(context.contentResolver.query(collection, projection, args, signal)) { "MediaStore returned null cursor" }
             cursor.use {
                 while (it.moveToNext()) {
+                    signal.throwIfCanceled()
                     val row = requireNotNull(it.number(MediaStore.Images.Media._ID))
                     val identity = MediaIdentity.device(volume, version, row,
                         requireNotNull(it.number(MediaStore.Images.Media.GENERATION_ADDED)))
@@ -56,11 +70,24 @@ internal object DeviceMediaQuery {
                         contentRevision = requireNotNull(it.number(MediaStore.Images.Media.GENERATION_MODIFIED)),
                         lastSeenAt = now,
                     )
+                    if (result.size == 128) { emit(result.toList()); result.clear() }
                 }
             }
-            check(MediaStore.getVersion(context, volume) == version) { "MediaStore version changed during inventory" }
+        if (result.isNotEmpty()) emit(result.toList())
+    }
+
+    override fun visibleIds(volume: String, state: VolumeState, signal: CancellationSignal, emit: (List<String>) -> Unit) {
+        val ids = ArrayList<String>(128)
+        val collection = MediaStore.Images.Media.getContentUri(volume)
+        val cursor = requireNotNull(context.contentResolver.query(collection, arrayOf("_id", "generation_added"), Bundle(), signal))
+        cursor.use {
+            while (it.moveToNext()) {
+                signal.throwIfCanceled()
+                ids += MediaIdentity.device(volume, state.version, it.getLong(0), it.getLong(1)).mediaId
+                if (ids.size == 128) { emit(ids.toList()); ids.clear() }
+            }
         }
-        return result
+        if (ids.isNotEmpty()) emit(ids.toList())
     }
 
     private fun Cursor.number(column: String): Long? = getColumnIndexOrThrow(column).let { if (isNull(it)) null else getLong(it) }

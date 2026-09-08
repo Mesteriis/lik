@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="timeline_undated">Без даты</string>
   <string name="app_name">Лик</string>
   <string name="gallery_placeholder">Нет доступных фотографий.</string>
   <string name="settings_title">Настройки</string>
