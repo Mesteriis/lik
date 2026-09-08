@@ -109,3 +109,14 @@ Room 2.8.4 хранит метаданные и доступность; прив
 - Проверены insert/update/remove, limited access, revoked source/URI, version reset, отмена и постоянный generation churn без частичного commit, EXIF по revision обоих источников, UTC offsets/DST и сохранение EXIF при повторной ограниченной выборке. Новые регрессии сначала воспроизведены: полный viewer list, устаревшая file revision, scan token вместо epoch time, anchor внутри периода, однократный generation churn и потеря EXIF при повторном scan.
 - Существующие Share, gallery access, выбор, жесты, resize/large fonts, viewer navigation и lifecycle/launcher tests прошли. `git diff --check` чист; `references/`, manifest permissions и пользовательские PNG не менялись.
 - Это функциональная проверка bounded metadata workloads, а не замеры задержек/памяти на Fold. На данном этапе не было установки на физическое устройство; физический API 36/Fold и реальный Google cloud Share остаются отдельной приёмкой. EXIF enrichment ленивый; полный EXIF UI не заявляется.
+
+### Исправление по review: period backfill и lifecycle observer
+
+Проверен commit `25a38d4f314ed150ae40b84eb72e569312d6b9a9`. Миграция v1→v2 заполняет все четыре period keys в транзакции открытия Room с сохранённым часовым поясом библиотеки. Чтение идёт пакетами до 256 записей; Paging начинает работу только после commit. Поздние ContentObserver callbacks после stop больше не запускают сканирование, а отменённый запрос не публикует результат.
+
+- Наблюдались два RED: датированная v1-запись оставалась `undated`; queued callback после stop запускал третий scan вместо двух. После исправления три focused API 37 теста прошли. Логи: `/tmp/lik-task6-review-migration-red.log`, `/tmp/lik-task6-review-observer-red.log`, `/tmp/lik-task6-review-focused-green.log`.
+- Реальная SQLite-миграция проверена на 273 записях: граница пакета, inaccessible/missing, неизвестные даты, смена года и DST в Europe/Madrid при системном UTC. Ошибка SQL после частичного backfill откатывает schema/user_version до v1; повторное открытие успешно завершает миграцию.
+- Lifecycle-тест проверяет coalescing 25 уведомлений, queued callbacks после stop, регистрацию после resume и отсутствие публикации отменённого scan.
+- `./gradlew lint testDebugUnitTest assembleDebug assembleRelease assembleDebugAndroidTest` — успешно: **58 JVM-тестов**, 0 ошибок/пропусков. Лог `/tmp/lik-task6-review-matrix.log`.
+- `ANDROID_SERIAL=emulator-5580 ./gradlew connectedDebugAndroidTest` — успешно: **61 тест**, 0 ошибок/пропусков, `BUILD SUCCESSFUL in 2m 40s`; AVD `lik_api37_qa`, Android 17 / API 37. XML totals подтверждены отдельно. Лог `/tmp/lik-task6-review-connected.log`.
+- `git diff --check` чист. Физические устройства не использовались.
