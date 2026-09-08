@@ -11,6 +11,7 @@ ksp = "2.3.9"
 paging = "3.5.1"
 work = "2.11.2"
 onnxruntime = "1.29.0"
+gson = "2.14.0"
 
 [libraries]
 junit4 = { module = "junit:junit", version.ref = "junit" }
@@ -24,6 +25,7 @@ androidx-paging = { module = "androidx.paging:paging-runtime", version.ref = "pa
 androidx-work = { module = "androidx.work:work-runtime", version.ref = "work" }
 androidx-work-testing = { module = "androidx.work:work-testing", version.ref = "work" }
 onnxruntime-android = { module = "com.microsoft.onnxruntime:onnxruntime-android", version.ref = "onnxruntime" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-test" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-test" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-ext-junit" }

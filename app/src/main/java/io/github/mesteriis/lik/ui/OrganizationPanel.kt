@@ -36,6 +36,7 @@ class OrganizationPanel(
     private var source: Spinner? = null
     private var drafts = listOf("", "", "", "")
     private var sourceIndex = 0
+    private var semanticText = ""
     private var content: LinearLayout = container
 
     fun restore(state: Bundle?) {
@@ -141,11 +142,12 @@ class OrganizationPanel(
             "albums" -> albums()
             "search" -> search()
             "results" -> results()
+            "semantic_results" -> semanticResults()
             "trash" -> trash()
             "ai" -> {
-                root(text(R.string.ai_settings_title))
-                button(text(R.string.back)) { screen = "more"; render() }
-                label(text(R.string.ai_future))
+                activity.startActivity(Intent(activity, io.github.mesteriis.lik.settings.AiSettingsActivity::class.java))
+                screen = "more"
+                render()
             }
             else -> {
                 root(text(R.string.nav_more))
@@ -248,6 +250,34 @@ class OrganizationPanel(
                     source = when (sourceIndex) { 1 -> MediaSource.DEVICE; 2 -> MediaSource.GOOGLE_IMPORT; else -> null }), text(R.string.search_results))
             } catch (_: IllegalArgumentException) { Toast.makeText(activity, R.string.invalid_search_date, Toast.LENGTH_LONG).show() }
             catch (_: java.time.DateTimeException) { Toast.makeText(activity, R.string.invalid_search_date, Toast.LENGTH_LONG).show() }
+        }
+        label(text(R.string.semantic_search_title), true)
+        val semantic = EditText(activity).also {
+            it.hint = text(R.string.semantic_search_hint); it.setText(semanticText)
+            content.addView(it, LinearLayout.LayoutParams(-1, -2))
+        }
+        button(text(R.string.semantic_search_action)) {
+            semanticText = semantic.text.toString().trim()
+            if (semanticText.isEmpty()) semantic.error = text(R.string.name_required)
+            else { screen = "semantic_results"; render() }
+        }
+    }
+
+    private fun semanticResults() {
+        root(text(R.string.semantic_search_title))
+        button(text(R.string.back)) { screen = "search"; render() }
+        load({
+            val result = io.github.mesteriis.lik.ai.SemanticSearchRepository(activity).search(semanticText)
+            result to result.hits.mapNotNull { hit -> MediaDatabase.get(activity).media().get(hit.mediaId)?.let { hit to it } }
+        }) { (result, rows) ->
+            label(activity.getString(R.string.ai_index_coverage, result.indexed, result.available))
+            if (!result.complete) label(text(R.string.semantic_results_incomplete))
+            if (rows.isEmpty()) label(text(R.string.search_empty))
+            rows.forEach { (hit, row) ->
+                button("${row.displayName ?: row.mediaId} · ${String.format(java.util.Locale.getDefault(), "%.3f", hit.score)}") {
+                    activity.startActivity(Intent(activity, PhotoViewerActivity::class.java).putExtra(PhotoViewerActivity.EXTRA_PHOTO_ID, row.mediaId))
+                }
+            }
         }
     }
 

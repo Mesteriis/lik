@@ -21,6 +21,14 @@ val keystoreProperties = Properties().apply {
 
 val modelPython = providers.gradleProperty("likModelPython").orElse("python3")
 val generatedModelAssets = layout.buildDirectory.dir("generated/modelAssets")
+val generatedUSearch = layout.buildDirectory.dir("generated/usearch")
+
+val fetchUSearch by tasks.registering(Exec::class) {
+    description = "Fetch pinned official USearch Android arm64 runtime into build output."
+    workingDir(rootProject.projectDir)
+    outputs.file(generatedUSearch.map { it.file("src/receipt.txt") })
+    commandLine(modelPython.get(), "scripts/usearch/fetch.py", "--output", generatedUSearch.get().asFile.absolutePath)
+}
 
 val stageModelMetadata by tasks.registering(Exec::class) {
     description = "Stage preset manifests/licenses only. External model caches never enter APK assets."
@@ -31,7 +39,7 @@ val stageModelMetadata by tasks.registering(Exec::class) {
         "--output", generatedModelAssets.get().asFile.absolutePath)
 }
 
-tasks.named("preBuild") { dependsOn(stageModelMetadata) }
+tasks.named("preBuild") { dependsOn(stageModelMetadata, fetchUSearch) }
 
 val verifyDistributionApks by tasks.registering {
     group = "verification"
@@ -79,6 +87,7 @@ android {
     namespace = "io.github.mesteriis.lik"
     compileSdk = 37
     buildToolsVersion = "36.0.0"
+    ndkVersion = "29.0.14206865"
 
     defaultConfig {
         applicationId = "io.github.mesteriis.lik"
@@ -87,7 +96,11 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        externalNativeBuild { cmake { cppFlags += "-std=c++17" } }
+        ndk { abiFilters += "arm64-v8a" }
     }
+
+    externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" } }
 
     signingConfigs {
         // A checkout without a private keystore can still build an unsigned release.
@@ -127,6 +140,8 @@ android {
         warningsAsErrors = true
         // Toolchain versions follow Rune Keyboard and are updated deliberately.
         disable += "AndroidGradlePluginVersion"
+        // Lik ships only to the arm64 Galaxy Fold/API 36+ target family.
+        disable += "ChromeOsAbiSupport"
     }
 }
 
@@ -139,6 +154,7 @@ dependencies {
     implementation(libs.androidx.paging)
     implementation(libs.androidx.work)
     implementation(libs.onnxruntime.android)
+    implementation(libs.gson)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit4)
     androidTestImplementation(libs.androidx.test.core)

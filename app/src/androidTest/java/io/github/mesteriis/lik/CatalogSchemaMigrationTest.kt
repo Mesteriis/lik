@@ -52,7 +52,7 @@ class CatalogSchemaMigrationTest {
                 sqlite.version = 1
             }
             if (interrupt) {
-                val failed = Room.databaseBuilder(context, MediaDatabase::class.java, name).addMigrations(MediaDatabase.migration1To2(context), MediaDatabase.MIGRATION_2_3, MediaDatabase.MIGRATION_3_4).build()
+                val failed = Room.databaseBuilder(context, MediaDatabase::class.java, name).addMigrations(MediaDatabase.migration1To2(context), MediaDatabase.MIGRATION_2_3, MediaDatabase.MIGRATION_3_4, MediaDatabase.MIGRATION_4_5).build()
                 try {
                     failed.media().all()
                     fail("Expected backfill failure")
@@ -66,7 +66,7 @@ class CatalogSchemaMigrationTest {
                     sqlite.execSQL("DROP TRIGGER interrupt_period")
                 }
             }
-            val migrated = Room.databaseBuilder(context, MediaDatabase::class.java, name).addMigrations(MediaDatabase.migration1To2(context), MediaDatabase.MIGRATION_2_3, MediaDatabase.MIGRATION_3_4).build()
+            val migrated = Room.databaseBuilder(context, MediaDatabase::class.java, name).addMigrations(MediaDatabase.migration1To2(context), MediaDatabase.MIGRATION_2_3, MediaDatabase.MIGRATION_3_4, MediaDatabase.MIGRATION_4_5).build()
             try {
                 val row = migrated.media().get("old")!!
                 assertEquals("Сохранено", row.displayName)

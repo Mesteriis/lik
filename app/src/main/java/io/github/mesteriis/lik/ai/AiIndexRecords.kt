@@ -1,0 +1,69 @@
+package io.github.mesteriis.lik.ai
+
+import androidx.room.*
+import io.github.mesteriis.lik.catalog.MediaRecord
+
+enum class GenerationStatus { PREPARING, COMPLETE, ERROR }
+
+@Entity(tableName = "ai_index_generation", indices = [Index("pipelineFingerprint")])
+data class AiIndexGenerationRecord(
+    @PrimaryKey val generationId: String,
+    val profileId: String,
+    val feature: String,
+    val pipelineFingerprint: String,
+    val status: GenerationStatus,
+    val completed: Int,
+    val total: Int,
+    val checkpointMediaId: String?,
+    val error: String?,
+    val createdAt: Long,
+)
+
+@Entity(tableName = "ai_embedding", primaryKeys = ["generationId", "mediaId"],
+    foreignKeys = [ForeignKey(entity = AiIndexGenerationRecord::class, parentColumns = ["generationId"], childColumns = ["generationId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index(value = ["generationId", "nativeKey"], unique = true), Index("mediaId")])
+data class AiEmbeddingRecord(
+    val generationId: String,
+    val mediaId: String,
+    val nativeKey: Long,
+    val contentRevision: Long,
+    val accessEpoch: Long,
+    val vector: ByteArray,
+)
+
+enum class SensitiveRunStatus { RAW_RESULT, ERROR }
+@Entity(tableName = "ai_sensitive_run", primaryKeys = ["mediaId", "contentRevision", "pipelineFingerprint"])
+data class AiSensitiveRunRecord(
+    val mediaId: String,
+    val contentRevision: Long,
+    val pipelineFingerprint: String,
+    val status: SensitiveRunStatus,
+    val rawOutput: ByteArray?,
+    val error: String?,
+    val evaluatedAt: Long,
+)
+
+@Dao
+interface AiIndexDao {
+    @Upsert fun saveGeneration(value: AiIndexGenerationRecord)
+    @Query("SELECT * FROM ai_index_generation WHERE generationId = :id") fun generation(id: String): AiIndexGenerationRecord?
+    @Query("SELECT * FROM ai_index_generation WHERE pipelineFingerprint = :pipeline AND status = 'COMPLETE' ORDER BY createdAt DESC LIMIT 1")
+    fun compatible(pipeline: String): AiIndexGenerationRecord?
+    @Query("SELECT * FROM media WHERE availability = 'AVAILABLE' AND (:after IS NULL OR mediaId > :after) ORDER BY mediaId LIMIT :limit")
+    fun mediaBatch(after: String?, limit: Int): List<MediaRecord>
+    @Upsert fun saveEmbedding(value: AiEmbeddingRecord)
+    @Query("SELECT * FROM ai_embedding WHERE generationId = :generation ORDER BY nativeKey") fun embeddings(generation: String): List<AiEmbeddingRecord>
+    @Query("SELECT * FROM ai_embedding WHERE generationId = :generation AND nativeKey IN (:keys)") fun byKeys(generation: String, keys: LongArray): List<AiEmbeddingRecord>
+    @Query("SELECT MAX(nativeKey) FROM ai_embedding WHERE generationId = :generation") fun maxKey(generation: String): Long?
+    @Query("SELECT COUNT(*) FROM ai_embedding WHERE generationId = :generation") fun embeddingCount(generation: String): Int
+    @Query("SELECT COUNT(*) FROM media WHERE availability = 'AVAILABLE'") fun availableCount(): Int
+    @Query("SELECT mediaId FROM ai_embedding WHERE generationId = :generation AND nativeKey = :key LIMIT 1") fun mediaIdForKey(generation: String, key: Long): String?
+    @Query("DELETE FROM ai_index_generation WHERE generationId = :id AND generationId NOT IN (:retained)") fun deleteGeneration(id: String, retained: Set<String>): Int
+    @Query("SELECT * FROM ai_index_generation ORDER BY createdAt") fun generations(): List<AiIndexGenerationRecord>
+    @Upsert fun saveSensitive(value: AiSensitiveRunRecord)
+    @Query("SELECT * FROM ai_sensitive_run WHERE mediaId = :mediaId AND contentRevision = :revision AND pipelineFingerprint = :pipeline")
+    fun sensitive(mediaId: String, revision: Long, pipeline: String): AiSensitiveRunRecord?
+}
+
+fun FloatArray.toBytes(): ByteArray = ByteArray(size * 4).also { bytes -> java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer().put(this) }
+fun ByteArray.toFloats(): FloatArray { require(size % 4 == 0); val buffer = java.nio.ByteBuffer.wrap(this).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer(); return FloatArray(buffer.remaining()).also(buffer::get) }

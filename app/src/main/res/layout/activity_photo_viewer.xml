@@ -18,6 +18,9 @@
     <Button android:id="@+id/viewer_info" android:layout_width="wrap_content"
         android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/viewer_info"
         android:textAllCaps="false" />
+    <Button android:id="@+id/viewer_aigate" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/aigate_send_photo"
+        android:textAllCaps="false" />
     <Button android:id="@+id/viewer_delete" android:layout_width="wrap_content"
         android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/delete"
         android:textAllCaps="false" />

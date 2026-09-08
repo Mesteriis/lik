@@ -2,6 +2,7 @@ package io.github.mesteriis.lik.settings
 
 import android.app.Activity
 import android.os.Bundle
+import android.content.Intent
 import android.view.View
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -16,6 +17,9 @@ class SettingsActivity : Activity() {
         setContentView(R.layout.activity_settings)
         findViewById<View>(R.id.settings_content).applySystemBarInsets()
         findViewById<View>(R.id.close_settings).setOnClickListener { finish() }
+        findViewById<View>(R.id.open_ai_settings).setOnClickListener {
+            startActivity(Intent(this, AiSettingsActivity::class.java))
+        }
 
         val iconManager = AppIconManager(this)
         val options = findViewById<RadioGroup>(R.id.icon_options)

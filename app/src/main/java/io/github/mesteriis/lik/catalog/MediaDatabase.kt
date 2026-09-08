@@ -7,18 +7,32 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [MediaRecord::class, VolumeCheckpoint::class, Album::class, AlbumMedia::class, Favorite::class, MediaTag::class], version = 4, exportSchema = true)
+@Database(entities = [MediaRecord::class, VolumeCheckpoint::class, Album::class, AlbumMedia::class, Favorite::class, MediaTag::class,
+    io.github.mesteriis.lik.ai.AiIndexGenerationRecord::class, io.github.mesteriis.lik.ai.AiEmbeddingRecord::class,
+    io.github.mesteriis.lik.ai.AiSensitiveRunRecord::class], version = 5, exportSchema = true)
 abstract class MediaDatabase : RoomDatabase() {
     abstract fun media(): MediaDao
     abstract fun organization(): OrganizationDao
+    abstract fun aiIndexes(): io.github.mesteriis.lik.ai.AiIndexDao
 
     companion object {
         @Volatile private var instance: MediaDatabase? = null
 
         fun get(context: Context): MediaDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MediaDatabase::class.java, "media.db")
-                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build().also { instance = it }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS ai_index_generation (generationId TEXT NOT NULL PRIMARY KEY, profileId TEXT NOT NULL, feature TEXT NOT NULL, pipelineFingerprint TEXT NOT NULL, status TEXT NOT NULL, completed INTEGER NOT NULL, total INTEGER NOT NULL, checkpointMediaId TEXT, error TEXT, createdAt INTEGER NOT NULL)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_index_generation_pipelineFingerprint ON ai_index_generation(pipelineFingerprint)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS ai_embedding (generationId TEXT NOT NULL, mediaId TEXT NOT NULL, nativeKey INTEGER NOT NULL, contentRevision INTEGER NOT NULL, accessEpoch INTEGER NOT NULL, vector BLOB NOT NULL, PRIMARY KEY(generationId, mediaId), FOREIGN KEY(generationId) REFERENCES ai_index_generation(generationId) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_ai_embedding_generationId_nativeKey ON ai_embedding(generationId, nativeKey)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_embedding_mediaId ON ai_embedding(mediaId)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS ai_sensitive_run (mediaId TEXT NOT NULL, contentRevision INTEGER NOT NULL, pipelineFingerprint TEXT NOT NULL, status TEXT NOT NULL, rawOutput BLOB, error TEXT, evaluatedAt INTEGER NOT NULL, PRIMARY KEY(mediaId, contentRevision,pipelineFingerprint))")
+            }
         }
 
         val MIGRATION_3_4 = object : Migration(3, 4) {

@@ -28,6 +28,14 @@ def matches(data, receipt):
     return len(data) == receipt["size"] and hashlib.sha256(data).hexdigest() == receipt["sha256"]
 
 
+def matches_approved(data, receipt):
+    """A source-built native library may have exact per-build-type receipts."""
+    receipts = receipt if isinstance(receipt, list) else [receipt]
+    require(receipts and all(set(value) == {"size", "sha256"} for value in receipts),
+            "Malformed APK content receipt")
+    return any(matches(data, value) for value in receipts)
+
+
 def empty_zip_padding(data):
     # Zipflinger leaves virtual empty local headers in deleted-entry space.
     # Only their structural header and zero padding may remain, never old bytes.
@@ -124,7 +132,7 @@ def check_entry(name, data, policy, compiled):
                 re.fullmatch(rb'repositories \{\n  system: GIT\n  local_root_path: "\$PROJECT_DIR"\n'
                              rb'  revision: "[0-9a-f]{40}"\n\}\n', data), "Invalid AGP version-control metadata")
     elif name in policy["entries"]:
-        require(matches(data, policy["entries"][name]), "Unapproved bytes at pinned APK entry: " + name)
+        require(matches_approved(data, policy["entries"][name]), "Unapproved bytes at pinned APK entry: " + name)
     elif compiled.check(name, data):
         if name.endswith(".png"):
             receipt = policy["pngs"].get(hashlib.sha256(data).hexdigest())

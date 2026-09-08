@@ -2,8 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
   <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+  <uses-permission android:name="android.permission.INTERNET" />
   <queries>
     <package android:name="com.google.android.apps.photos" />
+    <package android:name="com.aigate.router" />
   </queries>
   <application
       android:name=".LikApplication"
@@ -13,7 +15,9 @@
       android:label="@string/app_name"
       android:supportsRtl="true"
       android:theme="@style/Theme.Lik"
-      android:usesCleartextTraffic="false">
+      android:usesCleartextTraffic="false"
+      android:networkSecurityConfig="@xml/network_security_config">
+    <service android:name=".ai.InferenceRuntimeService" android:exported="false" android:isolatedProcess="true" android:process=":ai_runtime" />
     <provider android:name=".exports.ExportProvider" android:authorities="${applicationId}.exports"
         android:exported="false" android:grantUriPermissions="true">
       <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/export_paths" />
@@ -24,6 +28,7 @@
     <activity
         android:name=".settings.SettingsActivity"
         android:exported="false" />
+    <activity android:name=".settings.AiSettingsActivity" android:exported="false" />
     <activity
         android:name=".gallery.PhotoViewerActivity"
         android:exported="false"

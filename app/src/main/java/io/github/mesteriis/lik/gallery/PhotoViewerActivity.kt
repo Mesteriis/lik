@@ -15,11 +15,20 @@ import io.github.mesteriis.lik.ui.applySystemBarInsets
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
+import android.widget.EditText
+import android.widget.Toast
+import io.github.mesteriis.lik.aigate.*
+import java.util.concurrent.Executors
 
 class PhotoViewerActivity : ComponentActivity() {
     private lateinit var model: PhotoViewerViewModel
     private lateinit var image: ZoomImageView
     private var shownBitmap: android.graphics.Bitmap? = null
+    private val aiGateConsent = PhotoSendConsent()
+    private val aiGateIo = Executors.newSingleThreadExecutor()
+    private var currentMediaId: String? = null
+    private var currentRevision: Long = -1
+    private var aiGateRequest = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,6 +46,7 @@ class PhotoViewerActivity : ComponentActivity() {
             }
         }
         findViewById<View>(R.id.viewer_delete).setOnClickListener { confirmDelete() }
+        findViewById<View>(R.id.viewer_aigate).setOnClickListener { sendToAiGate() }
         model.state.observe(this, ::render)
         model.start(intent.getStringExtra(EXTRA_PHOTO_ID))
     }
@@ -54,6 +64,8 @@ class PhotoViewerActivity : ComponentActivity() {
             isEnabled = state.cursor?.current?.canDeleteCopy == true && !state.loading && !state.deleting && !state.error
         }
         val currentId = state.cursor?.current?.id
+        currentMediaId = currentId
+        currentRevision = state.cursor?.current?.sourceRevision ?: -1
         if (image.tag != currentId || shownBitmap !== state.bitmap) {
             image.tag = currentId
             shownBitmap = state.bitmap
@@ -64,6 +76,37 @@ class PhotoViewerActivity : ComponentActivity() {
             setResult(RESULT_PHOTO_DELETED)
             finish()
         }
+    }
+
+    override fun onDestroy() { aiGateRequest++; aiGateIo.shutdownNow(); super.onDestroy() }
+
+    private fun sendToAiGate() {
+        val settings = AiGateSettings(this)
+        if (!settings.enabled) { Toast.makeText(this, R.string.aigate_enable_in_settings, Toast.LENGTH_LONG).show(); return }
+        val mediaId = currentMediaId ?: return
+        val revision = currentRevision
+        if (!AiGatePhotoBoundary.maySend(mediaId, revision)) {
+            Toast.makeText(this, R.string.aigate_task13_required, Toast.LENGTH_LONG).show(); return
+        }
+        val bitmap = shownBitmap ?: return
+        val prompt = EditText(this).apply { hint = getString(R.string.aigate_prompt_hint) }
+        AlertDialog.Builder(this).setTitle(R.string.aigate_send_title).setMessage(R.string.aigate_send_disclosure)
+            .setView(prompt).setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.aigate_send_photo) { _, _ ->
+                val text = prompt.text.toString().trim()
+                if (text.isEmpty()) return@setPositiveButton
+                val request = ++aiGateRequest
+                val token = aiGateConsent.grant(mediaId, revision)
+                aiGateIo.execute {
+                    val result = runCatching { AiGateClient(AiGateEndpoint(settings.port)).chat(token, aiGateConsent,
+                        mediaId, revision, request, text, AiGateImage.encode(bitmap)) }
+                    runOnUiThread {
+                        if (request != aiGateRequest || currentMediaId != mediaId || currentRevision != revision) return@runOnUiThread
+                        result.onSuccess { reply -> AlertDialog.Builder(this).setTitle(R.string.aigate_reply).setMessage(reply.text)
+                            .setPositiveButton(android.R.string.ok, null).show() }
+                            .onFailure { Toast.makeText(this, getString(R.string.aigate_send_failed, it.message ?: "error"), Toast.LENGTH_LONG).show() }
+                    }
+                }
+            }.show()
     }
 
     private fun formatDetails(details: PhotoDetails): String {

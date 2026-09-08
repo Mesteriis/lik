@@ -1,0 +1,140 @@
+package io.github.mesteriis.lik.ai
+
+import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
+
+/** Sole durable source for profile selection, feature opt-in, installation and active generations. */
+class ModelCatalog private constructor(private val root: File, val trusted: TrustedModelCatalog) {
+    private val stateFile = File(root, "catalog-state-v1.json")
+    private val listeners = mutableSetOf<(CatalogSnapshot) -> Unit>()
+    @Volatile private var current = readOrFresh()
+
+    fun snapshot(): CatalogSnapshot = current
+    @Synchronized fun update(transform: (CatalogSnapshot) -> CatalogSnapshot): CatalogSnapshot {
+        val old = current
+        val next = transform(old)
+        require(next.catalogVersion == trusted.version && next.revision > old.revision)
+        write(next)
+        current = next
+        listeners.toList().forEach { it(next) }
+        return next
+    }
+    @Synchronized fun observe(listener: (CatalogSnapshot) -> Unit): AutoCloseable {
+        listeners += listener; listener(current)
+        return AutoCloseable { synchronized(this) { listeners -= listener } }
+    }
+    fun select(profile: ProfileId): CatalogSnapshot = update { state ->
+        val fingerprints = trusted.profiles.getValue(profile).pipelines.mapValues { it.value.fingerprint }
+        ProfileTransitions.select(state, profile, state.enabledFeatures, fingerprints)
+    }
+    fun setFeature(feature: AiFeature, enabled: Boolean): CatalogSnapshot = update { state ->
+        val features = if (enabled) state.enabledFeatures + feature else state.enabledFeatures - feature
+        if (!enabled) state.copy(revision = state.revision + 1, enabledFeatures = features,
+            activeGenerations = state.activeGenerations - feature,
+            pending = state.pending?.copy(enabled = state.pending.enabled - feature,
+                readyGenerations = state.pending.readyGenerations - feature))
+        else state.active?.let { active ->
+            val fingerprints = trusted.profiles.getValue(active).pipelines.mapValues { it.value.fingerprint }
+            ProfileTransitions.select(state.copy(enabledFeatures = features), active, features, fingerprints)
+        } ?: state.copy(revision = state.revision + 1, enabledFeatures = features)
+    }
+
+    fun selfTested(profile: ProfileId): CatalogSnapshot = update { state ->
+        if (state.pending?.profile == profile) ProfileTransitions.selfTested(state, profile)
+        else state.copy(revision = state.revision + 1,
+            profiles = state.profiles + (profile to state.profile(profile).copy(
+                phase = if (state.active == profile) ProfilePhase.ACTIVE else ProfilePhase.INSTALLED, error = null)))
+    }
+
+    fun cancelPreparation(profile: ProfileId): CatalogSnapshot = update { state ->
+        ProfileTransitions.cancel(state, profile)
+    }
+
+    fun saveGeneration(generation: IndexGeneration): CatalogSnapshot = update { state ->
+        state.copy(revision = state.revision + 1, generations = state.generations + (generation.id to generation))
+    }
+
+    fun generationReady(profile: ProfileId, feature: AiFeature, generation: IndexGeneration): CatalogSnapshot = update { state ->
+        val withGeneration = state.copy(generations = state.generations + (generation.id to generation))
+        if (withGeneration.pending?.profile == profile && feature in withGeneration.pending.enabled)
+            ProfileTransitions.generationReady(withGeneration, profile, feature, generation.id)
+        else withGeneration.copy(revision = withGeneration.revision + 1,
+            activeGenerations = if (withGeneration.active == profile && feature in withGeneration.enabledFeatures)
+                withGeneration.activeGenerations + (feature to generation.id) else withGeneration.activeGenerations)
+    }
+    fun operationPhase(profile: ProfileId, phase: ProfilePhase, completed: Long = 0, total: Long = 0, error: String? = null) = update { state ->
+        state.copy(revision = state.revision + 1, profiles = state.profiles + (profile to ProfileState(phase, completed, total, error)))
+    }
+    fun removeInactive(profile: ProfileId): CatalogSnapshot = update { state ->
+        require(state.active != profile && state.pending?.profile != profile)
+        state.copy(revision = state.revision + 1,
+            profiles = state.profiles + (profile to ProfileState()),
+            selected = if (state.selected == profile) (state.active ?: ProfileId.BALANCED) else state.selected)
+    }
+    fun closeForTests() { instances.entries.removeIf { it.value === this } }
+
+    private fun readOrFresh(): CatalogSnapshot = runCatching {
+        if (!stateFile.isFile) return@runCatching CatalogSnapshot.fresh(trusted.version)
+        decode(stateFile.readText()).takeIf { it.catalogVersion == trusted.version } ?: CatalogSnapshot.fresh(trusted.version)
+    }.getOrElse {
+        stateFile.takeIf(File::exists)?.renameTo(File(root, "catalog-state-corrupt-${System.currentTimeMillis()}.json"))
+        CatalogSnapshot.fresh(trusted.version)
+    }
+
+    private fun write(state: CatalogSnapshot) {
+        root.mkdirs()
+        val temporary = File(root, ".catalog-state-${System.nanoTime()}.tmp")
+        FileOutputStream(temporary).use { output ->
+            output.write(encode(state).toByteArray(Charsets.UTF_8)); output.fd.sync()
+        }
+        check(temporary.renameTo(stateFile)) { "Could not commit model catalog" }
+    }
+
+    private fun encode(state: CatalogSnapshot) = JSONObject().apply {
+        put("schema", 1); put("catalogVersion", state.catalogVersion); put("revision", state.revision)
+        put("selected", state.selected.wire); put("active", state.active?.wire)
+        put("enabled", JSONArray(state.enabledFeatures.map { it.name }))
+        put("profiles", JSONObject().apply { state.profiles.forEach { (id, value) ->
+            put(id.wire, JSONObject().put("phase", value.phase.name).put("completed", value.completedBytes)
+                .put("total", value.totalBytes).put("error", value.error))
+        } })
+        state.pending?.let { value -> put("pending", JSONObject().put("profile", value.profile.wire)
+            .put("enabled", JSONArray(value.enabled.map { it.name }))
+            .put("ready", JSONObject().apply { value.readyGenerations.forEach { (feature, id) -> put(feature.name, id) } })) }
+        put("generations", JSONArray(state.generations.values.map { value -> JSONObject()
+            .put("id", value.id).put("feature", value.feature.name).put("pipeline", value.pipelineFingerprint)
+            .put("complete", value.complete).put("completed", value.completed).put("total", value.total) }))
+        put("activeGenerations", JSONObject().apply { state.activeGenerations.forEach { (feature, id) -> put(feature.name, id) } })
+    }.toString()
+
+    private fun decode(text: String): CatalogSnapshot {
+        val root = JSONObject(text); require(root.getInt("schema") == 1)
+        val profilesJson = root.getJSONObject("profiles")
+        val profiles = ProfileId.entries.associateWith { id -> profilesJson.getJSONObject(id.wire).let {
+            ProfileState(ProfilePhase.valueOf(it.getString("phase")), it.getLong("completed"), it.getLong("total"), it.optString("error").takeIf(String::isNotBlank))
+        } }
+        val generations = root.getJSONArray("generations").let { array -> List(array.length()) { array.getJSONObject(it) } }.associate { value ->
+            val generation = IndexGeneration(value.getString("id"), AiFeature.valueOf(value.getString("feature")), value.getString("pipeline"), value.getBoolean("complete"), value.getInt("completed"), value.getInt("total"))
+            generation.id to generation
+        }
+        fun featureMap(name: String) = root.optJSONObject(name)?.let { value -> value.keys().asSequence().associate { AiFeature.valueOf(it) to value.getString(it) } }.orEmpty()
+        val pending = root.optJSONObject("pending")?.let { value -> PendingProfile(ProfileId.fromWire(value.getString("profile")),
+            value.getJSONArray("enabled").let { a -> List(a.length()) { AiFeature.valueOf(a.getString(it)) }.toSet() },
+            value.getJSONObject("ready").let { ready -> ready.keys().asSequence().associate { AiFeature.valueOf(it) to ready.getString(it) } }) }
+        return CatalogSnapshot(root.getString("catalogVersion"), root.getLong("revision"), ProfileId.fromWire(root.getString("selected")),
+            root.optString("active").takeIf(String::isNotBlank)?.let(ProfileId::fromWire), profiles,
+            root.getJSONArray("enabled").let { a -> List(a.length()) { AiFeature.valueOf(a.getString(it)) }.toSet() },
+            pending, generations, featureMap("activeGenerations"))
+    }
+
+    companion object {
+        private val instances = mutableMapOf<String, ModelCatalog>()
+        @Synchronized fun get(context: Context): ModelCatalog {
+            val app = context.applicationContext
+            return instances.getOrPut(app.filesDir.absolutePath) { ModelCatalog(File(app.filesDir, "ai"), TrustedModelCatalog.load(app)) }
+        }
+    }
+}

@@ -233,13 +233,23 @@
       "size": 4827
     },
     "lib/arm64-v8a/libonnxruntime.so": {
-      "sha256": "3a602b463d434d20fbf69cd1b8bdfd2f86a2cb67d08de97aec8f62476fa4ab87",
+      "sha256": "c97321396afba4acf3f888a6fd6deefbf69749d55b151af3ef265d2fa35f5501",
       "size": 32120992
     },
     "lib/arm64-v8a/libonnxruntime4j_jni.so": {
-      "sha256": "45673d7fba377fe0555892460766051b5993d65c9f65e528dc9d515c07c9f683",
-      "size": 111648
+      "sha256": "540b3725a4b73dce4b89bf39055c168e458366ae8b942492539f63eb129cb1ab",
+      "size": 83224
     },
+    "lib/arm64-v8a/liblik_usearch.so": [
+      {
+        "sha256": "cc76711aab772663a748b3e26980a5b8dcfe1bd9b4f4e393dca9590560399029",
+        "size": 922272
+      },
+      {
+        "sha256": "688df26e64e00cb454a057f5f652cbc2de88522171fd6590ee3c9e66504e9a01",
+        "size": 659304
+      }
+    ],
     "lib/armeabi-v7a/libonnxruntime.so": {
       "sha256": "76fcaa5a49e939295cdd8b2f304a8fda0fa52aeca8fc4dd8215ee29089e00ccb",
       "size": 22727712
@@ -493,6 +503,6 @@
       "size": 1580452
     }
   },
-  "provenance": "Reviewed non-model bytes from Lik d79ae0cf82d1aa53b1ba5de191aa1e82c6cfccc2 APKs; AGP 9.2.1 / build-tools 36.0.0 / ONNX Runtime Android 1.29.0. No build auto-enrolls new hashes. Dependency/resource changes require a reviewed policy update. PNGs are user-supplied launcher art plus AndroidX notification resources, including AAPT2/R8 prepared forms.",
+  "provenance": "Reviewed non-model bytes from Lik d79ae0cf82d1aa53b1ba5de191aa1e82c6cfccc2 APKs plus Task 10 source-built USearch 2.26.0 debug/release arm64 ELF receipts; AGP 9.2.1 / build-tools 36.0.0 / ONNX Runtime Android 1.29.0 / Gson 2.14.0. USearch LOAD segments were checked at 0x4000 alignment. No build auto-enrolls new hashes. Dependency/resource changes require a reviewed policy update. PNGs are user-supplied launcher art plus AndroidX notification resources, including AAPT2/R8 prepared forms.",
   "schemaVersion": 1
 }

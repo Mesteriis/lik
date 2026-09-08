@@ -1,6 +1,6 @@
 # Несколько моделей на телефоне: подход для Lik
 
-Статус: **HF manifests и отдельный CPU acceptance probe реализованы в Task 9; Settings download, галерейный runtime и индексы — Task 10**. Модели никогда не входят в APK. Библиотека ORT Android включена для CPU-проверки; готового ML-профиля у новой установки нет.
+Статус: **Task 10 реализован поверх immutable каталога Task 9**. Модели никогда не входят в APK: новая установка выбирает Balanced, но готового профиля не имеет до явной загрузки, size/SHA-проверки, self-test и подготовки включённых поколений.
 
 ## Что сохраняем из Rune и что меняем
 
@@ -130,10 +130,10 @@ Fingerprint поиска включает **веса обоих encoders, tokeni
 6. Удаление модели с live lease откладывается; отключение функции не удаляет зависимость другой функции.
 7. На Fold измеряются cold/warm latency, память UI + runtime, температура и батарея при индексации одновременно с просмотром.
 
-Следующий шаг после выбора D05/D06 — небольшой работающий сценарий с конкретным проверенным набором моделей и этими тестами. Task 10 добавляет downloader/runtime/indexing по этому утверждённому контракту; сторонние модели и фоновые сервисы вне него не добавляются.
+Task 10 реализует этот сценарий для всех трёх профилей: resumable HF staging, fsync/atomic publish, единый `ModelCatalog`, isolated ORT CPU runtime, generation/checkpoint в Room, exact cosine oracle и локально собранный USearch 2.26.0 через JNI. Интерактивный поиск получает приоритет на границе тяжёлой задачи; фоновые работы требуют opt-in функции и системных ограничений WorkManager.
 
 ## Task 9: зафиксированные артефакты и границы проверки
 
-[Каталог v1](../models/catalog-v1.json) фиксирует три набора, реальные HF ONNX URLs/hash/размеры и общие зависимости. [Provenance](MODEL_PROVENANCE.md) и [воспроизводимая подготовка](../models/README.md) описывают внешнее хранилище доказательств и запрет model payloads в APK. CPU остаётся эталоном; optional Samsung NNAPI/NPU регулируется [backend policy](SAMSUNG_BACKENDS.md). Настройки профилей, runtime, индексы и полная мобильная предобработка относятся к следующим задачам.
+[Каталог v1](../models/catalog-v1.json) фиксирует три набора, реальные HF ONNX URLs/hash/размеры и общие зависимости. [Provenance](MODEL_PROVENANCE.md) и [воспроизводимая подготовка](../models/README.md) описывают внешнее хранилище доказательств и запрет model payloads в APK. Task 10 читает этот каталог как единственный источник URL и pipeline fingerprint; CPU остаётся эталоном, а optional Samsung NNAPI/NPU регулируется [backend policy](SAMSUNG_BACKENDS.md) и выключен.
 
 Все профили дополнительно используют один shared `sensitive-v1` (Marqo ViT-Tiny), без дублирования байтов и без фиктивного порога. Калибровка на реальных данных не выполнена. [Task 13](SENSITIVE_MEDIA.md) задаёт quarantine новых/изменённых фото, отдельные ручные overrides и временный BIOMETRIC_STRONG reveal; подготовка классификатора не является реализацией скрытия. [AiGate](AIGATE_INTEGRATION.md) — отдельный opt-in контракт Task 10, который не заменяет offline модели.

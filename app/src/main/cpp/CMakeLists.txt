@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(lik_usearch LANGUAGES CXX)
+
+set(USEARCH_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/../../../build/generated/usearch/src")
+add_library(lik_usearch SHARED usearch_jni.cpp "${USEARCH_SOURCE}/lib.cpp")
+target_include_directories(lik_usearch PRIVATE "${USEARCH_SOURCE}" "${USEARCH_SOURCE}/include")
+target_compile_features(lik_usearch PRIVATE cxx_std_17)
+target_compile_definitions(lik_usearch PRIVATE USEARCH_USE_OPENMP=0 USEARCH_USE_NUMKONG=0)
+target_compile_options(lik_usearch PRIVATE -Wall -Wextra)
+target_link_options(lik_usearch PRIVATE "-Wl,-z,max-page-size=16384")
+target_link_libraries(lik_usearch PRIVATE log)

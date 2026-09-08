@@ -10,6 +10,8 @@ Pinned Android SDK build-tools 36.0.0 add independent format validation. `aapt2 
 
 The [content policy](../scripts/models/apk-content-policy-v1.json) separately pins native libraries, dependency metadata, licenses and original PNG content. Repository manifests/license notices and Room test schemas must match exact trusted bytes. A bounded AGP Git metadata grammar permits changing commit IDs without arbitrary additional fields. No `res/raw` payload boundary or unknown blob fallback exists.
 
+Task 10 adds ONNX Runtime Android 1.29.0 and a source-built USearch 2.26.0 JNI library to this explicit inventory. USearch source retrieval is pinned by release tag, commit and archive SHA-256; the build extracts only the narrow source set used by CMake. Debug and release native outputs have separate exact content receipts. Every `LOAD` segment of both final arm64 libraries has `0x4000` alignment, and the API 37 native test exercises create/update/delete/search/save/load rather than accepting a library that merely loads. Model weights and tokenizers remain downloaded private data and are absent from these native receipts and from every APK.
+
 ## Signing and ZIP envelope
 
 Every signing block record ID must be unique. The current policy supports the single-signer, single-certificate, single-algorithm v2 format emitted by these builds plus one all-zero padding record. Every length-prefixed sequence, signer, digest, signature, certificate DER and SubjectPublicKeyInfo DER must be consumed completely. Digest/algorithm IDs and lengths must agree. The one reserved empty field emitted by AOSP apksig is accepted only as an empty field; no other trailing bytes are allowed. `apksigner verify --min-sdk-version 36` then verifies the cryptographic binding to the APK.

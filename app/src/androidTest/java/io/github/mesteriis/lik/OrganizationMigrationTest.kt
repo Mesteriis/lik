@@ -35,7 +35,7 @@ class OrganizationMigrationTest {
                 sqlite.execSQL("CREATE TRIGGER interrupt_search BEFORE UPDATE ON media WHEN NEW.mediaId = 'row-99' BEGIN SELECT RAISE(ABORT, 'interrupted search migration'); END")
                 sqlite.version = 2
             }
-            val failed = Room.databaseBuilder(context, MediaDatabase::class.java, name).addMigrations(MediaDatabase.MIGRATION_2_3, MediaDatabase.MIGRATION_3_4).build()
+            val failed = Room.databaseBuilder(context, MediaDatabase::class.java, name).addMigrations(MediaDatabase.MIGRATION_2_3, MediaDatabase.MIGRATION_3_4, MediaDatabase.MIGRATION_4_5).build()
             try { failed.media().availableCount(); fail("Expected rollback") }
             catch (_: android.database.sqlite.SQLiteException) { }
             finally { failed.close() }
@@ -44,7 +44,7 @@ class OrganizationMigrationTest {
                 sqlite.rawQuery("PRAGMA table_info(media)", null).use { cursor -> while (cursor.moveToNext()) assertNotEquals("displayNameSearch", cursor.getString(1)) }
                 sqlite.execSQL("DROP TRIGGER interrupt_search")
             }
-            val migrated = Room.databaseBuilder(context, MediaDatabase::class.java, name).addMigrations(MediaDatabase.MIGRATION_2_3, MediaDatabase.MIGRATION_3_4).build()
+            val migrated = Room.databaseBuilder(context, MediaDatabase::class.java, name).addMigrations(MediaDatabase.MIGRATION_2_3, MediaDatabase.MIGRATION_3_4, MediaDatabase.MIGRATION_4_5).build()
             try {
                 assertEquals(270, migrated.media().availableCount())
                 assertEquals("ёлка 99", migrated.media().get("row-99")!!.displayNameSearch)

@@ -21,4 +21,14 @@
   <item name="icon_ice" type="id" />
   <item name="icon_aurora" type="id" />
   <item name="icon_amber" type="id" />
+  <item name="ai_settings_content" type="id" />
+  <item name="ai_profile_compact" type="id" />
+  <item name="ai_profile_balanced" type="id" />
+  <item name="ai_profile_extended" type="id" />
+  <item name="ai_feature_search" type="id" />
+  <item name="ai_feature_ocr" type="id" />
+  <item name="ai_feature_people" type="id" />
+  <item name="aigate_enabled" type="id" />
+  <item name="aigate_port" type="id" />
+  <item name="aigate_check" type="id" />
 </resources>

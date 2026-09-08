@@ -25,6 +25,8 @@ class OrganizationUiTest {
                 activity.findViewById<android.widget.EditText>(R.id.search_from).setText("2026-09-01")
             }
             scenario.recreate()
+            val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            val aiMonitor = instrumentation.addMonitor(io.github.mesteriis.lik.settings.AiSettingsActivity::class.java.name, null, false)
             scenario.onActivity { activity ->
                 assertEquals("Ёлка Семья", activity.findViewById<android.widget.EditText>(R.id.search_name).text.toString())
                 assertEquals("2026-09-01", activity.findViewById<android.widget.EditText>(R.id.search_from).text.toString())
@@ -34,8 +36,11 @@ class OrganizationUiTest {
                 activity.findViewById<View>(R.id.nav_albums).performClick()
                 activity.findViewById<View>(R.id.nav_more).performClick()
                 activity.findViewById<View>(R.id.organization_ai).performClick()
-                assertTrue(texts(activity.findViewById(R.id.section_placeholder)).contains(activity.getString(R.string.ai_future)))
             }
+            val aiSettings = aiMonitor.waitForActivityWithTimeout(5_000)
+            assertNotNull(aiSettings)
+            aiSettings?.finish()
+            instrumentation.removeMonitor(aiMonitor)
         }
     }
 
