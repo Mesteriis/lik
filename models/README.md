@@ -8,11 +8,16 @@ Compact uses CLIP ViT-B/32 with aligned multilingual text; Balanced (selected by
 
 ## Build behavior
 
-All ordinary debug/release/test/distribution builds are metadata-only, with `available=false`, `bundledPayloads=false` and Balanced selected. They never read the external model cache or download model payloads. `stageModelMetadata` replaces stale generated assets with only the catalog, contracts, backend policy and license notices. Ordinary `assembleDebug`/`assembleRelease` run per-variant payload checks; `assembleDistribution` also exposes the aggregate `verifyDistributionApks` gate, rejecting model/tokenizer payloads and APKs above 250 MiB (also catches stale unreferenced ZIP data from earlier incremental packaging). No cache is required for distribution.
+All ordinary debug/release/test/distribution builds contain no model payloads. App assets carry the catalog, contracts, backend policy and license notices, with `available=false`, `bundledPayloads=false` and Balanced selected; instrumentation assets contain only exact checked-in Room migration schemas. Builds never read the external model cache or download model payloads. `stageModelMetadata` replaces stale generated assets. The Android Components API registers a payload gate for every app and device-test variant, including every APK output in its artifact directory. Assembly and pre-installation depend on the gate; direct package tasks finalize with it. `assembleDistribution` / `verifyDistributionApks` build and inspect all these variants. No cache is required.
+
+The gate inspects every ZIP entry, not only `assets/` or recognizable weight extensions. Raw resources and unknown blobs are forbidden. Model metadata/schema bytes must match repository trust anchors. PNGs, native libraries and opaque dependency resources must match the explicitly reviewed [content policy](../scripts/models/apk-content-policy-v1.json); Android binary XML/resource tables and DEX have structural, checksum and size checks. Catalog artifact fingerprints are rejected at any renamed path. ZIP prefixes, trailers, comments, nonzero extra fields, hidden deflate bytes and nonzero deleted-entry padding are rejected; only bounded APK signing records and empty alignment padding are allowed outside entries. Both physical and uncompressed APK sizes are capped at 250 MiB. Legitimate launcher PNGs and AndroidX resources remain allowed without modifying their bytes.
+
+Version-control metadata admits only AGP’s fixed Git/error fields; commit changes alone do not require a new policy. New dependency/resource bytes require a deliberate review and policy update with provenance. The build must never generate its own allowlist from packaged files or the model cache. Regression tests read actual HF tokenizer and YuNet bytes from `LIK_MODEL_CACHE` without copying them into Git; explicitly setting that variable makes missing regression artifacts fail instead of skip.
 
 ```sh
 ./gradlew lint testDebugUnitTest assembleDebug assembleRelease assembleDebugAndroidTest assembleDistribution
 python3 scripts/models/inspect_apk.py --directory app/build/outputs/apk/debug --directory app/build/outputs/apk/release
+python3 scripts/models/inspect_apk.py --kind android-test --directory app/build/outputs/apk/androidTest/debug
 ```
 
 `-PlikModelPython=/absolute/python3` selects the standard-library build verifier. ORT Android 1.29.0 is a runtime library, not model data; it is present in the app for the Android CPU acceptance probe but is not yet called by gallery features.

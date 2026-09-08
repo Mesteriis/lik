@@ -1,0 +1,498 @@
+{
+  "entries": {
+    "DebugProbesKt.bin": {
+      "sha256": "4d13bd92f86a0b1415062b8ed57655c0738ccfbdf0786c1d730d988b27fd4400",
+      "size": 1728
+    },
+    "LICENSE-junit.txt": {
+      "sha256": "9648bb2891b9813970bddb68d4be8a5e6ec8280d0180a53dfb29236b579c55bb",
+      "size": 11376
+    },
+    "META-INF/LICENSE-1DS": {
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "size": 11358
+    },
+    "META-INF/androidx.activity_activity.version": {
+      "sha256": "b4a9545a385e9701482be56a0efee678d467d9c586ec476f2c5986cfaa24e96c",
+      "size": 7
+    },
+    "META-INF/androidx.annotation_annotation-experimental.version": {
+      "sha256": "acb57a7135b2d7d6e665f67f056e21353023b93835f54def1ae523bf76f1bfb3",
+      "size": 6
+    },
+    "META-INF/androidx.arch.core_core-runtime.version": {
+      "sha256": "1b7c606370188534dac5561fba2b2988093829697fce9e6e8832e9291d24ed00",
+      "size": 67
+    },
+    "META-INF/androidx.compose.runtime_runtime-annotation.version": {
+      "sha256": "30f4611383aa30a15753789f40effde81332f2f8714e6d3b2940bf0fc4592377",
+      "size": 6
+    },
+    "META-INF/androidx.core_core-ktx.version": {
+      "sha256": "04d659518a1793d5396007fcabdc9211a8c1db8406bf4e0fa8069171fdb06518",
+      "size": 7
+    },
+    "META-INF/androidx.core_core-viewtree.version": {
+      "sha256": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
+      "size": 6
+    },
+    "META-INF/androidx.core_core.version": {
+      "sha256": "04d659518a1793d5396007fcabdc9211a8c1db8406bf4e0fa8069171fdb06518",
+      "size": 7
+    },
+    "META-INF/androidx.customview_customview-poolingcontainer.version": {
+      "sha256": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
+      "size": 6
+    },
+    "META-INF/androidx.customview_customview.version": {
+      "sha256": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
+      "size": 6
+    },
+    "META-INF/androidx.interpolator_interpolator.version": {
+      "sha256": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
+      "size": 6
+    },
+    "META-INF/androidx.lifecycle_lifecycle-livedata-core-ktx.version": {
+      "sha256": "f526f5e7f214e4916c51e16a61fb1be5d530d67e44c65d86db25b8416463b10c",
+      "size": 7
+    },
+    "META-INF/androidx.lifecycle_lifecycle-livedata-core.version": {
+      "sha256": "f526f5e7f214e4916c51e16a61fb1be5d530d67e44c65d86db25b8416463b10c",
+      "size": 7
+    },
+    "META-INF/androidx.lifecycle_lifecycle-livedata-ktx.version": {
+      "sha256": "f526f5e7f214e4916c51e16a61fb1be5d530d67e44c65d86db25b8416463b10c",
+      "size": 7
+    },
+    "META-INF/androidx.lifecycle_lifecycle-livedata.version": {
+      "sha256": "f526f5e7f214e4916c51e16a61fb1be5d530d67e44c65d86db25b8416463b10c",
+      "size": 7
+    },
+    "META-INF/androidx.lifecycle_lifecycle-runtime-ktx.version": {
+      "sha256": "f526f5e7f214e4916c51e16a61fb1be5d530d67e44c65d86db25b8416463b10c",
+      "size": 7
+    },
+    "META-INF/androidx.lifecycle_lifecycle-runtime.version": {
+      "sha256": "f526f5e7f214e4916c51e16a61fb1be5d530d67e44c65d86db25b8416463b10c",
+      "size": 7
+    },
+    "META-INF/androidx.lifecycle_lifecycle-service.version": {
+      "sha256": "f526f5e7f214e4916c51e16a61fb1be5d530d67e44c65d86db25b8416463b10c",
+      "size": 7
+    },
+    "META-INF/androidx.lifecycle_lifecycle-viewmodel-ktx.version": {
+      "sha256": "f526f5e7f214e4916c51e16a61fb1be5d530d67e44c65d86db25b8416463b10c",
+      "size": 7
+    },
+    "META-INF/androidx.lifecycle_lifecycle-viewmodel-savedstate.version": {
+      "sha256": "f526f5e7f214e4916c51e16a61fb1be5d530d67e44c65d86db25b8416463b10c",
+      "size": 7
+    },
+    "META-INF/androidx.lifecycle_lifecycle-viewmodel.version": {
+      "sha256": "f526f5e7f214e4916c51e16a61fb1be5d530d67e44c65d86db25b8416463b10c",
+      "size": 7
+    },
+    "META-INF/androidx.navigationevent_navigationevent.version": {
+      "sha256": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03",
+      "size": 6
+    },
+    "META-INF/androidx.paging_paging-common.version": {
+      "sha256": "eb41f86c3d67299b46490cde10158a521148fdc03641aa14a93fa2797becd78c",
+      "size": 6
+    },
+    "META-INF/androidx.paging_paging-runtime.version": {
+      "sha256": "eb41f86c3d67299b46490cde10158a521148fdc03641aa14a93fa2797becd78c",
+      "size": 6
+    },
+    "META-INF/androidx.profileinstaller_profileinstaller.version": {
+      "sha256": "78b591400c56b7b67b8cb3b2b8a8e65e9093897f02ce0878e6b5405c68620fa7",
+      "size": 6
+    },
+    "META-INF/androidx.recyclerview_recyclerview.version": {
+      "sha256": "78b591400c56b7b67b8cb3b2b8a8e65e9093897f02ce0878e6b5405c68620fa7",
+      "size": 6
+    },
+    "META-INF/androidx.room_room-paging.version": {
+      "sha256": "4b27eec369475e0403454478c25a1777503a969827259a25f597a903e91bd8d4",
+      "size": 6
+    },
+    "META-INF/androidx.room_room-runtime.version": {
+      "sha256": "4b27eec369475e0403454478c25a1777503a969827259a25f597a903e91bd8d4",
+      "size": 6
+    },
+    "META-INF/androidx.savedstate_savedstate.version": {
+      "sha256": "78b591400c56b7b67b8cb3b2b8a8e65e9093897f02ce0878e6b5405c68620fa7",
+      "size": 6
+    },
+    "META-INF/androidx.sqlite_sqlite-framework.version": {
+      "sha256": "8fde0552368c64879b3f23c72df5308bcee45ab7c4226ad2d18efd12d1f2e960",
+      "size": 6
+    },
+    "META-INF/androidx.sqlite_sqlite.version": {
+      "sha256": "8fde0552368c64879b3f23c72df5308bcee45ab7c4226ad2d18efd12d1f2e960",
+      "size": 6
+    },
+    "META-INF/androidx.startup_startup-runtime.version": {
+      "sha256": "cc52f678848b814373757b460383bf61960e4943c203735adde0a350b3e50989",
+      "size": 6
+    },
+    "META-INF/androidx.tracing_tracing-ktx.version": {
+      "sha256": "1e5b51cde515396a9fa762909cf8ca6584ccc564b325d2eebeea76175fe95c4d",
+      "size": 6
+    },
+    "META-INF/androidx.tracing_tracing.version": {
+      "sha256": "1e5b51cde515396a9fa762909cf8ca6584ccc564b325d2eebeea76175fe95c4d",
+      "size": 6
+    },
+    "META-INF/androidx.versionedparcelable_versionedparcelable.version": {
+      "sha256": "cc52f678848b814373757b460383bf61960e4943c203735adde0a350b3e50989",
+      "size": 6
+    },
+    "META-INF/androidx.work_work-runtime.version": {
+      "sha256": "ca3ba4bf209a23260981c86921fa2fbe8e273792702a03b25c132b00ef90273c",
+      "size": 7
+    },
+    "META-INF/androidx.work_work-testing.version": {
+      "sha256": "ca3ba4bf209a23260981c86921fa2fbe8e273792702a03b25c132b00ef90273c",
+      "size": 7
+    },
+    "META-INF/androidx/annotation/annotation/LICENSE.txt": {
+      "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+      "size": 10175
+    },
+    "META-INF/androidx/collection/collection/LICENSE.txt": {
+      "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+      "size": 10175
+    },
+    "META-INF/androidx/lifecycle/lifecycle-common/LICENSE.txt": {
+      "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+      "size": 10175
+    },
+    "META-INF/androidx/paging/paging-common-ktx/LICENSE.txt": {
+      "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+      "size": 10175
+    },
+    "META-INF/androidx/room/room-common/LICENSE.txt": {
+      "sha256": "809fa1ed21450f59827d1e9aec720bbc4b687434fa22283c6cb5dd82a47ab9c0",
+      "size": 10175
+    },
+    "META-INF/com/android/build/gradle/app-metadata.properties": {
+      "sha256": "75bc66260aeed5c7da9ef86b1ee98fe13298d9dd0bc438ee5a963d5eb224f68d",
+      "size": 56
+    },
+    "META-INF/kotlinx_coroutines_android.version": {
+      "sha256": "7717cbf90c63a3b096008763a02066239916fa9916f98254d1aa3b2470830fcd",
+      "size": 5
+    },
+    "META-INF/kotlinx_coroutines_core.version": {
+      "sha256": "7717cbf90c63a3b096008763a02066239916fa9916f98254d1aa3b2470830fcd",
+      "size": 5
+    },
+    "META-INF/version-control-info.textproto": {
+      "sha256": "577a29846b9d2ab88f013ed5ce0cc75355d4cfbef540ef637c49c95d233c236f",
+      "size": 42
+    },
+    "junit/runner/logo.gif": {
+      "sha256": "345b5e2207a524e0019779d13f0f8ae51359f894a230479467761331e3d1ca16",
+      "size": 964
+    },
+    "junit/runner/smalllogo.gif": {
+      "sha256": "b4819008f181bf3e0b47254f72149c62a556a56fc0358d3143e405b191de2081",
+      "size": 883
+    },
+    "kotlin/annotation/annotation.kotlin_builtins": {
+      "sha256": "5f75d4352e432664b2a235c472b991cf88365c73f5fcb5e1f9cc2cbe4b410abe",
+      "size": 1006
+    },
+    "kotlin/collections/collections.kotlin_builtins": {
+      "sha256": "0e654e03a38e119de0f4d11633711bd57e1e8b1a876eda74a90100a2a6e7daa4",
+      "size": 8308
+    },
+    "kotlin/concurrent/atomics/atomics.kotlin_builtins": {
+      "sha256": "955035527393d165a22da4cb9d992f42b4a30b6f070918f3e2b1f2678f83cc9d",
+      "size": 2674
+    },
+    "kotlin/coroutines/coroutines.kotlin_builtins": {
+      "sha256": "98ab3a3c18fcb237528dd63fa489815c583e1d6c13debd2a27ac6d74ccf8717b",
+      "size": 137
+    },
+    "kotlin/internal/internal.kotlin_builtins": {
+      "sha256": "64712f94840e6b3f8123f522f32d08c46f083d87c312a74901f7c00224de775e",
+      "size": 590
+    },
+    "kotlin/kotlin.kotlin_builtins": {
+      "sha256": "c4240215bc20e71b01cc62b43edebd02749b3249d7daa8e7f1dc1514f064c274",
+      "size": 29399
+    },
+    "kotlin/ranges/ranges.kotlin_builtins": {
+      "sha256": "f9d35b836ccb5380803aab5e6c76d708b1536fc6c82f27185e8cff5913824e1c",
+      "size": 4184
+    },
+    "kotlin/reflect/reflect.kotlin_builtins": {
+      "sha256": "23ecbc7cbb354f31ba37a1be1793d3bb53c00c92cdcf3867759d09d938a1d7c3",
+      "size": 4827
+    },
+    "lib/arm64-v8a/libonnxruntime.so": {
+      "sha256": "3a602b463d434d20fbf69cd1b8bdfd2f86a2cb67d08de97aec8f62476fa4ab87",
+      "size": 32120992
+    },
+    "lib/arm64-v8a/libonnxruntime4j_jni.so": {
+      "sha256": "45673d7fba377fe0555892460766051b5993d65c9f65e528dc9d515c07c9f683",
+      "size": 111648
+    },
+    "lib/armeabi-v7a/libonnxruntime.so": {
+      "sha256": "76fcaa5a49e939295cdd8b2f304a8fda0fa52aeca8fc4dd8215ee29089e00ccb",
+      "size": 22727712
+    },
+    "lib/armeabi-v7a/libonnxruntime4j_jni.so": {
+      "sha256": "930d6e89a8e16ce820ad9e345bb25efc29bde6d79b525d203ee02f9e9e177886",
+      "size": 81552
+    },
+    "lib/x86/libonnxruntime.so": {
+      "sha256": "811892fdad82237373e7bc50a2cd6ca687af150cbb3bce9996d29f93d4861128",
+      "size": 38442284
+    },
+    "lib/x86/libonnxruntime4j_jni.so": {
+      "sha256": "58f6543f7d850f6763fe76fafe282b97ad3f21d72c5590da2e8ef3cbb4094e09",
+      "size": 93636
+    },
+    "lib/x86_64/libonnxruntime.so": {
+      "sha256": "1fbfff77a79d79d4e99c2ae78d048044b689782da7e2b0a268443279ae615566",
+      "size": 38473056
+    },
+    "lib/x86_64/libonnxruntime4j_jni.so": {
+      "sha256": "d1c4b89f0b88d8f9cb722ca5cedca0855001b6922d8abc268822f3c7936b2469",
+      "size": 100032
+    }
+  },
+  "pngs": {
+    "0c6328c7b2420570a7ec38b3beb3bac9a29d895ac1ab7239315aba7266418593": {
+      "observedPaths": [
+        "res/drawable-hdpi-v4/notification_bg_normal.9.png"
+      ],
+      "size": 212
+    },
+    "0d773e62c756422313262846c787e58f67e0ee87e45e1ae9942002e816c4cb9e": {
+      "observedPaths": [
+        "res/drawable-mdpi-v4/notify_panel_notification_icon_bg.png"
+      ],
+      "size": 98
+    },
+    "1206c7792297948973cd8ee15767f4f0305830e61e8d784e3b5421eeb5ae2a9e": {
+      "observedPaths": [
+        "res/SK.png"
+      ],
+      "size": 1303616
+    },
+    "13724a0c2676b2f312bfe5d6459b8d706cad6143afdb88b35c48d038f1fde5aa": {
+      "observedPaths": [
+        "res/ty.png"
+      ],
+      "size": 1549173
+    },
+    "16d4b6406c4dd55b5fd0277198c062f91c49bfb5bfa1b7cffb6884688ce7d2d4": {
+      "observedPaths": [
+        "res/drawable-nodpi-v4/lik_emblem.png",
+        "app/src/main/res/drawable-nodpi/lik_emblem.png"
+      ],
+      "size": 1689204
+    },
+    "18b328d8017e677d5aad3dbd66bae356b5cac978c6f0670938ea648e51d0eb66": {
+      "observedPaths": [
+        "res/drawable-hdpi-v4/notification_bg_normal_pressed.9.png"
+      ],
+      "size": 225
+    },
+    "1d0ae050cb3874493f93a9f4fe510606e6c250b77320e217b2e7ffb46ef0d218": {
+      "observedPaths": [
+        "res/drawable-nodpi-v4/lik_emblem_rose.png",
+        "app/src/main/res/drawable-nodpi/lik_emblem_rose.png"
+      ],
+      "size": 1336553
+    },
+    "20343222f9f79dd565c3a2248494d452e70820ac1c437173c38badd45f962afd": {
+      "observedPaths": [
+        "res/drawable-xhdpi-v4/notification_bg_low_pressed.9.png"
+      ],
+      "size": 252
+    },
+    "21f0b55280be10b187ceff8edef4a5a7047683e6e9fcf47de410aa3839f41094": {
+      "observedPaths": [
+        "res/drawable-hdpi-v4/notification_bg_low_normal.9.png"
+      ],
+      "size": 212
+    },
+    "2f7fbda0ba6e53e9a47e2fc0e24e32c447c613a5808c2d6285dc651e83a07ad7": {
+      "observedPaths": [
+        "res/drawable-mdpi-v4/notification_bg_low_normal.9.png"
+      ],
+      "size": 215
+    },
+    "311848cbda0bba7a0e51e4ca0f73ccd59459f5d2253d4482940816d3521b16bf": {
+      "observedPaths": [
+        "res/Z2.png"
+      ],
+      "size": 1548623
+    },
+    "3e09afa21c45372c035598c017c8fb405a6d678e6cb84dc857581cb3b40e482d": {
+      "observedPaths": [
+        "res/drawable-xhdpi-v4/notification_bg_low_normal.9.png"
+      ],
+      "size": 221
+    },
+    "42aee0b03883e94df5e543348a397d1302c1b8221895871a83b81899f5a9647b": {
+      "observedPaths": [
+        "res/drawable-hdpi-v4/notification_bg_low_pressed.9.png"
+      ],
+      "size": 225
+    },
+    "518ceab8a9c44878b5e9a50f51d15c07fe63a42f79bf6d33f4ee43ca4f6fa3ae": {
+      "observedPaths": [
+        "res/drawable-nodpi-v4/lik_emblem_sapphire.png",
+        "app/src/main/res/drawable-nodpi/lik_emblem_sapphire.png"
+      ],
+      "size": 1577366
+    },
+    "530f69071d1fef13885ccfe07fa6d7c49148c04d21723e3162509996e5a9fef8": {
+      "observedPaths": [
+        "res/v0.png"
+      ],
+      "size": 1491481
+    },
+    "559bf783d765c02338e97952bdc9c6689c7ff99090b8c9813369118da8b080f0": {
+      "observedPaths": [
+        "res/drawable-xhdpi-v4/notification_bg_normal.9.png"
+      ],
+      "size": 221
+    },
+    "6851b0ddebd8a438cda1e3c4008b299fe62b8085a9b54680e42575d39d45573c": {
+      "observedPaths": [
+        "res/drawable-nodpi-v4/lik_emblem_sunrise.png",
+        "app/src/main/res/drawable-nodpi/lik_emblem_sunrise.png"
+      ],
+      "size": 1522226
+    },
+    "70b1cee264a273268f72da5771d37cfccf87edeba357cadf2642a8b3ea126094": {
+      "observedPaths": [
+        "res/drawable-nodpi-v4/lik_emblem_moonstone.png",
+        "app/src/main/res/drawable-nodpi/lik_emblem_moonstone.png"
+      ],
+      "size": 1521983
+    },
+    "8430ec003e003f3f2ba2f78d48fd150e25407667e530e82e87a7d4841c0fd676": {
+      "observedPaths": [
+        "res/drawable-hdpi-v4/notify_panel_notification_icon_bg.png"
+      ],
+      "size": 107
+    },
+    "93640f06c1084aa4541dfc20756ccef830439a435665fb932f7118b9314c162e": {
+      "observedPaths": [
+        "res/drawable-nodpi-v4/lik_emblem_amber.png",
+        "app/src/main/res/drawable-nodpi/lik_emblem_amber.png"
+      ],
+      "size": 1485304
+    },
+    "98935df413706d4bdd593d7925b7e465ef6562d74e3856f2f7470a3ce74cfdda": {
+      "observedPaths": [
+        "res/drawable-nodpi-v4/lik_emblem_amethyst.png",
+        "app/src/main/res/drawable-nodpi/lik_emblem_amethyst.png"
+      ],
+      "size": 1510415
+    },
+    "99c14d6855b8be296d58017d3751b8dc849c47b6d1d80ab614ff9075080e461b": {
+      "observedPaths": [
+        "res/drawable-mdpi-v4/notification_bg_normal_pressed.9.png"
+      ],
+      "size": 223
+    },
+    "a22fd82f250901c00d52d38874efda05bc672dfac2cfc4ff5900e2dc97285aef": {
+      "observedPaths": [
+        "res/oC.png"
+      ],
+      "size": 699838
+    },
+    "a8676a1793ac8310ffb12986232df66df092d29c242aeedc2b73556c010d38dc": {
+      "observedPaths": [
+        "res/drawable-mdpi-v4/notification_bg_normal.9.png"
+      ],
+      "size": 215
+    },
+    "a8fb7aeddc1d9f78be2a4261f7df12089ae62f412293047c897395a470111013": {
+      "observedPaths": [
+        "res/4w.png"
+      ],
+      "size": 1477688
+    },
+    "aa00088d0d9fd97bd92ed9ffd29b54bb69a48a984aa73448ce553fb9d812be41": {
+      "observedPaths": [
+        "res/drawable-hdpi-v4/notification_oversize_large_icon_bg.png"
+      ],
+      "size": 909
+    },
+    "ac6b2e36752021e0accd011bdaa036f417160998049811d24a75113712abd523": {
+      "observedPaths": [
+        "res/drawable-nodpi-v4/lik_emblem_ice.png",
+        "app/src/main/res/drawable-nodpi/lik_emblem_ice.png"
+      ],
+      "size": 1597929
+    },
+    "b44eeda34d7a529c2fe55719eb098fa29707caa91d18de06a7a775d6e6bcf973": {
+      "observedPaths": [
+        "res/drawable-xhdpi-v4/notify_panel_notification_icon_bg.png"
+      ],
+      "size": 138
+    },
+    "bf79097e39a313c071ad707c99c5b1cc2dcd16375ec7619d2223dacdf1d40670": {
+      "observedPaths": [
+        "res/lW.png"
+      ],
+      "size": 1451935
+    },
+    "cf4011fbc013a1ff7422b69f8cbce812d76b9efe2b29bc1fb92cffe6a39991cc": {
+      "observedPaths": [
+        "res/drawable-nodpi-v4/lik_emblem_aurora.png",
+        "app/src/main/res/drawable-nodpi/lik_emblem_aurora.png"
+      ],
+      "size": 1579327
+    },
+    "d27af435101ca4cbec0c840bd30687918cd39eb83aab1487420855623a45998b": {
+      "observedPaths": [
+        "res/drawable-xhdpi-v4/notification_bg_normal_pressed.9.png"
+      ],
+      "size": 247
+    },
+    "da5511f9c1a26c8ad8a10405bdf2739483c5bd0665083f951ef37fc8740a6985": {
+      "observedPaths": [
+        "res/J_.png"
+      ],
+      "size": 1487098
+    },
+    "e17761ed280edd93d7141bd504b70f9e9e15a8652288d9e6333bf4ce964ef844": {
+      "observedPaths": [
+        "res/drawable-mdpi-v4/notification_bg_low_pressed.9.png"
+      ],
+      "size": 223
+    },
+    "ea04c9f8b56fa5af315e6aa47b63992a169d9e95ed14196d10de994246626b3b": {
+      "observedPaths": [
+        "res/hS.png"
+      ],
+      "size": 1553387
+    },
+    "f4083587d10bb08c50839e05b36271323ebc243d4f115fc1d157c86b0c1498a5": {
+      "observedPaths": [
+        "res/xI.png"
+      ],
+      "size": 1561828
+    },
+    "f8fd0b614fb261c1f17f5e62927d0da21042e8bbadcfd00f08052ff1f7544d74": {
+      "observedPaths": [
+        "res/drawable-nodpi-v4/lik_emblem_emerald.png",
+        "app/src/main/res/drawable-nodpi/lik_emblem_emerald.png"
+      ],
+      "size": 1580452
+    }
+  },
+  "provenance": "Reviewed non-model bytes from Lik d79ae0cf82d1aa53b1ba5de191aa1e82c6cfccc2 APKs; AGP 9.2.1 / build-tools 36.0.0 / ONNX Runtime Android 1.29.0. No build auto-enrolls new hashes. Dependency/resource changes require a reviewed policy update. PNGs are user-supplied launcher art plus AndroidX notification resources, including AAPT2/R8 prepared forms.",
+  "schemaVersion": 1
+}

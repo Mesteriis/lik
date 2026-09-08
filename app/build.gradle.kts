@@ -1,4 +1,6 @@
 import java.util.Properties
+import com.android.build.api.artifact.SingleArtifact
+import com.android.build.api.variant.Component
 
 plugins {
     alias(libs.plugins.android.application)
@@ -31,28 +33,44 @@ val stageModelMetadata by tasks.registering(Exec::class) {
 
 tasks.named("preBuild") { dependsOn(stageModelMetadata) }
 
-listOf("Debug", "Release").forEach { variant ->
-    val checkPayloads = tasks.register<Exec>("verify${variant}ModelPayloads") {
-        group = "verification"
-        description = "Reject model/tokenizer payloads in the $variant APK."
-        dependsOn("package$variant")
-        workingDir(rootProject.projectDir)
-        commandLine(modelPython.get(), "scripts/models/inspect_apk.py",
-            "--directory", layout.buildDirectory.dir("outputs/apk/${variant.lowercase()}").get().asFile.absolutePath)
-    }
-    tasks.matching { it.name == "assemble$variant" }.configureEach { dependsOn(checkPayloads) }
-}
-
 val verifyDistributionApks by tasks.registering {
     group = "verification"
-    description = "Reject model/tokenizer payloads in debug/release APKs, including oversized stale archives."
-    dependsOn("assembleDebug", "assembleRelease")
+    description = "Inspect every configured app and instrumentation APK; reject model payloads anywhere."
 }
 
 tasks.register("assembleDistribution") {
     group = "build"
-    description = "Build metadata-only debug/release APKs and verify no model payload is bundled."
+    description = "Build and inspect metadata-only app and instrumentation APKs for every variant."
     dependsOn(verifyDistributionApks)
+}
+
+fun registerApkPayloadCheck(component: Component, kind: String) {
+    val apkDirectory = component.artifacts.get(SingleArtifact.APK)
+    val taskSuffix = component.name.replaceFirstChar { it.uppercaseChar() }
+    val checkPayloads = tasks.register<Exec>(component.computeTaskName("verify", "ModelPayloads")) {
+        group = "verification"
+        description = "Reject model/tokenizer bytes anywhere in ${component.name} APKs."
+        // The AGP artifact provider carries the package-task dependency and the
+        // actual variant output path. No Debug/Release or single-output assumption.
+        inputs.dir(apkDirectory)
+        workingDir(rootProject.projectDir)
+        commandLine(modelPython.get(), "scripts/models/inspect_apk.py",
+            "--directory", apkDirectory.get().asFile.absolutePath, "--kind", kind)
+    }
+    tasks.matching { it.name == "assemble$taskSuffix" }
+        .configureEach { dependsOn(checkPayloads) }
+    // Direct package invocations must also run the gate, including cached APKs.
+    tasks.matching { it.name == "package$taskSuffix" }
+        .configureEach { finalizedBy(checkPayloads) }
+    component.lifecycleTasks.registerPreInstallation(checkPayloads)
+    verifyDistributionApks.configure { dependsOn(checkPayloads) }
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        registerApkPayloadCheck(variant, "app")
+        variant.deviceTests.values.forEach { test -> registerApkPayloadCheck(test, "android-test") }
+    }
 }
 
 android {
