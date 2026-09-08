@@ -46,6 +46,7 @@ tasks.register("assembleDistribution") {
 
 fun registerApkPayloadCheck(component: Component, kind: String) {
     val apkDirectory = component.artifacts.get(SingleArtifact.APK)
+    val buildToolsDirectory = androidComponents.sdkComponents.sdkDirectory.map { it.dir("build-tools/36.0.0") }
     val taskSuffix = component.name.replaceFirstChar { it.uppercaseChar() }
     val checkPayloads = tasks.register<Exec>(component.computeTaskName("verify", "ModelPayloads")) {
         group = "verification"
@@ -55,7 +56,8 @@ fun registerApkPayloadCheck(component: Component, kind: String) {
         inputs.dir(apkDirectory)
         workingDir(rootProject.projectDir)
         commandLine(modelPython.get(), "scripts/models/inspect_apk.py",
-            "--directory", apkDirectory.get().asFile.absolutePath, "--kind", kind)
+            "--directory", apkDirectory.get().asFile.absolutePath, "--kind", kind,
+            "--variant", component.name, "--build-tools", buildToolsDirectory.get().asFile.absolutePath)
     }
     tasks.matching { it.name == "assemble$taskSuffix" }
         .configureEach { dependsOn(checkPayloads) }

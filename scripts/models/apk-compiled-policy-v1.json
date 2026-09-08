@@ -1,0 +1,1074 @@
+{
+  "provenance": "Explicitly reviewed compiler outputs; never updated by a build or inferred from an inspected APK.",
+  "schemaVersion": 1,
+  "sourceFingerprint": "d9231204b1b199f50af536dd9ff0f4c1a4da1dcb0867aa164d38feeaa987963b",
+  "sourceInputs": {
+    "files": [
+      "app/build.gradle.kts",
+      "app/proguard-rules.pro",
+      "build.gradle.kts",
+      "settings.gradle.kts",
+      "gradle.properties"
+    ],
+    "roots": [
+      "app/src",
+      "app/schemas",
+      "gradle"
+    ]
+  },
+  "toolchain": {
+    "agp": "9.2.1",
+    "buildTools": "36.0.0",
+    "compatibleParserDistributions": [
+      {
+        "metadataUrl": "https://dl.google.com/android/repository/repository2-3.xml",
+        "parserFiles": {
+          "aapt2": {
+            "sha256": "1a6a396b9cd071f7040071fdd108718cb98c3c9f4960044f373b288993d19eb7",
+            "size": 5735384
+          },
+          "apksigner": {
+            "sha256": "b47549e373b895ce6ca620d0c7887e674d9615ffa837a86ac601dcfd04adb0f0",
+            "size": 2959
+          },
+          "dexdump": {
+            "sha256": "0944161e1e453ac40a16362ab42f4b1ee5e60eccf503cd87f4a6040c78247d02",
+            "size": 3555400
+          },
+          "lib/apksigner.jar": {
+            "sha256": "3716d9311e55d2b0918a2fd9d54ba9e406c5f6abeea700b287f11259bc163dec",
+            "size": 1100545
+          },
+          "source.properties": {
+            "sha256": "7dee6632e9ad6cb111da2bb99d747211e27927061b1276d040bb1d71fded5ebb",
+            "size": 62
+          }
+        },
+        "platform": "linux",
+        "publishedSha1": "b0b6376977657e8ad9b969bacf4093601da2c6fb",
+        "sha256": "5d9ac77fb6ff43d9da518a337b4fcf8f9097113df531d99ccefe80ef7ce8250b",
+        "size": 63737259,
+        "url": "https://dl.google.com/android/repository/build-tools_r36_linux.zip"
+      }
+    ],
+    "gradle": "9.4.1",
+    "jdkMajor": 17,
+    "parserFiles": {
+      "aapt2": {
+        "sha256": "a8844d4089b442b034aed8953deee1893253053c900e03141ae7173e3edd8157",
+        "size": 10682288
+      },
+      "apksigner": {
+        "sha256": "b47549e373b895ce6ca620d0c7887e674d9615ffa837a86ac601dcfd04adb0f0",
+        "size": 2959
+      },
+      "dexdump": {
+        "sha256": "9c4addfdb5373f0923e418a64683976922c1ffdd1a3e9673b9cce5a0838e9692",
+        "size": 3545296
+      },
+      "lib/apksigner.jar": {
+        "sha256": "3716d9311e55d2b0918a2fd9d54ba9e406c5f6abeea700b287f11259bc163dec",
+        "size": 1100545
+      },
+      "source.properties": {
+        "sha256": "7dee6632e9ad6cb111da2bb99d747211e27927061b1276d040bb1d71fded5ebb",
+        "size": 62
+      }
+    }
+  },
+  "variants": {
+    "debug": {
+      "dex": [
+        {
+          "compilerPath": "app/build/intermediates/dex/debug/mergeExtDexDebug/classes.dex",
+          "sha256": "c0d2e9c8b0656c627b8b814f8cba6125fedbb19c41e30657002a2776f882f666",
+          "size": 10162672
+        },
+        {
+          "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/0/classes.dex",
+          "sha256": "7288f2e5c07174a7eecc996fbc5baf24f5d05e1c0ef862af2e898e866596e733",
+          "size": 36572
+        },
+        {
+          "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/11/classes.dex",
+          "sha256": "115100d2dd8ffd9adea6822af65726e5baf98078149e43ddbb96da5005be029f",
+          "size": 22276
+        },
+        {
+          "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/14/classes.dex",
+          "sha256": "700d7b4bd5924b93d85fd0cfb537b303a3d1840bd80c8c204e79de9bf8468cbd",
+          "size": 116352
+        },
+        {
+          "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/4/classes.dex",
+          "sha256": "a2ba7247adf070b3781550b533b242958365a9ff40b125b7291a3315e3b8a270",
+          "size": 66192
+        },
+        {
+          "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/5/classes.dex",
+          "sha256": "23574160eabf1755ce16717314c23c9e60beb37b3fede149140655a1d4f9388f",
+          "size": 1236
+        },
+        {
+          "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/9/classes.dex",
+          "sha256": "76847c55492ee0b19b05a2f89fa77c48ddd9a00b73acb199f8a917297d92ccc0",
+          "size": 503656
+        },
+        {
+          "compilerPath": "app/build/intermediates/global_synthetics_dex/debug/generateDebugGlobalSynthetics/classes.dex",
+          "sha256": "2dc77c43c4dd7b58c8f433229d24a4118926f8d7b43f42f88daec4536fcd9274",
+          "size": 18456
+        }
+      ],
+      "kind": "app",
+      "profiles": {},
+      "resourceArchive": "app/build/intermediates/linked_resources_binary_format/debug/processDebugResources/linked-resources-binary-format-debug.ap_",
+      "resourceEntries": {
+        "AndroidManifest.xml": {
+          "sha256": "a1baff0a4db202b667ff846353be692e2d71560576073da0a67e3e08cc816aa8",
+          "size": 15904
+        },
+        "res/color/lik_tab_text.xml": {
+          "sha256": "16b5457699479eea874e683af49d5a806543720391884483aa07ddb4d7fd882d",
+          "size": 464
+        },
+        "res/drawable-hdpi-v4/notification_bg_low_normal.9.png": {
+          "sha256": "21f0b55280be10b187ceff8edef4a5a7047683e6e9fcf47de410aa3839f41094",
+          "size": 212
+        },
+        "res/drawable-hdpi-v4/notification_bg_low_pressed.9.png": {
+          "sha256": "42aee0b03883e94df5e543348a397d1302c1b8221895871a83b81899f5a9647b",
+          "size": 225
+        },
+        "res/drawable-hdpi-v4/notification_bg_normal.9.png": {
+          "sha256": "0c6328c7b2420570a7ec38b3beb3bac9a29d895ac1ab7239315aba7266418593",
+          "size": 212
+        },
+        "res/drawable-hdpi-v4/notification_bg_normal_pressed.9.png": {
+          "sha256": "18b328d8017e677d5aad3dbd66bae356b5cac978c6f0670938ea648e51d0eb66",
+          "size": 225
+        },
+        "res/drawable-hdpi-v4/notification_oversize_large_icon_bg.png": {
+          "sha256": "aa00088d0d9fd97bd92ed9ffd29b54bb69a48a984aa73448ce553fb9d812be41",
+          "size": 909
+        },
+        "res/drawable-hdpi-v4/notify_panel_notification_icon_bg.png": {
+          "sha256": "8430ec003e003f3f2ba2f78d48fd150e25407667e530e82e87a7d4841c0fd676",
+          "size": 107
+        },
+        "res/drawable-mdpi-v4/notification_bg_low_normal.9.png": {
+          "sha256": "2f7fbda0ba6e53e9a47e2fc0e24e32c447c613a5808c2d6285dc651e83a07ad7",
+          "size": 215
+        },
+        "res/drawable-mdpi-v4/notification_bg_low_pressed.9.png": {
+          "sha256": "e17761ed280edd93d7141bd504b70f9e9e15a8652288d9e6333bf4ce964ef844",
+          "size": 223
+        },
+        "res/drawable-mdpi-v4/notification_bg_normal.9.png": {
+          "sha256": "a8676a1793ac8310ffb12986232df66df092d29c242aeedc2b73556c010d38dc",
+          "size": 215
+        },
+        "res/drawable-mdpi-v4/notification_bg_normal_pressed.9.png": {
+          "sha256": "99c14d6855b8be296d58017d3751b8dc849c47b6d1d80ab614ff9075080e461b",
+          "size": 223
+        },
+        "res/drawable-mdpi-v4/notify_panel_notification_icon_bg.png": {
+          "sha256": "0d773e62c756422313262846c787e58f67e0ee87e45e1ae9942002e816c4cb9e",
+          "size": 98
+        },
+        "res/drawable-nodpi-v4/lik_emblem.png": {
+          "sha256": "16d4b6406c4dd55b5fd0277198c062f91c49bfb5bfa1b7cffb6884688ce7d2d4",
+          "size": 1689204
+        },
+        "res/drawable-nodpi-v4/lik_emblem_amber.png": {
+          "sha256": "93640f06c1084aa4541dfc20756ccef830439a435665fb932f7118b9314c162e",
+          "size": 1485304
+        },
+        "res/drawable-nodpi-v4/lik_emblem_amethyst.png": {
+          "sha256": "98935df413706d4bdd593d7925b7e465ef6562d74e3856f2f7470a3ce74cfdda",
+          "size": 1510415
+        },
+        "res/drawable-nodpi-v4/lik_emblem_aurora.png": {
+          "sha256": "cf4011fbc013a1ff7422b69f8cbce812d76b9efe2b29bc1fb92cffe6a39991cc",
+          "size": 1579327
+        },
+        "res/drawable-nodpi-v4/lik_emblem_emerald.png": {
+          "sha256": "f8fd0b614fb261c1f17f5e62927d0da21042e8bbadcfd00f08052ff1f7544d74",
+          "size": 1580452
+        },
+        "res/drawable-nodpi-v4/lik_emblem_ice.png": {
+          "sha256": "ac6b2e36752021e0accd011bdaa036f417160998049811d24a75113712abd523",
+          "size": 1597929
+        },
+        "res/drawable-nodpi-v4/lik_emblem_moonstone.png": {
+          "sha256": "70b1cee264a273268f72da5771d37cfccf87edeba357cadf2642a8b3ea126094",
+          "size": 1521983
+        },
+        "res/drawable-nodpi-v4/lik_emblem_rose.png": {
+          "sha256": "1d0ae050cb3874493f93a9f4fe510606e6c250b77320e217b2e7ffb46ef0d218",
+          "size": 1336553
+        },
+        "res/drawable-nodpi-v4/lik_emblem_sapphire.png": {
+          "sha256": "518ceab8a9c44878b5e9a50f51d15c07fe63a42f79bf6d33f4ee43ca4f6fa3ae",
+          "size": 1577366
+        },
+        "res/drawable-nodpi-v4/lik_emblem_sunrise.png": {
+          "sha256": "6851b0ddebd8a438cda1e3c4008b299fe62b8085a9b54680e42575d39d45573c",
+          "size": 1522226
+        },
+        "res/drawable-xhdpi-v4/notification_bg_low_normal.9.png": {
+          "sha256": "3e09afa21c45372c035598c017c8fb405a6d678e6cb84dc857581cb3b40e482d",
+          "size": 221
+        },
+        "res/drawable-xhdpi-v4/notification_bg_low_pressed.9.png": {
+          "sha256": "20343222f9f79dd565c3a2248494d452e70820ac1c437173c38badd45f962afd",
+          "size": 252
+        },
+        "res/drawable-xhdpi-v4/notification_bg_normal.9.png": {
+          "sha256": "559bf783d765c02338e97952bdc9c6689c7ff99090b8c9813369118da8b080f0",
+          "size": 221
+        },
+        "res/drawable-xhdpi-v4/notification_bg_normal_pressed.9.png": {
+          "sha256": "d27af435101ca4cbec0c840bd30687918cd39eb83aab1487420855623a45998b",
+          "size": 247
+        },
+        "res/drawable-xhdpi-v4/notify_panel_notification_icon_bg.png": {
+          "sha256": "b44eeda34d7a529c2fe55719eb098fa29707caa91d18de06a7a775d6e6bcf973",
+          "size": 138
+        },
+        "res/drawable/ic_call_answer.xml": {
+          "sha256": "161406bf79846bcd45f13f7f9ac46bf835db983d086c43a754f15b8a574cf831",
+          "size": 1356
+        },
+        "res/drawable/ic_call_answer_low.xml": {
+          "sha256": "8f9acacabaf2dfb4bb53dab7ce7bec9c1451ce0a0219ffaa41760ea82da3d2d6",
+          "size": 1320
+        },
+        "res/drawable/ic_call_answer_video.xml": {
+          "sha256": "e5d8029b22d3bcd3496b387bd4c775fe3ca0de342981ebf95b54a1f7ec09c462",
+          "size": 772
+        },
+        "res/drawable/ic_call_answer_video_low.xml": {
+          "sha256": "4a959580080ebb1d822a2459a4234d2abf0dd0b65d9c28bda8c258dafc888c51",
+          "size": 736
+        },
+        "res/drawable/ic_call_decline.xml": {
+          "sha256": "9869baa89df07463c9905927155f79b63b38f70933b475de6d01aa14d22bc6df",
+          "size": 1528
+        },
+        "res/drawable/ic_call_decline_low.xml": {
+          "sha256": "c8321364802409baf4d76e2a84e303871585bdc95b0395040c5ecea0e2051105",
+          "size": 1492
+        },
+        "res/drawable/ic_cloud_import.xml": {
+          "sha256": "869639f2331b985a372b21b7c5a7b2822ca751973e585c885c2bda1489269d83",
+          "size": 652
+        },
+        "res/drawable/ic_launcher_foreground.xml": {
+          "sha256": "4a5a0912f058666160c926562c88589dbbedfe7aac8fac8b4056d3736b7df4e2",
+          "size": 408
+        },
+        "res/drawable/ic_launcher_foreground_amber.xml": {
+          "sha256": "c651da331eb15a81a4a3ed2d1d9c75a7d53bf458fae00ee766c58d2deef5134b",
+          "size": 408
+        },
+        "res/drawable/ic_launcher_foreground_amethyst.xml": {
+          "sha256": "e5892a728e885c654ef20f012f41fcd7f9d5755ddb4dc140159de31b1dbda3de",
+          "size": 408
+        },
+        "res/drawable/ic_launcher_foreground_aurora.xml": {
+          "sha256": "51be7ac95913420d761252acced54143738b9744d1746e94d6fc13f222255418",
+          "size": 408
+        },
+        "res/drawable/ic_launcher_foreground_emerald.xml": {
+          "sha256": "10637066b520af22f9622a9ad7e9be32dcae5ee949ed371f04bceb4bda13d327",
+          "size": 408
+        },
+        "res/drawable/ic_launcher_foreground_ice.xml": {
+          "sha256": "8450acccb3336af467a7239ce8edaff7d106f04222e3fa25cbbce7f998686e96",
+          "size": 408
+        },
+        "res/drawable/ic_launcher_foreground_moonstone.xml": {
+          "sha256": "3783f934a20c1390773fc3f77b47961a069ae80f41995a382ab7b702acfe24b5",
+          "size": 408
+        },
+        "res/drawable/ic_launcher_foreground_rose.xml": {
+          "sha256": "018ab1b3271f61971d06c867902a5cb3f10fdc3f0666608ff339380e6786bfcd",
+          "size": 408
+        },
+        "res/drawable/ic_launcher_foreground_sapphire.xml": {
+          "sha256": "907313c3d5db3234a70e43b042f9dea27f259f5183eb25c1d08504ac5266fd88",
+          "size": 408
+        },
+        "res/drawable/ic_launcher_foreground_sunrise.xml": {
+          "sha256": "ef5e3d61b4a0520c8a66814573fa69f1f56b3a39e71ba111971c00726d96de62",
+          "size": 408
+        },
+        "res/drawable/ic_settings.xml": {
+          "sha256": "ca2c6fbdd02147bd3d169127262ea40b3bf80c8610c79de27162a182f9d2baf1",
+          "size": 1332
+        },
+        "res/drawable/lik_period_scrim.xml": {
+          "sha256": "927105b4a930cc3322ced25c32729e090ba270e14ff172593411d684e232b67b",
+          "size": 572
+        },
+        "res/drawable/lik_scale_track.xml": {
+          "sha256": "417a719b5862a9e0fcbec78cc82034dd1a87964c7956c4183efff64a4c4520bd",
+          "size": 448
+        },
+        "res/drawable/lik_timeline_tab.xml": {
+          "sha256": "935ad41b8b8d1f381247a2b686bfec1390a9ed7d8de7b4f35908307747fb039d",
+          "size": 1312
+        },
+        "res/drawable/notification_action_background.xml": {
+          "sha256": "dd61ee14a4e03bd9104fa40a72d0742fc926ab0d843bc6ff7886e2f0bc4dea69",
+          "size": 1180
+        },
+        "res/drawable/notification_bg.xml": {
+          "sha256": "8b1520f248cd3d6e6553cfb0a2ad671d9a2afe9f240004e546dff73651485c2d",
+          "size": 532
+        },
+        "res/drawable/notification_bg_low.xml": {
+          "sha256": "8b253c1d50a10e1372a9970c5db7ddcc1a7e8c8d603534e6602d3dafb42a1e88",
+          "size": 532
+        },
+        "res/drawable/notification_icon_background.xml": {
+          "sha256": "8ce92301f46a0b1965b50b49a1f9110af9fe30a8c8b38b3040196c4e3935133e",
+          "size": 372
+        },
+        "res/drawable/notification_tile_bg.xml": {
+          "sha256": "a6758b180e3b21c9b48ba009ccdb992c4a394c61a585279cac2b9c09a0f2cea7",
+          "size": 304
+        },
+        "res/layout/activity_main.xml": {
+          "sha256": "9d8663687077bda3fce2ceb5130d89c648f9ab0d1e09076821a3f61bb32bf324",
+          "size": 7816
+        },
+        "res/layout/activity_photo_viewer.xml": {
+          "sha256": "12dc27f2350e887c96df384199ea81df4ba1a7f3495fc1b2870462d043e63be7",
+          "size": 3048
+        },
+        "res/layout/activity_settings.xml": {
+          "sha256": "b51e1080f0642ec643bb027c0dc11e7dad1c6ee2a64275766905f0eee3ca1016",
+          "size": 1824
+        },
+        "res/layout/custom_dialog.xml": {
+          "sha256": "bd96b425bef9d310f169c475c08965df794c61f1e7ec3df767f5890132f9a1d9",
+          "size": 612
+        },
+        "res/layout/ime_base_split_test_activity.xml": {
+          "sha256": "37ff040591f96786bfaf9d3d937fedf2f2f97e218c06beb3e7fe8a2442a181a8",
+          "size": 364
+        },
+        "res/layout/ime_secondary_split_test_activity.xml": {
+          "sha256": "dacfef517624bfa6d5c78d3d29a96378c524550034ed256e5a01ae0af58fdd00",
+          "size": 876
+        },
+        "res/layout/item_icon_option.xml": {
+          "sha256": "411cdb0bb5bfae5a0a74a458f725e4ae6b38d4916cd883f4a2f16ba890c80281",
+          "size": 656
+        },
+        "res/layout/item_timeline_header.xml": {
+          "sha256": "e28866692c9ed130db051b7229e4ac4cd400cb3b7d908f53e68b766152e8b7df",
+          "size": 640
+        },
+        "res/layout/item_timeline_period.xml": {
+          "sha256": "6039c23a7716d817bb3237b5a25f4e0ce427f006f06adcb07824f3118788d2c5",
+          "size": 2164
+        },
+        "res/layout/item_timeline_photo.xml": {
+          "sha256": "9da2f1b9c4985fad1af8e3bd35eae450dfd03748ba771510387d2285b740d721",
+          "size": 1084
+        },
+        "res/layout/notification_action.xml": {
+          "sha256": "ca0215ef43cc8aeaa214e876ca90bbc19ddafd22f87c29eba32af7d7bfc86a78",
+          "size": 1052
+        },
+        "res/layout/notification_action_tombstone.xml": {
+          "sha256": "7ae7901c70ffe19f850fec28c99c14c09b190abde0228a56db06eebd97438ea1",
+          "size": 1228
+        },
+        "res/layout/notification_template_custom_big.xml": {
+          "sha256": "6770e95341562ec60e0e5ba19a69ff1a9f9c4b309de4509842e90ae0293f133c",
+          "size": 2456
+        },
+        "res/layout/notification_template_icon_group.xml": {
+          "sha256": "6ce6ee0b24d4f91bda599d96df485c69910ebfdab9a5dc26ff2942c432b34dff",
+          "size": 988
+        },
+        "res/layout/notification_template_part_chronometer.xml": {
+          "sha256": "00476f38622cf1c88de5ab597b815422f86e62b11ef40b479fe40de58ffa1adf",
+          "size": 440
+        },
+        "res/layout/notification_template_part_time.xml": {
+          "sha256": "5e45f09eebdcc9f6bd4261b09fe1a53001d4677f19b9b895b9a77173679e5a9b",
+          "size": 440
+        },
+        "res/mipmap-anydpi-v21/ic_launcher.xml": {
+          "sha256": "e69f696b546360ed59f8e09f69515a440d6f36ee248cf6a0e4c515570d3cad6b",
+          "size": 548
+        },
+        "res/mipmap-anydpi-v21/ic_launcher_amber.xml": {
+          "sha256": "504a2989a6caa342f6c11f870934a377aa827222ef10826442043040ffc07ac7",
+          "size": 548
+        },
+        "res/mipmap-anydpi-v21/ic_launcher_amethyst.xml": {
+          "sha256": "3bce4133689682c30406d8cadba021694a45237b6958c4c75fc96fbb202b0f0e",
+          "size": 548
+        },
+        "res/mipmap-anydpi-v21/ic_launcher_aurora.xml": {
+          "sha256": "2577a1d1bdac259a1b7656199976ec833d207ec6b671fb8db2ef79e0a7335d10",
+          "size": 548
+        },
+        "res/mipmap-anydpi-v21/ic_launcher_emerald.xml": {
+          "sha256": "d756136bd41760e6c08f80255aa601f15d161bd251edfa8a6096c2bcb78ac8a1",
+          "size": 548
+        },
+        "res/mipmap-anydpi-v21/ic_launcher_ice.xml": {
+          "sha256": "bb81de8c4dcb450675afe8525c43ff381c3db0c3cb0fed477d4346ee894217be",
+          "size": 548
+        },
+        "res/mipmap-anydpi-v21/ic_launcher_moonstone.xml": {
+          "sha256": "8c30e4e12fdd5b47d1b6a07127c65d51f9a809c22d39f7c0b1a29cf48af3cfe8",
+          "size": 548
+        },
+        "res/mipmap-anydpi-v21/ic_launcher_rose.xml": {
+          "sha256": "cb90c39a7996147df6cd356a364aacc9fadce47ac05b1741eba8f3be44c3870e",
+          "size": 548
+        },
+        "res/mipmap-anydpi-v21/ic_launcher_sapphire.xml": {
+          "sha256": "caaa38fbfc9f02e0c4bd56eb3729bd00e56a626f8e572393721d7837ec316439",
+          "size": 548
+        },
+        "res/mipmap-anydpi-v21/ic_launcher_sunrise.xml": {
+          "sha256": "3e4d727838e68fa0557ed4cc17a396d239f1bd20a6943fd74e43b97234fbe578",
+          "size": 548
+        },
+        "res/xml/data_extraction_rules.xml": {
+          "sha256": "757f2049fb0d70af338a3e505fca6fa81f3f5bf62bf313ca34d75a64b7a3cd1e",
+          "size": 2292
+        },
+        "res/xml/export_paths.xml": {
+          "sha256": "a44cab449e1087d37af239643ec2f0157f81265804d19a4b0bd504688971da29",
+          "size": 296
+        },
+        "resources.arsc": {
+          "sha256": "49fb97e600e525c8ce7be101171c6bc373cd0bfad033c7f70ce1e264bb4e4dd6",
+          "size": 124284
+        }
+      },
+      "resourceSemantics": {
+        "files": [
+          "res/color/lik_tab_text.xml",
+          "res/drawable-hdpi-v4/notification_bg_low_normal.9.png",
+          "res/drawable-hdpi-v4/notification_bg_low_pressed.9.png",
+          "res/drawable-hdpi-v4/notification_bg_normal.9.png",
+          "res/drawable-hdpi-v4/notification_bg_normal_pressed.9.png",
+          "res/drawable-hdpi-v4/notification_oversize_large_icon_bg.png",
+          "res/drawable-hdpi-v4/notify_panel_notification_icon_bg.png",
+          "res/drawable-mdpi-v4/notification_bg_low_normal.9.png",
+          "res/drawable-mdpi-v4/notification_bg_low_pressed.9.png",
+          "res/drawable-mdpi-v4/notification_bg_normal.9.png",
+          "res/drawable-mdpi-v4/notification_bg_normal_pressed.9.png",
+          "res/drawable-mdpi-v4/notify_panel_notification_icon_bg.png",
+          "res/drawable-nodpi-v4/lik_emblem.png",
+          "res/drawable-nodpi-v4/lik_emblem_amber.png",
+          "res/drawable-nodpi-v4/lik_emblem_amethyst.png",
+          "res/drawable-nodpi-v4/lik_emblem_aurora.png",
+          "res/drawable-nodpi-v4/lik_emblem_emerald.png",
+          "res/drawable-nodpi-v4/lik_emblem_ice.png",
+          "res/drawable-nodpi-v4/lik_emblem_moonstone.png",
+          "res/drawable-nodpi-v4/lik_emblem_rose.png",
+          "res/drawable-nodpi-v4/lik_emblem_sapphire.png",
+          "res/drawable-nodpi-v4/lik_emblem_sunrise.png",
+          "res/drawable-xhdpi-v4/notification_bg_low_normal.9.png",
+          "res/drawable-xhdpi-v4/notification_bg_low_pressed.9.png",
+          "res/drawable-xhdpi-v4/notification_bg_normal.9.png",
+          "res/drawable-xhdpi-v4/notification_bg_normal_pressed.9.png",
+          "res/drawable-xhdpi-v4/notify_panel_notification_icon_bg.png",
+          "res/drawable/ic_call_answer.xml",
+          "res/drawable/ic_call_answer_low.xml",
+          "res/drawable/ic_call_answer_video.xml",
+          "res/drawable/ic_call_answer_video_low.xml",
+          "res/drawable/ic_call_decline.xml",
+          "res/drawable/ic_call_decline_low.xml",
+          "res/drawable/ic_cloud_import.xml",
+          "res/drawable/ic_launcher_foreground.xml",
+          "res/drawable/ic_launcher_foreground_amber.xml",
+          "res/drawable/ic_launcher_foreground_amethyst.xml",
+          "res/drawable/ic_launcher_foreground_aurora.xml",
+          "res/drawable/ic_launcher_foreground_emerald.xml",
+          "res/drawable/ic_launcher_foreground_ice.xml",
+          "res/drawable/ic_launcher_foreground_moonstone.xml",
+          "res/drawable/ic_launcher_foreground_rose.xml",
+          "res/drawable/ic_launcher_foreground_sapphire.xml",
+          "res/drawable/ic_launcher_foreground_sunrise.xml",
+          "res/drawable/ic_settings.xml",
+          "res/drawable/lik_period_scrim.xml",
+          "res/drawable/lik_scale_track.xml",
+          "res/drawable/lik_timeline_tab.xml",
+          "res/drawable/notification_action_background.xml",
+          "res/drawable/notification_bg.xml",
+          "res/drawable/notification_bg_low.xml",
+          "res/drawable/notification_icon_background.xml",
+          "res/drawable/notification_tile_bg.xml",
+          "res/layout/activity_main.xml",
+          "res/layout/activity_photo_viewer.xml",
+          "res/layout/activity_settings.xml",
+          "res/layout/custom_dialog.xml",
+          "res/layout/ime_base_split_test_activity.xml",
+          "res/layout/ime_secondary_split_test_activity.xml",
+          "res/layout/item_icon_option.xml",
+          "res/layout/item_timeline_header.xml",
+          "res/layout/item_timeline_period.xml",
+          "res/layout/item_timeline_photo.xml",
+          "res/layout/notification_action.xml",
+          "res/layout/notification_action_tombstone.xml",
+          "res/layout/notification_template_custom_big.xml",
+          "res/layout/notification_template_icon_group.xml",
+          "res/layout/notification_template_part_chronometer.xml",
+          "res/layout/notification_template_part_time.xml",
+          "res/mipmap-anydpi-v21/ic_launcher.xml",
+          "res/mipmap-anydpi-v21/ic_launcher_amber.xml",
+          "res/mipmap-anydpi-v21/ic_launcher_amethyst.xml",
+          "res/mipmap-anydpi-v21/ic_launcher_aurora.xml",
+          "res/mipmap-anydpi-v21/ic_launcher_emerald.xml",
+          "res/mipmap-anydpi-v21/ic_launcher_ice.xml",
+          "res/mipmap-anydpi-v21/ic_launcher_moonstone.xml",
+          "res/mipmap-anydpi-v21/ic_launcher_rose.xml",
+          "res/mipmap-anydpi-v21/ic_launcher_sapphire.xml",
+          "res/mipmap-anydpi-v21/ic_launcher_sunrise.xml",
+          "res/xml/data_extraction_rules.xml",
+          "res/xml/export_paths.xml"
+        ],
+        "package": "io.github.mesteriis.lik",
+        "types": [
+          "attr",
+          "bool",
+          "color",
+          "dimen",
+          "drawable",
+          "id",
+          "integer",
+          "layout",
+          "mipmap",
+          "plurals",
+          "string",
+          "style",
+          "xml"
+        ]
+      }
+    },
+    "debugAndroidTest": {
+      "dex": [
+        {
+          "compilerPath": "app/build/intermediates/dex/debugAndroidTest/mergeExtDexDebugAndroidTest/classes.dex",
+          "sha256": "1471db9589a4b792b71400a68528c1a10ea5b6d7a1e034f52745b0aa0816dbe6",
+          "size": 822144
+        },
+        {
+          "compilerPath": "app/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/0/classes.dex",
+          "sha256": "6f7589cc71dbad62b5a7116da641ab14e6b87ed85281e53fee77bfb5dfed6997",
+          "size": 2112
+        },
+        {
+          "compilerPath": "app/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/5/classes.dex",
+          "sha256": "6c16a3b9645677d90de5630c4499a2c79b5349531db2a2a4e7bc626ff921ac51",
+          "size": 320416
+        },
+        {
+          "compilerPath": "app/build/intermediates/global_synthetics_dex/debugAndroidTest/generateDebugAndroidTestGlobalSynthetics/classes.dex",
+          "sha256": "2dc77c43c4dd7b58c8f433229d24a4118926f8d7b43f42f88daec4536fcd9274",
+          "size": 18456
+        }
+      ],
+      "kind": "android-test",
+      "profiles": {},
+      "resourceArchive": "app/build/intermediates/linked_resources_binary_format/debugAndroidTest/processDebugAndroidTestResources/linked-resources-binary-format.ap_",
+      "resourceEntries": {
+        "AndroidManifest.xml": {
+          "sha256": "985752c1f6d23eb9010003bca39552ec96a3c31ee47a54f43ae9d2c1e710996f",
+          "size": 5472
+        },
+        "res/drawable-hdpi-v4/notification_bg_low_normal.9.png": {
+          "sha256": "21f0b55280be10b187ceff8edef4a5a7047683e6e9fcf47de410aa3839f41094",
+          "size": 212
+        },
+        "res/drawable-hdpi-v4/notification_bg_low_pressed.9.png": {
+          "sha256": "42aee0b03883e94df5e543348a397d1302c1b8221895871a83b81899f5a9647b",
+          "size": 225
+        },
+        "res/drawable-hdpi-v4/notification_bg_normal.9.png": {
+          "sha256": "0c6328c7b2420570a7ec38b3beb3bac9a29d895ac1ab7239315aba7266418593",
+          "size": 212
+        },
+        "res/drawable-hdpi-v4/notification_bg_normal_pressed.9.png": {
+          "sha256": "18b328d8017e677d5aad3dbd66bae356b5cac978c6f0670938ea648e51d0eb66",
+          "size": 225
+        },
+        "res/drawable-hdpi-v4/notification_oversize_large_icon_bg.png": {
+          "sha256": "aa00088d0d9fd97bd92ed9ffd29b54bb69a48a984aa73448ce553fb9d812be41",
+          "size": 909
+        },
+        "res/drawable-hdpi-v4/notify_panel_notification_icon_bg.png": {
+          "sha256": "8430ec003e003f3f2ba2f78d48fd150e25407667e530e82e87a7d4841c0fd676",
+          "size": 107
+        },
+        "res/drawable-mdpi-v4/notification_bg_low_normal.9.png": {
+          "sha256": "2f7fbda0ba6e53e9a47e2fc0e24e32c447c613a5808c2d6285dc651e83a07ad7",
+          "size": 215
+        },
+        "res/drawable-mdpi-v4/notification_bg_low_pressed.9.png": {
+          "sha256": "e17761ed280edd93d7141bd504b70f9e9e15a8652288d9e6333bf4ce964ef844",
+          "size": 223
+        },
+        "res/drawable-mdpi-v4/notification_bg_normal.9.png": {
+          "sha256": "a8676a1793ac8310ffb12986232df66df092d29c242aeedc2b73556c010d38dc",
+          "size": 215
+        },
+        "res/drawable-mdpi-v4/notification_bg_normal_pressed.9.png": {
+          "sha256": "99c14d6855b8be296d58017d3751b8dc849c47b6d1d80ab614ff9075080e461b",
+          "size": 223
+        },
+        "res/drawable-mdpi-v4/notify_panel_notification_icon_bg.png": {
+          "sha256": "0d773e62c756422313262846c787e58f67e0ee87e45e1ae9942002e816c4cb9e",
+          "size": 98
+        },
+        "res/drawable-xhdpi-v4/notification_bg_low_normal.9.png": {
+          "sha256": "3e09afa21c45372c035598c017c8fb405a6d678e6cb84dc857581cb3b40e482d",
+          "size": 221
+        },
+        "res/drawable-xhdpi-v4/notification_bg_low_pressed.9.png": {
+          "sha256": "20343222f9f79dd565c3a2248494d452e70820ac1c437173c38badd45f962afd",
+          "size": 252
+        },
+        "res/drawable-xhdpi-v4/notification_bg_normal.9.png": {
+          "sha256": "559bf783d765c02338e97952bdc9c6689c7ff99090b8c9813369118da8b080f0",
+          "size": 221
+        },
+        "res/drawable-xhdpi-v4/notification_bg_normal_pressed.9.png": {
+          "sha256": "d27af435101ca4cbec0c840bd30687918cd39eb83aab1487420855623a45998b",
+          "size": 247
+        },
+        "res/drawable-xhdpi-v4/notify_panel_notification_icon_bg.png": {
+          "sha256": "b44eeda34d7a529c2fe55719eb098fa29707caa91d18de06a7a775d6e6bcf973",
+          "size": 138
+        },
+        "res/drawable/ic_call_answer.xml": {
+          "sha256": "161406bf79846bcd45f13f7f9ac46bf835db983d086c43a754f15b8a574cf831",
+          "size": 1356
+        },
+        "res/drawable/ic_call_answer_low.xml": {
+          "sha256": "8f9acacabaf2dfb4bb53dab7ce7bec9c1451ce0a0219ffaa41760ea82da3d2d6",
+          "size": 1320
+        },
+        "res/drawable/ic_call_answer_video.xml": {
+          "sha256": "e5d8029b22d3bcd3496b387bd4c775fe3ca0de342981ebf95b54a1f7ec09c462",
+          "size": 772
+        },
+        "res/drawable/ic_call_answer_video_low.xml": {
+          "sha256": "4a959580080ebb1d822a2459a4234d2abf0dd0b65d9c28bda8c258dafc888c51",
+          "size": 736
+        },
+        "res/drawable/ic_call_decline.xml": {
+          "sha256": "9869baa89df07463c9905927155f79b63b38f70933b475de6d01aa14d22bc6df",
+          "size": 1528
+        },
+        "res/drawable/ic_call_decline_low.xml": {
+          "sha256": "c8321364802409baf4d76e2a84e303871585bdc95b0395040c5ecea0e2051105",
+          "size": 1492
+        },
+        "res/drawable/notification_action_background.xml": {
+          "sha256": "dd61ee14a4e03bd9104fa40a72d0742fc926ab0d843bc6ff7886e2f0bc4dea69",
+          "size": 1180
+        },
+        "res/drawable/notification_bg.xml": {
+          "sha256": "16af7fb4a65c4f25362a2e97bb3c777f644d8a7eae705a388714ef5ed8663a07",
+          "size": 532
+        },
+        "res/drawable/notification_bg_low.xml": {
+          "sha256": "150887e1f05e4a1b7c5ca30a83f48e21599f43bb2b6aafe0406f6f73a19b1a33",
+          "size": 532
+        },
+        "res/drawable/notification_icon_background.xml": {
+          "sha256": "b3801aa2f660de2d10bcf8afdda597e5b6567f085e25425fb69b21d2db2304f6",
+          "size": 372
+        },
+        "res/drawable/notification_tile_bg.xml": {
+          "sha256": "28e6643cf612cd3fd81f019e56c65f96172be42da19c965ed49bd0c4a8a680c6",
+          "size": 304
+        },
+        "res/layout/custom_dialog.xml": {
+          "sha256": "7ecca2c79c3add0f5ad8f8dbc2a7aaadf18e1ac7ee3513b7ae2a588b924af7ad",
+          "size": 612
+        },
+        "res/layout/ime_base_split_test_activity.xml": {
+          "sha256": "37ff040591f96786bfaf9d3d937fedf2f2f97e218c06beb3e7fe8a2442a181a8",
+          "size": 364
+        },
+        "res/layout/ime_secondary_split_test_activity.xml": {
+          "sha256": "515c061f73c1de37f4610c52b264f32233e64599726247dbf79646a8a1d0b993",
+          "size": 876
+        },
+        "res/layout/notification_action.xml": {
+          "sha256": "d155462594857e0c843e8adb42770c54c178e6c4328193b949ebf5bf948f2d86",
+          "size": 1052
+        },
+        "res/layout/notification_action_tombstone.xml": {
+          "sha256": "429198296e5120027ca18ccf94ed381db7125e89cc58023d33255a4ce70ea974",
+          "size": 1228
+        },
+        "res/layout/notification_template_custom_big.xml": {
+          "sha256": "f041e01e570c416a364bd12b189b529fff3e4f607969818c66e17134d6657f28",
+          "size": 2456
+        },
+        "res/layout/notification_template_icon_group.xml": {
+          "sha256": "3b08a4878ed9d2f99bb6e6becdd92d90a09c9786df28d1b4331ee687086be51f",
+          "size": 988
+        },
+        "res/layout/notification_template_part_chronometer.xml": {
+          "sha256": "ddf82ea66cd48045c72ef3b5b44edb97e993dec87dae41ee5ecaa1812872ee4b",
+          "size": 440
+        },
+        "res/layout/notification_template_part_time.xml": {
+          "sha256": "36194e97f141cc83a272bf8bea42f6f61b6eb5567f3ea59289441b64b9f7bd45",
+          "size": 440
+        },
+        "resources.arsc": {
+          "sha256": "909414180138b06bbbd3c31efbdaf26828aa60719b450725d74950d1b13b3c19",
+          "size": 52356
+        }
+      },
+      "resourceSemantics": {
+        "files": [
+          "res/drawable-hdpi-v4/notification_bg_low_normal.9.png",
+          "res/drawable-hdpi-v4/notification_bg_low_pressed.9.png",
+          "res/drawable-hdpi-v4/notification_bg_normal.9.png",
+          "res/drawable-hdpi-v4/notification_bg_normal_pressed.9.png",
+          "res/drawable-hdpi-v4/notification_oversize_large_icon_bg.png",
+          "res/drawable-hdpi-v4/notify_panel_notification_icon_bg.png",
+          "res/drawable-mdpi-v4/notification_bg_low_normal.9.png",
+          "res/drawable-mdpi-v4/notification_bg_low_pressed.9.png",
+          "res/drawable-mdpi-v4/notification_bg_normal.9.png",
+          "res/drawable-mdpi-v4/notification_bg_normal_pressed.9.png",
+          "res/drawable-mdpi-v4/notify_panel_notification_icon_bg.png",
+          "res/drawable-xhdpi-v4/notification_bg_low_normal.9.png",
+          "res/drawable-xhdpi-v4/notification_bg_low_pressed.9.png",
+          "res/drawable-xhdpi-v4/notification_bg_normal.9.png",
+          "res/drawable-xhdpi-v4/notification_bg_normal_pressed.9.png",
+          "res/drawable-xhdpi-v4/notify_panel_notification_icon_bg.png",
+          "res/drawable/ic_call_answer.xml",
+          "res/drawable/ic_call_answer_low.xml",
+          "res/drawable/ic_call_answer_video.xml",
+          "res/drawable/ic_call_answer_video_low.xml",
+          "res/drawable/ic_call_decline.xml",
+          "res/drawable/ic_call_decline_low.xml",
+          "res/drawable/notification_action_background.xml",
+          "res/drawable/notification_bg.xml",
+          "res/drawable/notification_bg_low.xml",
+          "res/drawable/notification_icon_background.xml",
+          "res/drawable/notification_tile_bg.xml",
+          "res/layout/custom_dialog.xml",
+          "res/layout/ime_base_split_test_activity.xml",
+          "res/layout/ime_secondary_split_test_activity.xml",
+          "res/layout/notification_action.xml",
+          "res/layout/notification_action_tombstone.xml",
+          "res/layout/notification_template_custom_big.xml",
+          "res/layout/notification_template_icon_group.xml",
+          "res/layout/notification_template_part_chronometer.xml",
+          "res/layout/notification_template_part_time.xml"
+        ],
+        "package": "io.github.mesteriis.lik.test",
+        "types": [
+          "attr",
+          "bool",
+          "color",
+          "dimen",
+          "drawable",
+          "id",
+          "integer",
+          "layout",
+          "string",
+          "style"
+        ]
+      }
+    },
+    "release": {
+      "dex": [
+        {
+          "compilerPath": "app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex",
+          "sha256": "d55f939a059f8cf4ba641a0b4bf1d28601317f8440f8f7847c3730ef2e0c6975",
+          "size": 970636
+        }
+      ],
+      "kind": "app",
+      "profiles": {
+        "assets/dexopt/baseline.prof": {
+          "compilerPath": "app/build/intermediates/binary_art_profile/release/compileReleaseArtProfile/baseline.prof",
+          "sha256": "7d8752eddd6ff974aa62a7628d7e453e009d0bc1e5c6e2cdc3c7f518c29dfb9f",
+          "size": 988
+        },
+        "assets/dexopt/baseline.profm": {
+          "compilerPath": "app/build/intermediates/binary_art_profile_metadata/release/compileReleaseArtProfile/baseline.profm",
+          "sha256": "2b7ca9a497ba5e59b05e920aebe6ce4977ebd209b33f5d21e218433c21b3ba93",
+          "size": 162
+        }
+      },
+      "resourceArchive": "app/build/intermediates/optimized_processed_res/release/optimizeReleaseResources/resources-release-optimize.ap_",
+      "resourceEntries": {
+        "AndroidManifest.xml": {
+          "sha256": "28c7c5439d12e13052aeee0d5a6959ef8a1e1bb99b197cd561a09afde1a114c0",
+          "size": 15852
+        },
+        "res/4j.xml": {
+          "sha256": "757f2049fb0d70af338a3e505fca6fa81f3f5bf62bf313ca34d75a64b7a3cd1e",
+          "size": 2292
+        },
+        "res/4w.png": {
+          "sha256": "a8fb7aeddc1d9f78be2a4261f7df12089ae62f412293047c897395a470111013",
+          "size": 1477688
+        },
+        "res/4x.xml": {
+          "sha256": "d756136bd41760e6c08f80255aa601f15d161bd251edfa8a6096c2bcb78ac8a1",
+          "size": 548
+        },
+        "res/Ai.xml": {
+          "sha256": "2577a1d1bdac259a1b7656199976ec833d207ec6b671fb8db2ef79e0a7335d10",
+          "size": 548
+        },
+        "res/CN.xml": {
+          "sha256": "ca2c6fbdd02147bd3d169127262ea40b3bf80c8610c79de27162a182f9d2baf1",
+          "size": 1332
+        },
+        "res/DN.xml": {
+          "sha256": "018ab1b3271f61971d06c867902a5cb3f10fdc3f0666608ff339380e6786bfcd",
+          "size": 408
+        },
+        "res/E4.xml": {
+          "sha256": "e69f696b546360ed59f8e09f69515a440d6f36ee248cf6a0e4c515570d3cad6b",
+          "size": 548
+        },
+        "res/G4.xml": {
+          "sha256": "c651da331eb15a81a4a3ed2d1d9c75a7d53bf458fae00ee766c58d2deef5134b",
+          "size": 408
+        },
+        "res/Gi.xml": {
+          "sha256": "6039c23a7716d817bb3237b5a25f4e0ce427f006f06adcb07824f3118788d2c5",
+          "size": 2164
+        },
+        "res/IV.xml": {
+          "sha256": "ef5e3d61b4a0520c8a66814573fa69f1f56b3a39e71ba111971c00726d96de62",
+          "size": 408
+        },
+        "res/J_.png": {
+          "sha256": "da5511f9c1a26c8ad8a10405bdf2739483c5bd0665083f951ef37fc8740a6985",
+          "size": 1487098
+        },
+        "res/Nj.xml": {
+          "sha256": "e5892a728e885c654ef20f012f41fcd7f9d5755ddb4dc140159de31b1dbda3de",
+          "size": 408
+        },
+        "res/OM.xml": {
+          "sha256": "10637066b520af22f9622a9ad7e9be32dcae5ee949ed371f04bceb4bda13d327",
+          "size": 408
+        },
+        "res/Qr.xml": {
+          "sha256": "4a5a0912f058666160c926562c88589dbbedfe7aac8fac8b4056d3736b7df4e2",
+          "size": 408
+        },
+        "res/SK.png": {
+          "sha256": "1206c7792297948973cd8ee15767f4f0305830e61e8d784e3b5421eeb5ae2a9e",
+          "size": 1303616
+        },
+        "res/Vl.xml": {
+          "sha256": "cb90c39a7996147df6cd356a364aacc9fadce47ac05b1741eba8f3be44c3870e",
+          "size": 548
+        },
+        "res/Z2.png": {
+          "sha256": "311848cbda0bba7a0e51e4ca0f73ccd59459f5d2253d4482940816d3521b16bf",
+          "size": 1548623
+        },
+        "res/bO.xml": {
+          "sha256": "51be7ac95913420d761252acced54143738b9744d1746e94d6fc13f222255418",
+          "size": 408
+        },
+        "res/bk.xml": {
+          "sha256": "935ad41b8b8d1f381247a2b686bfec1390a9ed7d8de7b4f35908307747fb039d",
+          "size": 1312
+        },
+        "res/color/lik_tab_text.xml": {
+          "sha256": "16b5457699479eea874e683af49d5a806543720391884483aa07ddb4d7fd882d",
+          "size": 464
+        },
+        "res/dL.xml": {
+          "sha256": "3bce4133689682c30406d8cadba021694a45237b6958c4c75fc96fbb202b0f0e",
+          "size": 548
+        },
+        "res/eb.xml": {
+          "sha256": "927105b4a930cc3322ced25c32729e090ba270e14ff172593411d684e232b67b",
+          "size": 572
+        },
+        "res/hS.png": {
+          "sha256": "ea04c9f8b56fa5af315e6aa47b63992a169d9e95ed14196d10de994246626b3b",
+          "size": 1553387
+        },
+        "res/id.xml": {
+          "sha256": "9da2f1b9c4985fad1af8e3bd35eae450dfd03748ba771510387d2285b740d721",
+          "size": 1084
+        },
+        "res/kJ.xml": {
+          "sha256": "417a719b5862a9e0fcbec78cc82034dd1a87964c7956c4183efff64a4c4520bd",
+          "size": 448
+        },
+        "res/lW.png": {
+          "sha256": "bf79097e39a313c071ad707c99c5b1cc2dcd16375ec7619d2223dacdf1d40670",
+          "size": 1451935
+        },
+        "res/mu.xml": {
+          "sha256": "caaa38fbfc9f02e0c4bd56eb3729bd00e56a626f8e572393721d7837ec316439",
+          "size": 548
+        },
+        "res/oC.png": {
+          "sha256": "a22fd82f250901c00d52d38874efda05bc672dfac2cfc4ff5900e2dc97285aef",
+          "size": 699838
+        },
+        "res/p0.xml": {
+          "sha256": "907313c3d5db3234a70e43b042f9dea27f259f5183eb25c1d08504ac5266fd88",
+          "size": 408
+        },
+        "res/q3.xml": {
+          "sha256": "b51e1080f0642ec643bb027c0dc11e7dad1c6ee2a64275766905f0eee3ca1016",
+          "size": 1824
+        },
+        "res/qj.xml": {
+          "sha256": "869639f2331b985a372b21b7c5a7b2822ca751973e585c885c2bda1489269d83",
+          "size": 652
+        },
+        "res/r0.xml": {
+          "sha256": "12dc27f2350e887c96df384199ea81df4ba1a7f3495fc1b2870462d043e63be7",
+          "size": 3048
+        },
+        "res/s9.xml": {
+          "sha256": "504a2989a6caa342f6c11f870934a377aa827222ef10826442043040ffc07ac7",
+          "size": 548
+        },
+        "res/s_.xml": {
+          "sha256": "bb81de8c4dcb450675afe8525c43ff381c3db0c3cb0fed477d4346ee894217be",
+          "size": 548
+        },
+        "res/sp.xml": {
+          "sha256": "411cdb0bb5bfae5a0a74a458f725e4ae6b38d4916cd883f4a2f16ba890c80281",
+          "size": 656
+        },
+        "res/tX.xml": {
+          "sha256": "8c30e4e12fdd5b47d1b6a07127c65d51f9a809c22d39f7c0b1a29cf48af3cfe8",
+          "size": 548
+        },
+        "res/tj.xml": {
+          "sha256": "e28866692c9ed130db051b7229e4ac4cd400cb3b7d908f53e68b766152e8b7df",
+          "size": 640
+        },
+        "res/ty.png": {
+          "sha256": "13724a0c2676b2f312bfe5d6459b8d706cad6143afdb88b35c48d038f1fde5aa",
+          "size": 1549173
+        },
+        "res/v0.png": {
+          "sha256": "530f69071d1fef13885ccfe07fa6d7c49148c04d21723e3162509996e5a9fef8",
+          "size": 1491481
+        },
+        "res/v9.xml": {
+          "sha256": "9d8663687077bda3fce2ceb5130d89c648f9ab0d1e09076821a3f61bb32bf324",
+          "size": 7816
+        },
+        "res/ww.xml": {
+          "sha256": "8450acccb3336af467a7239ce8edaff7d106f04222e3fa25cbbce7f998686e96",
+          "size": 408
+        },
+        "res/xI.png": {
+          "sha256": "f4083587d10bb08c50839e05b36271323ebc243d4f115fc1d157c86b0c1498a5",
+          "size": 1561828
+        },
+        "res/xM.xml": {
+          "sha256": "3e4d727838e68fa0557ed4cc17a396d239f1bd20a6943fd74e43b97234fbe578",
+          "size": 548
+        },
+        "res/xN.xml": {
+          "sha256": "a44cab449e1087d37af239643ec2f0157f81265804d19a4b0bd504688971da29",
+          "size": 296
+        },
+        "res/z2.xml": {
+          "sha256": "3783f934a20c1390773fc3f77b47961a069ae80f41995a382ab7b702acfe24b5",
+          "size": 408
+        },
+        "resources.arsc": {
+          "sha256": "1496d1b5b003aab9d8d0f48315646c5f8a278fd0cec152581d45e84f931da31d",
+          "size": 36384
+        }
+      },
+      "resourceSemantics": {
+        "files": [
+          "res/4j.xml",
+          "res/4w.png",
+          "res/4x.xml",
+          "res/Ai.xml",
+          "res/CN.xml",
+          "res/DN.xml",
+          "res/E4.xml",
+          "res/G4.xml",
+          "res/Gi.xml",
+          "res/IV.xml",
+          "res/J_.png",
+          "res/Nj.xml",
+          "res/OM.xml",
+          "res/Qr.xml",
+          "res/SK.png",
+          "res/Vl.xml",
+          "res/Z2.png",
+          "res/bO.xml",
+          "res/bk.xml",
+          "res/color/lik_tab_text.xml",
+          "res/dL.xml",
+          "res/eb.xml",
+          "res/hS.png",
+          "res/id.xml",
+          "res/kJ.xml",
+          "res/lW.png",
+          "res/mu.xml",
+          "res/oC.png",
+          "res/p0.xml",
+          "res/q3.xml",
+          "res/qj.xml",
+          "res/r0.xml",
+          "res/s9.xml",
+          "res/s_.xml",
+          "res/sp.xml",
+          "res/tX.xml",
+          "res/tj.xml",
+          "res/ty.png",
+          "res/v0.png",
+          "res/v9.xml",
+          "res/ww.xml",
+          "res/xI.png",
+          "res/xM.xml",
+          "res/xN.xml",
+          "res/z2.xml"
+        ],
+        "package": "io.github.mesteriis.lik",
+        "types": [
+          "attr",
+          "bool",
+          "color",
+          "dimen",
+          "drawable",
+          "id",
+          "layout",
+          "mipmap",
+          "plurals",
+          "string",
+          "style",
+          "xml"
+        ]
+      }
+    }
+  }
+}
