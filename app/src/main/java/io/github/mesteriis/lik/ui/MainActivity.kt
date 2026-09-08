@@ -35,6 +35,10 @@ import io.github.mesteriis.lik.imports.ShareImportActivity
 import io.github.mesteriis.lik.settings.AppIconManager
 import io.github.mesteriis.lik.settings.SettingsActivity
 import java.time.ZoneId
+import io.github.mesteriis.lik.catalog.MediaDatabase
+import io.github.mesteriis.lik.catalog.MediaOperation
+import io.github.mesteriis.lik.catalog.OrganizationRepository
+import kotlinx.coroutines.*
 
 open class MainActivity : ComponentActivity() {
     private lateinit var model: ImportViewModel
@@ -50,6 +54,9 @@ open class MainActivity : ComponentActivity() {
     private lateinit var libraryZone: ZoneId
     private var importSummaryEvents = ImportSummaryEvents()
     private lateinit var timelinePinch: (android.view.MotionEvent) -> Boolean
+    private lateinit var organization: OrganizationPanel
+    private val organizationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var capabilityRevision = 0
 
     private val photoPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         refreshGallery()
@@ -73,6 +80,11 @@ open class MainActivity : ComponentActivity() {
         libraryZone = loadLibraryZone()
         ui = restoreUi(savedInstanceState)
         selection = GallerySelection(savedInstanceState?.getStringArrayList(STATE_SELECTION)?.toSet().orEmpty())
+        organization = OrganizationPanel(this, findViewById(R.id.section_placeholder), { selection.ids }) { id ->
+            selection = selection.toggle(id)
+            updateSelection()
+        }
+        organization.restore(savedInstanceState)
 
         timeline = TimelineAdapter(this, ::onPhotoClick, ::onPhotoLongClick, ::onPeriodClick, libraryZone)
         layoutManager = GridLayoutManager(this, spansFor(resources.displayMetrics.widthPixels)).apply {
@@ -124,8 +136,11 @@ open class MainActivity : ComponentActivity() {
         findViewById<View>(R.id.cancel_selection).setOnClickListener {
             selection = GallerySelection()
             updateSelection()
+            organization.refresh()
         }
         findViewById<View>(R.id.delete_selected).setOnClickListener { confirmDeleteSelection() }
+        findViewById<View>(R.id.organize_selected).setOnClickListener { organization.actions(selection.ids) }
+        findViewById<View>(R.id.open_search).setOnClickListener { selectSection(GallerySection.SEARCH) }
         val levels = mapOf(
             R.id.timeline_level_photo to TimelineLevel.PHOTO,
             R.id.timeline_level_days to TimelineLevel.DAYS,
@@ -228,7 +243,7 @@ open class MainActivity : ComponentActivity() {
         selection = selection.retainAvailable(selection.ids - state.deletedIds)
         if (!state.busy && state.deleted + state.deleteFailed > 0) {
             timeline.forget(state.deletedIds)
-            selection = GallerySelection(state.deleteFailedIds)
+            selection = GallerySelection((selection.ids - state.deletedIds) + state.deleteFailedIds)
         }
         updateSelection()
         findViewById<View>(R.id.import_photos).isEnabled = !state.busy
@@ -258,6 +273,7 @@ open class MainActivity : ComponentActivity() {
             progress = state.processed
         }
         renderTimeline()
+        if (!state.busy && !state.scanning) organization.refresh()
     }
 
     private fun renderTimeline() {
@@ -306,10 +322,21 @@ open class MainActivity : ComponentActivity() {
 
     private fun renderSection() {
         val feed = ui.section == GallerySection.FEED
+        if (ui.section !in setOf(GallerySection.ALBUMS, GallerySection.SEARCH, GallerySection.MORE)) organization.hide()
         findViewById<View>(R.id.timeline_level_scroll).visibility = if (feed) View.VISIBLE else View.GONE
         recycler.visibility = if (feed) View.VISIBLE else View.GONE
         findViewById<View>(R.id.section_placeholder).visibility = if (feed) View.GONE else View.VISIBLE
-        if (!feed) findViewById<TextView>(R.id.section_title).text = sectionName(ui.section)
+        if (!feed) {
+            if (ui.section in setOf(GallerySection.ALBUMS, GallerySection.SEARCH, GallerySection.MORE)) organization.show(ui.section)
+            else findViewById<android.widget.LinearLayout>(R.id.section_placeholder).apply {
+                removeAllViews()
+                addView(TextView(this@MainActivity).apply {
+                    text = getString(R.string.section_future, sectionName(ui.section))
+                    textSize = 20f
+                    setPadding(24, 24, 24, 24)
+                })
+            }
+        }
         mapOf(
             GallerySection.FEED to R.id.nav_feed,
             GallerySection.ALBUMS to R.id.nav_albums,
@@ -327,6 +354,7 @@ open class MainActivity : ComponentActivity() {
     private fun sectionName(section: GallerySection) = getString(when (section) {
         GallerySection.FEED -> R.string.nav_feed
         GallerySection.ALBUMS -> R.string.nav_albums
+        GallerySection.SEARCH -> R.string.search_title
         GallerySection.PLACES -> R.string.nav_places
         GallerySection.PEOPLE -> R.string.nav_people
         GallerySection.MORE -> R.string.nav_more
@@ -334,10 +362,6 @@ open class MainActivity : ComponentActivity() {
 
     private fun onPhotoClick(photo: GalleryPhoto) {
         if (selection.ids.isNotEmpty()) {
-            if (!photo.canDeleteCopy) {
-                Toast.makeText(this, R.string.local_photo_not_selectable, Toast.LENGTH_SHORT).show()
-                return
-            }
             selection = selection.toggle(photo.id)
             updateSelection()
             return
@@ -346,10 +370,6 @@ open class MainActivity : ComponentActivity() {
     }
 
     private fun onPhotoLongClick(photo: GalleryPhoto) {
-        if (!photo.canDeleteCopy) {
-            Toast.makeText(this, R.string.device_photo_kept_in_system_gallery, Toast.LENGTH_SHORT).show()
-            return
-        }
         selection = selection.toggle(photo.id)
         updateSelection()
     }
@@ -363,18 +383,35 @@ open class MainActivity : ComponentActivity() {
         timeline.select(selection.ids)
         findViewById<View>(R.id.selection_bar).visibility = if (selection.ids.isEmpty()) View.GONE else View.VISIBLE
         findViewById<TextView>(R.id.selection_count).text = getString(R.string.selected_count, selection.ids.size)
-        findViewById<View>(R.id.delete_selected).isEnabled = selection.ids.isNotEmpty() && model.state.value?.busy != true
+        val revision = ++capabilityRevision
+        val ids = selection.ids
+        findViewById<View>(R.id.delete_selected).isEnabled = false
+        findViewById<View>(R.id.organize_selected).isEnabled = ids.isNotEmpty() && model.state.value?.busy != true
+        if (ids.isNotEmpty() && model.state.value?.busy != true) organizationScope.launch {
+            val eligible = withContext(Dispatchers.IO) {
+                runCatching { OrganizationRepository(MediaDatabase.get(this@MainActivity)).eligible(ids, MediaOperation.DELETE_COPY) }.getOrDefault(emptySet())
+            }
+            if (revision == capabilityRevision) findViewById<View>(R.id.delete_selected).isEnabled = eligible.isNotEmpty() && model.state.value?.busy != true
+        }
     }
 
     private fun confirmDeleteSelection() {
-        val ids = selection.ids
-        if (ids.isEmpty()) return
-        AlertDialog.Builder(this)
-            .setTitle(resources.getQuantityString(R.plurals.delete_photos_title, ids.size, ids.size))
-            .setMessage(R.string.delete_photos_message)
-            .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton(R.string.delete) { _, _ -> model.deletePhotos(ids) }
-            .show()
+        val requested = selection.ids
+        if (requested.isEmpty()) return
+        organizationScope.launch {
+            val repository = OrganizationRepository(MediaDatabase.get(this@MainActivity))
+            val ids = withContext(Dispatchers.IO) { repository.eligible(requested, MediaOperation.DELETE_COPY) }
+            if (ids.isEmpty() || model.state.value?.busy == true) return@launch
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle(resources.getQuantityString(R.plurals.delete_photos_title, ids.size, ids.size))
+                .setMessage(R.string.delete_selected_copies_message)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.delete) { _, _ -> organizationScope.launch {
+                    val current = withContext(Dispatchers.IO) { repository.eligible(ids, MediaOperation.DELETE_COPY) }
+                    model.deletePhotos(current)
+                } }
+                .show()
+        }
     }
 
     private fun showImportInstructions() {
@@ -441,6 +478,7 @@ open class MainActivity : ComponentActivity() {
         super.onResume()
         findViewById<ImageView>(R.id.app_emblem).setImageResource(AppIconManager(this).selected().emblemRes)
         refreshGallery()
+        organization.refresh()
     }
 
     override fun onStop() { model.stopObserving(); super.onStop() }
@@ -453,6 +491,7 @@ open class MainActivity : ComponentActivity() {
         outState.putInt(STATE_SCROLL_OFFSET, ui.anchorOffset)
         outState.putInt(STATE_SCROLL_CHRONOLOGICAL_INDEX, ui.anchorChronologicalIndex)
         outState.putStringArrayList(STATE_SELECTION, ArrayList(selection.ids))
+        organization.save(outState)
         importSummaryEvents.renderedOperationId?.let { outState.putLong(STATE_RENDERED_IMPORT_SUMMARY, it) }
         super.onSaveInstanceState(outState)
     }
@@ -514,7 +553,7 @@ open class MainActivity : ComponentActivity() {
         }
     }
     private fun spansFor(widthPx: Int) = if (widthPx / resources.displayMetrics.density >= 600f) 12 else 6
-    override fun onDestroy() { timeline.close(); super.onDestroy() }
+    override fun onDestroy() { organization.close(); organizationScope.cancel(); timeline.close(); super.onDestroy() }
 
     companion object {
         private const val STATE_SELECTION = "gallery.selection"

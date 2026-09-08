@@ -56,7 +56,10 @@ data class MediaRecord(
     val exifRevision: Long? = null,
     val exifOrientation: Int? = null,
     @ColumnInfo(defaultValue = "''") val scanMarker: String = "",
-)
+) {
+    // A body property deliberately recomputes on copy(displayName = ...), including scanner updates.
+    @ColumnInfo(defaultValue = "''") var displayNameSearch: String = searchKey(displayName.orEmpty())
+}
 
 fun MediaRecord.toGalleryPhoto(privateFile: (String) -> File): GalleryPhoto = GalleryPhoto(
     id = mediaId,

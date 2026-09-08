@@ -7,17 +7,42 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [MediaRecord::class, VolumeCheckpoint::class], version = 2, exportSchema = true)
+@Database(entities = [MediaRecord::class, VolumeCheckpoint::class, Album::class, AlbumMedia::class, Favorite::class, MediaTag::class], version = 3, exportSchema = true)
 abstract class MediaDatabase : RoomDatabase() {
     abstract fun media(): MediaDao
+    abstract fun organization(): OrganizationDao
 
     companion object {
         @Volatile private var instance: MediaDatabase? = null
 
         fun get(context: Context): MediaDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MediaDatabase::class.java, "media.db")
-                .addMigrations(migration1To2(context))
+                .addMigrations(migration1To2(context), MIGRATION_2_3)
                 .build().also { instance = it }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE media ADD COLUMN displayNameSearch TEXT NOT NULL DEFAULT ''")
+                var lastId: String? = null
+                while (true) {
+                    val after = lastId
+                    val batch = mutableListOf<Pair<String, String>>()
+                    db.query("SELECT mediaId, displayName FROM media " + (if (after == null) "" else "WHERE mediaId > ? ") + "ORDER BY mediaId LIMIT 256",
+                        if (after == null) emptyArray() else arrayOf(after)).use { cursor ->
+                        while (cursor.moveToNext()) batch += cursor.getString(0) to searchKey(cursor.getString(1).orEmpty())
+                    }
+                    if (batch.isEmpty()) break
+                    batch.forEach { (id, key) -> db.execSQL("UPDATE media SET displayNameSearch = ? WHERE mediaId = ?", arrayOf(key, id)) }
+                    lastId = batch.last().first
+                }
+                db.execSQL("CREATE TABLE IF NOT EXISTS album (albumId TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS album_media (albumId TEXT NOT NULL, mediaId TEXT NOT NULL, PRIMARY KEY(albumId, mediaId), FOREIGN KEY(albumId) REFERENCES album(albumId) ON UPDATE NO ACTION ON DELETE CASCADE, FOREIGN KEY(mediaId) REFERENCES media(mediaId) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE INDEX index_album_media_mediaId ON album_media(mediaId)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS favorite (mediaId TEXT NOT NULL PRIMARY KEY, FOREIGN KEY(mediaId) REFERENCES media(mediaId) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS media_tag (mediaId TEXT NOT NULL, tagKey TEXT NOT NULL, label TEXT NOT NULL, PRIMARY KEY(mediaId, tagKey), FOREIGN KEY(mediaId) REFERENCES media(mediaId) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE INDEX index_media_tag_tagKey ON media_tag(tagKey)")
+            }
         }
 
         fun migration1To2(context: Context): Migration {

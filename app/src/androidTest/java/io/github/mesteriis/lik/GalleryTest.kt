@@ -282,8 +282,12 @@ class GalleryTest {
                 val position = (list.adapter as TimelineAdapter).positionForPhoto(id)
                 assertTrue(requireNotNull(list.findViewHolderForAdapterPosition(position)).itemView.performLongClick())
                 assertTrue(activity.findViewById<TextView>(R.id.selection_count).isShown)
-                assertTrue(activity.findViewById<Button>(R.id.delete_selected).isEnabled)
             }
+            assertTrue(waitFor(5_000) {
+                var enabled = false
+                scenario.onActivity { enabled = it.findViewById<Button>(R.id.delete_selected).isEnabled }
+                enabled
+            })
             scenario.recreate()
             scenario.onActivity { activity ->
                 assertTrue(activity.findViewById<TextView>(R.id.selection_count).isShown)
@@ -312,8 +316,10 @@ class GalleryTest {
         }
     }
 
-    @Test fun devicePhotoCannotJoinPrivateCopyDeletionSelection() {
+    @Test fun mixedSourceSelectionDeletesOnlyThePrivateCopyAndKeepsDeviceSelected() {
         instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_IMAGES)
+        // Exercise selection/deletion with both source rows visible, independent of period mosaics.
+        context.getSharedPreferences("gallery_ui", 0).edit().putString("gallery.last.level", TimelineLevel.PHOTO.name).commit()
         val importedId = addPhoto(Color.GREEN)
         val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val uri = requireNotNull(context.contentResolver.insert(collection, ContentValues().apply {
@@ -342,25 +348,52 @@ class GalleryTest {
                 assertTrue(requireNotNull(list.findViewHolderForAdapterPosition(adapter.positionForPhoto(importedId))).itemView.performLongClick())
                 list.scrollToPosition(adapter.positionForPhoto(requireNotNull(localId)))
             }
-            assertTrue(waitFor(5_000) {
+            var bindingState = "Device row not checked"
+            val deviceBound = waitFor(5_000) {
                 var bound = false
                 scenario.onActivity { activity ->
                     val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
                     val position = (list.adapter as TimelineAdapter).positionForPhoto(requireNotNull(localId))
+                    bindingState = "device=$localId position=$position count=${list.adapter!!.itemCount} shown=${list.isShown} size=${list.width}x${list.height}"
                     if (position >= 0) {
                         list.scrollToPosition(position)
                         bound = list.findViewHolderForAdapterPosition(position) != null
                     }
                 }
                 bound
-            })
+            }
+            assertTrue(bindingState, deviceBound)
             scenario.onActivity { activity ->
                 val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
                 val adapter = list.adapter as TimelineAdapter
                 val position = adapter.positionForPhoto(requireNotNull(localId))
                 assertTrue(requireNotNull(list.findViewHolderForAdapterPosition(position)).itemView.performClick())
-                assertEquals(context.getString(R.string.selected_count, 1), activity.findViewById<TextView>(R.id.selection_count).text)
+                assertEquals(context.getString(R.string.selected_count, 2), activity.findViewById<TextView>(R.id.selection_count).text)
             }
+            assertTrue(waitFor(5_000) {
+                var enabled = false
+                scenario.onActivity { enabled = it.findViewById<Button>(R.id.delete_selected).isEnabled }
+                enabled
+            })
+            scenario.onActivity { it.findViewById<Button>(R.id.delete_selected).performClick() }
+            assertTrue(waitFor(5_000) {
+                var clicked = false
+                instrumentation.runOnMainSync {
+                    android.view.inspector.WindowInspector.getGlobalWindowViews().mapNotNull { it.findViewById<Button>(android.R.id.button1) }
+                        .firstOrNull { it.text == context.getString(R.string.delete) }?.let { clicked = it.performClick() }
+                }
+                clicked
+            })
+            assertTrue(waitFor(5_000) { !PhotoLibrary.store(context).fileFor(importedId).exists() })
+            context.contentResolver.openInputStream(uri)!!.use { assertTrue(it.read() >= 0) }
+            assertTrue(waitFor(5_000) {
+                var retained = false
+                scenario.onActivity { activity ->
+                    retained = activity.findViewById<TextView>(R.id.selection_count).text == context.getString(R.string.selected_count, 1) &&
+                        !activity.findViewById<Button>(R.id.delete_selected).isEnabled
+                }
+                retained
+            })
         }
     }
 

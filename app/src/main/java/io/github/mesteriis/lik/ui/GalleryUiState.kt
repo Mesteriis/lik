@@ -2,7 +2,7 @@ package io.github.mesteriis.lik.ui
 
 import io.github.mesteriis.lik.gallery.TimelineLevel
 
-enum class GallerySection { FEED, ALBUMS, PLACES, PEOPLE, MORE }
+enum class GallerySection { FEED, ALBUMS, SEARCH, PLACES, PEOPLE, MORE }
 
 data class GalleryUiState(
     val level: TimelineLevel = TimelineLevel.DAYS,

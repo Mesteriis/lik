@@ -6,6 +6,9 @@
     <ImageView android:id="@+id/app_emblem" android:layout_width="42dp" android:layout_height="42dp" android:importantForAccessibility="no" android:src="@mipmap/ic_launcher" />
     <TextView android:id="@+id/app_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
         android:layout_marginStart="10dp" android:text="@string/app_name" android:textColor="@color/lik_text_primary" android:textSize="25sp" />
+    <ImageButton android:id="@+id/open_search" android:layout_width="48dp" android:layout_height="48dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless" android:contentDescription="@string/search_title"
+        android:src="@android:drawable/ic_menu_search" />
     <ImageButton android:id="@+id/import_photos" android:layout_width="48dp" android:layout_height="48dp"
         android:background="?android:attr/selectableItemBackgroundBorderless" android:contentDescription="@string/import_photos" android:padding="12dp" android:src="@drawable/ic_cloud_import" />
     <ImageButton android:id="@+id/open_settings" android:layout_width="48dp" android:layout_height="48dp"
@@ -32,13 +35,16 @@
       android:textColor="@color/lik_text_secondary" android:textSize="14sp" android:visibility="gone" />
   <TextView android:id="@+id/import_summary" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingHorizontal="16dp" android:paddingVertical="6dp"
       android:textColor="@color/lik_text_secondary" android:textSize="14sp" android:visibility="gone" />
-  <LinearLayout android:id="@+id/selection_bar" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical"
-      android:orientation="horizontal" android:paddingHorizontal="8dp" android:visibility="gone">
+  <HorizontalScrollView android:id="@+id/selection_bar" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone" android:fillViewport="true">
+  <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:gravity="center_vertical"
+      android:orientation="horizontal" android:paddingHorizontal="8dp">
     <Button android:id="@+id/cancel_selection" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/cancel" android:textAllCaps="false" />
-    <TextView android:id="@+id/selection_count" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center"
+    <TextView android:id="@+id/selection_count" android:layout_width="wrap_content" android:layout_height="wrap_content" android:paddingHorizontal="8dp" android:gravity="center"
         android:textColor="@color/lik_text_primary" android:textSize="16sp" />
     <Button android:id="@+id/delete_selected" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/delete" android:textAllCaps="false" />
+    <Button android:id="@+id/organize_selected" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/organize_selected" android:textAllCaps="false" />
   </LinearLayout>
+  </HorizontalScrollView>
   <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
     <androidx.recyclerview.widget.RecyclerView android:id="@+id/photo_timeline" android:layout_width="match_parent" android:layout_height="match_parent"
         android:clipToPadding="false" android:paddingBottom="10dp" android:saveEnabled="false" />

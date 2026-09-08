@@ -1,5 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+  <string name="search_title">Search</string>
+  <string name="create_album">Create album</string>
+  <string name="favorites_title">Favorites</string>
+  <string name="virtual_albums">Lik albums</string>
+  <string name="no_albums">No albums yet.</string>
+  <string name="device_folders">Device folders</string>
+  <string name="no_folders">No accessible device folders.</string>
+  <string name="unknown_folder">Unknown folder</string>
+  <string name="albums_help">Albums and favorites store relationships only. Long press an album to rename or remove it. Inaccessible photos stay in your collections and reappear when access returns.</string>
+  <string name="collection_count">%1$s · Photos: %2$d</string>
+  <string name="rename_album">Rename album</string>
+  <string name="remove_album">Remove album</string>
+  <string name="remove_album_message">Remove this album? Its photos will remain in their original locations.</string>
+  <string name="search_name">Display name</string>
+  <string name="search_tag">Tag</string>
+  <string name="search_from">From date (YYYY-MM-DD)</string>
+  <string name="search_until">Through date (YYYY-MM-DD)</string>
+  <string name="search_source">Source</string>
+  <string name="source_all">All sources</string>
+  <string name="source_device">Device</string>
+  <string name="source_google">Google import</string>
+  <string name="search_date_help">Dates include both selected days, using the library time zone. Photos without dates appear only when both date fields are empty.</string>
+  <string name="invalid_search_date">Enter valid dates as YYYY-MM-DD, with the start before or on the end date.</string>
+  <string name="search_results">Search results</string>
+  <string name="search_empty">No accessible photos match.</string>
+  <string name="results_help">Tap to open. Long press to select photos from either source, then choose Organize. Device originals cannot be deleted.</string>
+  <string name="previous_page">Previous page</string>
+  <string name="next_page">Next page</string>
+  <string name="organize_selected">Organize</string>
+  <string name="add_favorites">Add to favorites</string>
+  <string name="remove_favorites">Remove from favorites</string>
+  <string name="add_to_album">Add to album</string>
+  <string name="add_tag">Add tag</string>
+  <string name="remove_tag">Remove tag</string>
+  <string name="remove_from_album">Remove from this album</string>
+  <string name="save">Save</string>
+  <string name="name_required">Enter a name.</string>
+  <string name="organization_error">Could not update or read the catalog. Please try again.</string>
+  <string name="organization_saved">Saved.</string>
+  <string name="organization_updated">Accessible photos updated: %1$d</string>
+  <string name="trash_title">Trash</string>
+  <string name="ai_settings_title">AI settings</string>
+  <string name="trash_future">Trash is not available yet. The upcoming trash feature will retain deleted private copies for 30 days. Current deletion is permanent for the private copy; originals are preserved.</string>
+  <string name="ai_future">Offline AI is not available yet. Compact, Balanced (default), and Extended profiles are planned. No models are bundled or running.</string>
+  <string name="section_future">%1$s is not available yet.</string>
+  <string name="delete_selected_copies_message">Permanently delete only the selected accessible private copies from Lik? Device and Google Photos originals remain unchanged.</string>
     <string name="timeline_undated">No date</string>
   <string name="app_name">Lik</string>
   <string name="gallery_placeholder">No photos are available.</string>
@@ -30,7 +76,6 @@
   <string name="gallery_imported_source_error">Lik could not refresh imported photos. Showing previously cataloged photos; some may be temporarily unavailable.</string>
   <string name="imported_photo">Photo %1$d</string>
   <string name="google_photos_unavailable">Google Photos is unavailable on this device.</string>
-  <string name="device_photo_kept_in_system_gallery">This photo stays in the system gallery. Lik does not create or delete a copy.</string>
   <string name="import_invalid">Choose 1–50 photos and wait for the current import to finish.</string>
   <string name="import_busy">An import is already in progress.</string>
   <string name="import_summary">Import complete: Added %1$d · Already in Lik %2$d · Failed %3$d.</string>
@@ -74,5 +119,4 @@
     <item quantity="one">%1$d photo</item>
     <item quantity="other">%1$d photos</item>
   </plurals>
-  <string name="local_photo_not_selectable">Device photos stay in the system gallery and cannot be selected for deletion here.</string>
 </resources>

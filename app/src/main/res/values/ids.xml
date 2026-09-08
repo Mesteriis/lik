@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+  <item name="organization_create_album" type="id" />
+  <item name="organization_favorites" type="id" />
+  <item name="organization_search" type="id" />
+  <item name="organization_trash" type="id" />
+  <item name="organization_ai" type="id" />
+  <item name="search_name" type="id" />
+  <item name="search_tag" type="id" />
+  <item name="search_from" type="id" />
+  <item name="search_until" type="id" />
+  <item name="search_source" type="id" />
+  <item name="search_submit" type="id" />
   <item name="icon_classic" type="id" />
   <item name="icon_emerald" type="id" />
   <item name="icon_amethyst" type="id" />

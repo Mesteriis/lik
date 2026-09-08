@@ -1,5 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+  <string name="search_title">Поиск</string>
+  <string name="create_album">Создать альбом</string>
+  <string name="favorites_title">Избранное</string>
+  <string name="virtual_albums">Альбомы Лика</string>
+  <string name="no_albums">Альбомов пока нет.</string>
+  <string name="device_folders">Папки устройства</string>
+  <string name="no_folders">Нет доступных папок устройства.</string>
+  <string name="unknown_folder">Неизвестная папка</string>
+  <string name="albums_help">Альбомы и избранное хранят только связи. Удерживайте альбом, чтобы переименовать или убрать его. Недоступные фото сохраняются в коллекциях и появятся при восстановлении доступа.</string>
+  <string name="collection_count">%1$s · Фото: %2$d</string>
+  <string name="rename_album">Переименовать альбом</string>
+  <string name="remove_album">Убрать альбом</string>
+  <string name="remove_album_message">Убрать этот альбом? Фотографии останутся на своих местах.</string>
+  <string name="search_name">Имя файла</string>
+  <string name="search_tag">Метка</string>
+  <string name="search_from">С даты (ГГГГ-ММ-ДД)</string>
+  <string name="search_until">По дату (ГГГГ-ММ-ДД)</string>
+  <string name="search_source">Источник</string>
+  <string name="source_all">Все источники</string>
+  <string name="source_device">Устройство</string>
+  <string name="source_google">Импорт из Google</string>
+  <string name="search_date_help">Обе граничные даты включаются в часовом поясе библиотеки. Фото без дат появляются только при пустых полях дат.</string>
+  <string name="invalid_search_date">Введите даты в формате ГГГГ-ММ-ДД. Начало не должно быть позже окончания.</string>
+  <string name="search_results">Результаты поиска</string>
+  <string name="search_empty">Нет доступных фото по этим условиям.</string>
+  <string name="results_help">Нажмите, чтобы открыть. Удерживайте фото для выбора из любого источника, затем нажмите «Упорядочить». Оригиналы устройства удалить нельзя.</string>
+  <string name="previous_page">Предыдущая страница</string>
+  <string name="next_page">Следующая страница</string>
+  <string name="organize_selected">Упорядочить</string>
+  <string name="add_favorites">В избранное</string>
+  <string name="remove_favorites">Убрать из избранного</string>
+  <string name="add_to_album">В альбом</string>
+  <string name="add_tag">Добавить метку</string>
+  <string name="remove_tag">Убрать метку</string>
+  <string name="remove_from_album">Убрать из этого альбома</string>
+  <string name="save">Сохранить</string>
+  <string name="name_required">Введите название.</string>
+  <string name="organization_error">Не удалось обновить или прочитать каталог. Попробуйте ещё раз.</string>
+  <string name="organization_saved">Сохранено.</string>
+  <string name="organization_updated">Обновлено доступных фото: %1$d.</string>
+  <string name="trash_title">Корзина</string>
+  <string name="ai_settings_title">Настройки ИИ</string>
+  <string name="trash_future">Корзина пока недоступна. Будущая функция сохранит удалённые приватные копии на 30 дней. Сейчас копия удаляется безвозвратно; оригиналы сохраняются.</string>
+  <string name="ai_future">Офлайн-ИИ пока недоступен. Запланированы профили «Компактный», «Сбалансированный» (по умолчанию) и «Расширенный». Модели пока не включены и не работают.</string>
+  <string name="section_future">Раздел «%1$s» пока недоступен.</string>
+  <string name="delete_selected_copies_message">Безвозвратно удалить только выбранные доступные приватные копии из Лика? Оригиналы на устройстве и в Google Фото останутся без изменений.</string>
     <string name="timeline_undated">Без даты</string>
   <string name="app_name">Лик</string>
   <string name="gallery_placeholder">Нет доступных фотографий.</string>
@@ -30,7 +76,6 @@
   <string name="gallery_imported_source_error">Лик не смог обновить импортированные фото. Показаны фото из сохранённого каталога; некоторые могут быть временно недоступны.</string>
   <string name="imported_photo">Фото %1$d</string>
   <string name="google_photos_unavailable">Google Фото недоступны на этом устройстве.</string>
-  <string name="device_photo_kept_in_system_gallery">Фото остаётся в системной галерее. Лик не создаёт и не удаляет его копию.</string>
   <string name="import_invalid">Выберите от 1 до 50 фото и дождитесь завершения текущего импорта.</string>
   <string name="import_busy">Импорт уже выполняется.</string>
   <string name="import_summary">Импорт завершён: добавлено %1$d · уже в Лике %2$d · не удалось %3$d.</string>
@@ -77,5 +122,4 @@
     <item quantity="many">%1$d фото</item>
     <item quantity="other">%1$d фото</item>
   </plurals>
-  <string name="local_photo_not_selectable">Фото устройства остаются в системной галерее, их нельзя выбрать здесь для удаления.</string>
 </resources>
