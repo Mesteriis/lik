@@ -250,9 +250,9 @@ class TimelineAdapter(
         photo: GalleryPhoto,
         view: ImageView,
         edge: Int,
-        priority: ThumbnailPriority = thumbnailPriority(view.isAttachedToWindow),
         forceReload: Boolean = false,
     ) {
+        val priority = thumbnailPriority(view.isAttachedToWindow)
         val key = ThumbnailKey(photo.id, photo.sourceRevision, edge, accessEpoch.current)
         val existing = view.tag as? ThumbnailBinding
         if (!forceReload && existing?.key == key && existing.priority == priority) return
@@ -260,7 +260,7 @@ class TimelineAdapter(
         view.setOnClickListener(null)
         view.isClickable = false
         view.setImageBitmap(null)
-        val request = thumbnailLoader.load(key, ThumbnailPriority.VISIBLE, {
+        val request = thumbnailLoader.loadForBinding(key, view.isAttachedToWindow, {
             try { GalleryCatalog.decode(context, photo, edge) } catch (_: Exception) { null }
         }) { result ->
             main.post {
@@ -274,7 +274,7 @@ class TimelineAdapter(
                 }
             }
         }
-        view.tag = ThumbnailBinding(key, photo, edge, priority, request)
+        view.tag = ThumbnailBinding(key, photo, edge, request.priority, request)
     }
 
     fun forget(ids: Set<String>) {
@@ -294,7 +294,7 @@ class TimelineAdapter(
     private fun prioritizeAttached(view: ImageView) {
         val binding = view.tag as? ThumbnailBinding ?: return
         if (binding.priority != ThumbnailPriority.VISIBLE) {
-            load(binding.photo, view, binding.edge, ThumbnailPriority.VISIBLE)
+            load(binding.photo, view, binding.edge)
         }
     }
     private fun dp(value: Int) = (value * context.resources.displayMetrics.density).toInt()

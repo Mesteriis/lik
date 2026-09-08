@@ -57,6 +57,7 @@ internal class MapThumbnailCache<T> : ThumbnailCache<T> {
 
 internal class ThumbnailRequest<T> internal constructor(
     val disposition: ThumbnailRequestDisposition,
+    val priority: ThumbnailPriority,
     private val cancelRequest: () -> Unit,
 ) {
     fun cancel() = cancelRequest()
@@ -82,6 +83,7 @@ internal class ThumbnailLoader<T>(
     ) {
         val listeners = linkedMapOf<Long, Listener<T>>()
         var running = false
+        var discardResult = false
     }
 
     private val lock = Any()
@@ -141,11 +143,25 @@ internal class ThumbnailLoader<T>(
         }
         if (cached != null) onResult(ThumbnailResult(value = cached))
         evicted.forEach { it.callback(ThumbnailResult(cancelled = true)) }
-        return ThumbnailRequest(result) { cancel(key, listenerId) }
+        return ThumbnailRequest(result, priority) { cancel(key, listenerId) }
     }
+
+    fun loadForBinding(
+        key: ThumbnailKey,
+        isAttached: Boolean,
+        decode: () -> T?,
+        onResult: (ThumbnailResult<T>) -> Unit,
+    ) = load(key, thumbnailPriority(isAttached), decode, onResult)
 
     fun invalidate(predicate: (ThumbnailKey) -> Boolean) = synchronized(lock) {
         cache.keys().filter(predicate).forEach(cache::remove)
+        workByKey.values.filter { predicate(it.key) }.toList().forEach { work ->
+            work.discardResult = true
+            cancelled += work.listeners.size
+            work.listeners.clear()
+            if (!work.running) queued.remove(work)
+            if (workByKey[work.key] === work) workByKey.remove(work.key)
+        }
     }
 
     fun snapshot(): ThumbnailLoaderSnapshot = synchronized(lock) {
@@ -192,9 +208,9 @@ internal class ThumbnailLoader<T>(
         val result = try { work.decode() } catch (_: Exception) { null }
         val listeners = synchronized(lock) {
             active--
-            workByKey.remove(work.key)
-            if (!closed && result != null) cache.put(work.key, result)
-            val deliver = if (closed) emptyList() else work.listeners.values.toList()
+            if (workByKey[work.key] === work) workByKey.remove(work.key)
+            if (!closed && !work.discardResult && result != null) cache.put(work.key, result)
+            val deliver = if (closed || work.discardResult) emptyList() else work.listeners.values.toList()
             startWorkersLocked()
             deliver
         }

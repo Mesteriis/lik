@@ -6,6 +6,53 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ThumbnailLoaderTest {
+    @Test fun productionBindingSubmissionUsesItsAttachmentPriority() {
+        val loader = ThumbnailLoader<String>(QueuedExecutor(), MapThumbnailCache(), queueCapacity = 1)
+        val detached = loader.loadForBinding(ThumbnailKey("detached", 1, 128, 1), isAttached = false, { "prefetch" }) { }
+        val attached = loader.loadForBinding(ThumbnailKey("attached", 1, 128, 1), isAttached = true, { "visible" }) { }
+
+        assertEquals(ThumbnailPriority.PREFETCH, detached.priority)
+        assertEquals(ThumbnailPriority.VISIBLE, attached.priority)
+    }
+
+    @Test fun invalidatingEpochDropsQueuedWorkAndLetsNewEpochQueue() {
+        val executor = QueuedExecutor()
+        val cache = MapThumbnailCache<String>()
+        val loader = ThumbnailLoader(executor, cache, queueCapacity = 1)
+        var queuedDecodes = 0
+        var queuedDelivered = false
+        var freshDecodes = 0
+
+        loader.load(ThumbnailKey("active-one", 1, 128, 0), ThumbnailPriority.VISIBLE, { "one" }) { }
+        loader.load(ThumbnailKey("active-two", 1, 128, 0), ThumbnailPriority.VISIBLE, { "two" }) { }
+        val stale = ThumbnailKey("stale", 1, 128, 0)
+        loader.load(stale, ThumbnailPriority.PREFETCH, { queuedDecodes++; "stale" }) { queuedDelivered = true }
+        loader.invalidate { it.accessEpoch == 0L }
+        val fresh = loader.load(ThumbnailKey("fresh", 1, 128, 1), ThumbnailPriority.VISIBLE, { freshDecodes++; "fresh" }) { }
+        executor.runAll()
+
+        assertEquals(ThumbnailRequestDisposition.QUEUED, fresh.disposition)
+        assertEquals(0, queuedDecodes)
+        assertTrue(!queuedDelivered)
+        assertEquals(1, freshDecodes)
+    }
+
+    @Test fun invalidatingEpochDiscardsRunningResultAndDetachesItsListener() {
+        val executor = QueuedExecutor()
+        val cache = MapThumbnailCache<String>()
+        val loader = ThumbnailLoader(executor, cache, queueCapacity = 1)
+        val stale = ThumbnailKey("stale", 1, 128, 0)
+        var delivered = false
+
+        loader.load(stale, ThumbnailPriority.VISIBLE, { "old" }) { delivered = it.value != null }
+        loader.invalidate { it.accessEpoch == 0L }
+        executor.runAll()
+
+        assertTrue(!delivered)
+        assertEquals(null, cache.get(stale))
+        assertEquals(1, loader.snapshot().cancelled)
+    }
+
     @Test fun detachedBindingUsesPrefetchAndAttachedBindingUsesVisiblePriority() {
         assertEquals(ThumbnailPriority.PREFETCH, thumbnailPriority(isAttached = false))
         assertEquals(ThumbnailPriority.VISIBLE, thumbnailPriority(isAttached = true))
