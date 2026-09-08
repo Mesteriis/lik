@@ -22,7 +22,7 @@
 
 ## Пользовательская модель
 
-Настройки показывают функции: **Поиск по описанию**, **Люди**, **Текст на фото** и следующие выбранные возможности. В деталях каждой функции видны используемые модели, версия, место на диске, загрузка/ошибка, прогресс индексации и доступные действия. Устанавливаются только три проверенных preset-набора из закреплённых Hugging Face URLs. Произвольные URL, импорт файлов моделей и пользовательские профили не поддерживаются.
+Настройки показывают функции: **Поиск по описанию**, **Люди**, **Текст на фото** и следующие выбранные возможности. В Task 10 доступен поиск; «Люди» и «Текст на фото» видимы, но отключены с явной пометкой Task 11, чтобы неподготовленный product/index path не оставлял профиль в ложном состоянии `PREPARING`. В деталях профиля видны модели, версия, место на диске, загрузка/ошибка, прогресс индексации и доступные действия. Устанавливаются только три проверенных preset-набора из закреплённых Hugging Face URLs. Произвольные URL, импорт файлов моделей и пользовательские профили не поддерживаются.
 
 Например, на телефоне одновременно установлены:
 
@@ -44,7 +44,7 @@ Profiles — immutable versioned sets для semantic search, OCR и people; п�
 | Balanced (default) | SigLIP 2 Base 224 | PP-OCRv5 mobile detector/Cyrillic recognizer | YuNet/SFace |
 | Extended | SigLIP 2 Large 256 | PP-OCRv5 server detector/Cyrillic recognizer | YuNet/SFace |
 
-Task 9 pins publisher and converter revisions, immutable Hugging Face runtime URLs, filenames, sizes/SHA-256, licenses and tensor/preprocessing contracts. All APKs contain manifests and license notices only. Distribution verification rejects weights/tokenizers, even when the external development cache is complete. Task 10 downloads files explicitly from Settings using durable resumable Range staging and per-file journals, space reservations, network/retry/cancel controls, whole-file size/SHA checks, self-tests and atomic publication. INTERNET is authorized for these downloads. Shared files are deduplicated by digest; cleanup respects every installed profile and live operation/lease. The previous active profile remains until the new artifacts and enabled index generations are complete.
+Task 9 pins publisher and converter revisions, immutable Hugging Face runtime URLs, filenames, sizes/SHA-256, licenses and tensor/preprocessing contracts. All APKs contain manifests and license notices only. Distribution verification rejects weights/tokenizers, even when the external development cache is complete. Task 10 downloads files explicitly from Settings through one global process/file-lock coordinator using shared digest staging, durable resumable Range journals, remaining-byte reservations, foreground data-sync execution, network/retry/pause/cancel controls, whole-file size/SHA checks, corruption quarantine, real component self-tests and atomic publication. INTERNET is authorized for these downloads. Shared files and in-progress ownership are deduplicated by digest; cleanup respects every installed profile, operation and live runtime lease. The previous active profile remains until the new artifacts and enabled index generations are complete.
 
 ## Предлагаемые сущности
 
@@ -130,7 +130,7 @@ Fingerprint поиска включает **веса обоих encoders, tokeni
 6. Удаление модели с live lease откладывается; отключение функции не удаляет зависимость другой функции.
 7. На Fold измеряются cold/warm latency, память UI + runtime, температура и батарея при индексации одновременно с просмотром.
 
-Task 10 реализует этот сценарий для всех трёх профилей: resumable HF staging, fsync/atomic publish, единый `ModelCatalog`, isolated ORT CPU runtime, generation/checkpoint в Room, exact cosine oracle и локально собранный USearch 2.26.0 через JNI. Интерактивный поиск получает приоритет на границе тяжёлой задачи; фоновые работы требуют opt-in функции и системных ограничений WorkManager.
+Task 10 реализует этот сценарий для всех трёх профилей: resumable HF staging, fsync/atomic publish, единый `ModelCatalog`, persistent-bound isolated ORT CPU runtime с binder-death/rebind leases, generation/checkpoint в Room, exact cosine oracle и локально собранный USearch 2.26.0 через JNI. Production search берёт ограниченный список кандидатов из сохранённого native generation и exact-rerank только этих строк; bounded exact fallback не выдаёт себя за полный approximate индекс. Periodic, one-shot и manual workers сериализуются по pipeline/generation, а публикация перепроверяет отмену, доступ и ревизию. Durable retirement journal удаляет указатели каталога до Room/files и завершает cleanup после process death. Интерактивный поиск получает приоритет на границе тяжёлой задачи; фоновые работы требуют opt-in функции и системных ограничений WorkManager.
 
 ## Task 9: зафиксированные артефакты и границы проверки
 

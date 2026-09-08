@@ -57,6 +57,17 @@
   <string name="export_saved">Копия сохранена.</string>
   <string name="export_failed">Не удалось экспортировать. Проверьте доступ к фото, разрешения места назначения и свободное место. Оригиналы сохранены.</string>
   <string name="ai_download_disclosure">Модели скачиваются только после нажатия «Скачать» из закреплённых ревизий Hugging Face, затем проверяются и проходят самотестирование. Веса моделей не входят в приложение.</string>
+  <string name="ai_download_notification">Загрузка ИИ-профиля</string>
+  <string name="ai_feature_unavailable">%1$s — будет доступно после обновления OCR и людей</string>
+  <string name="ai_state_not_installed">Не установлен</string>
+  <string name="ai_state_downloading">Скачивается</string>
+  <string name="ai_state_paused">Приостановлен</string>
+  <string name="ai_state_verifying">Проверяется</string>
+  <string name="ai_state_self_testing">Самотестирование</string>
+  <string name="ai_state_preparing">Подготовка индекса</string>
+  <string name="ai_state_installed">Установлен</string>
+  <string name="ai_state_active">Активен</string>
+  <string name="ai_state_error">Ошибка</string>
   <string name="ai_features">Функции</string>
   <string name="ai_feature_search">Поиск по описанию</string>
   <string name="ai_feature_ocr">Текст на фото</string>
@@ -64,6 +75,7 @@
   <string name="ai_profile_compact">Компактный</string>
   <string name="ai_profile_balanced">Сбалансированный (по умолчанию)</string>
   <string name="ai_profile_extended">Расширенный</string>
+  <string name="ai_profile_heading_status">%1$s · %2$s</string>
   <string name="ai_profile_components">Компоненты: %1$s</string>
   <string name="ai_profile_size">Проверенный размер скачивания/установки: %1$s</string>
   <string name="ai_profile_state">Состояние: %1$s</string>

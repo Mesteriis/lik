@@ -4,13 +4,12 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.io.FileOutputStream
 
 /** Sole durable source for profile selection, feature opt-in, installation and active generations. */
 class ModelCatalog private constructor(private val root: File, val trusted: TrustedModelCatalog) {
     private val stateFile = File(root, "catalog-state-v1.json")
     private val listeners = mutableSetOf<(CatalogSnapshot) -> Unit>()
-    @Volatile private var current = readOrFresh()
+    @Volatile private var current = initialize()
 
     fun snapshot(): CatalogSnapshot = current
     @Synchronized fun update(transform: (CatalogSnapshot) -> CatalogSnapshot): CatalogSnapshot {
@@ -31,15 +30,11 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
         ProfileTransitions.select(state, profile, state.enabledFeatures, fingerprints)
     }
     fun setFeature(feature: AiFeature, enabled: Boolean): CatalogSnapshot = update { state ->
-        val features = if (enabled) state.enabledFeatures + feature else state.enabledFeatures - feature
-        if (!enabled) state.copy(revision = state.revision + 1, enabledFeatures = features,
-            activeGenerations = state.activeGenerations - feature,
-            pending = state.pending?.copy(enabled = state.pending.enabled - feature,
-                readyGenerations = state.pending.readyGenerations - feature))
-        else state.active?.let { active ->
-            val fingerprints = trusted.profiles.getValue(active).pipelines.mapValues { it.value.fingerprint }
-            ProfileTransitions.select(state.copy(enabledFeatures = features), active, features, fingerprints)
-        } ?: state.copy(revision = state.revision + 1, enabledFeatures = features)
+        val requested = state.pending?.enabled ?: state.enabledFeatures
+        val features = if (enabled) requested + feature else requested - feature
+        val target = state.pending?.profile ?: state.active ?: state.selected
+        val fingerprints = trusted.profiles.getValue(target).pipelines.mapValues { it.value.fingerprint }
+        ProfileTransitions.featuresChanged(state, features, fingerprints)
     }
 
     fun selfTested(profile: ProfileId): CatalogSnapshot = update { state ->
@@ -68,29 +63,46 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
     fun operationPhase(profile: ProfileId, phase: ProfilePhase, completed: Long = 0, total: Long = 0, error: String? = null) = update { state ->
         state.copy(revision = state.revision + 1, profiles = state.profiles + (profile to ProfileState(phase, completed, total, error)))
     }
-    fun removeInactive(profile: ProfileId): CatalogSnapshot = update { state ->
+    fun removeInactive(profile: ProfileId, removedGenerations: Set<String> = emptySet()): CatalogSnapshot = update { state ->
         require(state.active != profile && state.pending?.profile != profile)
-        state.copy(revision = state.revision + 1,
+        CatalogGenerationCleanup.remove(state, removedGenerations).copy(
             profiles = state.profiles + (profile to ProfileState()),
             selected = if (state.selected == profile) (state.active ?: ProfileId.BALANCED) else state.selected)
     }
+    fun discardGenerations(ids: Set<String>): CatalogSnapshot = update { state ->
+        CatalogGenerationCleanup.remove(state, ids)
+    }
     fun closeForTests() { instances.entries.removeIf { it.value === this } }
+
+    private fun initialize(): CatalogSnapshot {
+        val persisted = readOrFresh()
+        val versioned = if (persisted.catalogVersion == trusted.version) persisted
+            else CatalogMigrations.toVersion(persisted, trusted.version)
+        val repaired = CatalogStorageRepair.repair(versioned, ::generationUsable)
+        if (repaired != persisted) write(repaired)
+        return repaired
+    }
+
+    private fun generationUsable(generation: IndexGeneration): Boolean {
+        if (!generation.complete) return false
+        val directory = File(root, "indexes/${generation.id}.ready")
+        return if (generation.total == 0) File(directory, "empty").isFile
+        else File(directory, "index.usearch").isFile && File(directory, "verified").isFile
+    }
 
     private fun readOrFresh(): CatalogSnapshot = runCatching {
         if (!stateFile.isFile) return@runCatching CatalogSnapshot.fresh(trusted.version)
-        decode(stateFile.readText()).takeIf { it.catalogVersion == trusted.version } ?: CatalogSnapshot.fresh(trusted.version)
+        decode(stateFile.readText())
     }.getOrElse {
-        stateFile.takeIf(File::exists)?.renameTo(File(root, "catalog-state-corrupt-${System.currentTimeMillis()}.json"))
+        stateFile.takeIf(File::exists)?.let {
+            it.renameTo(File(root, "catalog-state-corrupt-${System.currentTimeMillis()}.json"))
+            DurableAiFiles.syncDirectory(root)
+        }
         CatalogSnapshot.fresh(trusted.version)
     }
 
     private fun write(state: CatalogSnapshot) {
-        root.mkdirs()
-        val temporary = File(root, ".catalog-state-${System.nanoTime()}.tmp")
-        FileOutputStream(temporary).use { output ->
-            output.write(encode(state).toByteArray(Charsets.UTF_8)); output.fd.sync()
-        }
-        check(temporary.renameTo(stateFile)) { "Could not commit model catalog" }
+        DurableAiFiles.atomicWrite(stateFile, encode(state).toByteArray(Charsets.UTF_8))
     }
 
     private fun encode(state: CatalogSnapshot) = JSONObject().apply {

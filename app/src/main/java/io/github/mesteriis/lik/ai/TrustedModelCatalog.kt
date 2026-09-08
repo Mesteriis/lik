@@ -5,7 +5,14 @@ import org.json.JSONObject
 import java.net.URI
 
 data class PipelineSpec(val feature: AiFeature, val fingerprint: String, val dimension: Int?)
-data class ComponentSpec(val id: String, val fingerprint: String, val roles: Set<String>, val artifacts: List<ArtifactSpec>)
+data class GraphSmokeSpec(val artifactPath: String, val inputName: String, val shape: IntArray, val outputName: String?)
+data class ComponentSpec(
+    val id: String,
+    val fingerprint: String,
+    val roles: Set<String>,
+    val artifacts: List<ArtifactSpec>,
+    val smokeGraphs: List<GraphSmokeSpec>,
+)
 data class ProfileSpec(
     val id: ProfileId,
     val componentIds: List<String>,
@@ -22,6 +29,8 @@ class TrustedModelCatalog private constructor(
     val allArtifacts: Map<String, ArtifactSpec> = components.values.flatMap { it.artifacts }.associateBy { it.sha256 }
     fun artifacts(profile: ProfileId): List<ArtifactSpec> = profiles.getValue(profile).componentIds
         .flatMap { components.getValue(it).artifacts }.distinctBy { it.sha256 }
+    fun smokeGraphs(profile: ProfileId): List<GraphSmokeSpec> = profiles.getValue(profile).componentIds
+        .flatMap { components.getValue(it).smokeGraphs }
 
     companion object {
         fun load(context: Context): TrustedModelCatalog = context.assets.open("models/catalog-v1.json").bufferedReader().use {
@@ -41,7 +50,16 @@ class TrustedModelCatalog private constructor(
                     val artifacts = value.getJSONArray("artifacts").objects().map { file ->
                         ArtifactSpec(file.getString("path"), file.getLong("size"), file.getString("sha256"), URI(file.getString("url")))
                     }
-                    check(put(id, ComponentSpec(id, value.getString("fingerprint"), roles, artifacts)) == null)
+                    val smoke = value.getJSONArray("artifacts").objects().mapNotNull { file ->
+                        if (!file.getString("path").endsWith(".onnx")) return@mapNotNull null
+                        val graph = file.getJSONObject("onnx")
+                        val input = graph.getJSONArray("inputs").getJSONObject(0)
+                        val shape = input.getJSONArray("smokeShape").let { values -> IntArray(values.length()) { values.getInt(it) } }
+                        val output = graph.optString("primaryOutput").takeIf(String::isNotBlank)
+                            ?: graph.getJSONArray("outputs").getJSONObject(0).getString("name")
+                        GraphSmokeSpec(file.getString("path"), input.getString("name"), shape, output)
+                    }
+                    check(put(id, ComponentSpec(id, value.getString("fingerprint"), roles, artifacts, smoke)) == null)
                 }
             }
             val profiles = buildMap {

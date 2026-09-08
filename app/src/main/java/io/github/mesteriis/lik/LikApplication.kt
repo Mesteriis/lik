@@ -9,7 +9,12 @@ class LikApplication : Application() {
         super.onCreate()
         if (android.os.Process.isIsolated()) return
         TrashMaintenance.schedule(this)
-        val state = ModelCatalog.get(this).snapshot()
-        if (AiFeature.SEARCH in state.enabledFeatures) state.active?.let { AiIndexWorker.enqueue(this, it, manual = false) }
+        Thread({
+            ModelMaintenance.recover(this)
+            val state = ModelCatalog.get(this).snapshot()
+            val requested = state.pending?.enabled ?: state.enabledFeatures
+            val profile = state.pending?.profile ?: state.active
+            if (AiFeature.SEARCH in requested) profile?.let { AiIndexWorker.enqueue(this, it, manual = false) }
+        }, "lik-ai-recovery").start()
     }
 }

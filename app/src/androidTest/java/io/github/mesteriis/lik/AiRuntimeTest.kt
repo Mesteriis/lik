@@ -13,6 +13,7 @@ import io.github.mesteriis.lik.aigate.*
 import io.github.mesteriis.lik.settings.AiSettingsActivity
 import java.io.File
 import java.net.InetAddress
+import java.net.URI
 import java.net.ServerSocket
 import kotlin.concurrent.thread
 import java.util.concurrent.Executors
@@ -49,17 +50,88 @@ class AiRuntimeTest {
         } finally { if (handle != 0L) bridge.close(handle); file.delete() }
     }
 
+    @Test fun corruptArtifactsAreQuarantinedAndSharedReservationsRecoverAcrossOperations() {
+        val root = File(context.cacheDir, "ai-durable-${System.nanoTime()}")
+        val store = ArtifactStore(root)
+        val expected = "verified model bytes".toByteArray()
+        val source = File(root, "expected").apply { parentFile!!.mkdirs(); writeBytes(expected) }
+        val digest = ArtifactStore.sha256(source)
+        val spec = ArtifactSpec("component/model.onnx", expected.size.toLong(), digest,
+            URI("https://huggingface.co/org/repo/resolve/${"a".repeat(40)}/model.onnx"))
+        store.file(digest).apply { parentFile!!.mkdirs(); writeBytes(ByteArray(expected.size) { 7 }) }
+        try {
+            assertTrue(store.repair(spec))
+            assertFalse(store.file(digest).exists())
+            assertEquals(1, File(root, "quarantine").listFiles().orEmpty().size)
+
+            val part = store.sharedPart(digest).apply { writeBytes(expected.copyOf(5)) }
+            val ledger = DownloadReservationLedger(root)
+            val first = ledger.acquire("compact", listOf(spec to part.length()), 1_000, 10)
+            assertEquals(expected.size - 5L + 10L, first.requiredBytes)
+            assertEquals("compact", ledger.owner(digest))
+            ledger.acquire("balanced", listOf(spec to part.length()), 1_000, 10)
+            assertEquals("balanced", ledger.owner(digest))
+            ledger.release("compact")
+            assertEquals("balanced", ledger.owner(digest))
+            ledger.release("balanced")
+            store.abandonShared(setOf(digest), "balanced")
+            assertFalse(part.exists())
+            val removals = GenerationRemovalJournal(root)
+            removals.begin(ProfileId.COMPACT, setOf("old-generation"))
+            assertEquals(setOf("old-generation"), removals.ids())
+            removals.finish(ProfileId.COMPACT)
+            assertTrue(removals.ids().isEmpty())
+        } finally { root.deleteRecursively() }
+    }
+
+    @Test fun roomPublicationRejectsSameGenerationRevisionRaceWithoutAdvancingCheckpoint() {
+        val mediaId = "d".repeat(63) + "1"
+        val file = PhotoLibrary.store(context).fileFor(mediaId).apply {
+            parentFile!!.mkdirs(); writeBytes(byteArrayOf(1, 2, 3))
+        }
+        val media = ImportedCatalogMigration.record(io.github.mesteriis.lik.imports.ImportedPhoto(mediaId, file), 17)
+        val database = MediaDatabase.get(context)
+        val dao = database.aiIndexes()
+        val generationId = "race-${System.nanoTime()}"
+        val generation = AiIndexGenerationRecord(generationId, ProfileId.COMPACT.wire, AiFeature.SEARCH.name,
+            "pipeline", GenerationStatus.PREPARING, 0, 1, null, null, System.currentTimeMillis())
+        try {
+            database.media().upsert(media)
+            dao.saveGeneration(generation)
+            val stale = AiEmbeddingRecord(generationId, mediaId, 1, media.contentRevision + 1, media.lastSeenAt,
+                floatArrayOf(1f, 0f).toBytes())
+            assertFalse(dao.publishEmbeddingIfCurrent(stale, generation.copy(completed = 1, checkpointMediaId = mediaId)))
+            assertNull(dao.embedding(generationId, mediaId))
+            assertEquals(0, dao.generation(generationId)!!.completed)
+            assertNull(dao.generation(generationId)!!.checkpointMediaId)
+        } finally {
+            dao.deleteGenerations(setOf(generationId))
+            database.media().trash(setOf(mediaId), 1); database.media().claimPurge(setOf(mediaId)); database.media().finishPurge(mediaId)
+            file.delete()
+        }
+    }
+
     @Test fun aiSettingsShowsThreeProfilesAndControlsAfterRecreation() {
         ActivityScenario.launch(AiSettingsActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
-                assertNotNull(activity.findViewById<android.view.View>(R.id.ai_profile_compact))
+                val heading = activity.findViewById<android.view.View>(R.id.ai_profile_compact)
+                assertNotNull(heading)
                 assertNotNull(activity.findViewById<android.view.View>(R.id.ai_profile_balanced))
                 assertNotNull(activity.findViewById<android.view.View>(R.id.ai_profile_extended))
                 assertNotNull(activity.findViewById<android.view.View>(R.id.ai_feature_search))
                 assertNotNull(activity.findViewById<android.view.View>(R.id.aigate_enabled))
+                val ocr = activity.findViewById<android.widget.Switch>(R.id.ai_feature_ocr)
+                val people = activity.findViewById<android.widget.Switch>(R.id.ai_feature_people)
+                assertFalse(ocr.isEnabled); assertFalse(people.isEnabled)
+                activity.findViewById<android.widget.EditText>(R.id.aigate_port).setText("4567")
+                ModelCatalog.get(activity).update { it.copy(revision = it.revision + 1) }
+                assertSame(heading, activity.findViewById<android.view.View>(R.id.ai_profile_compact))
             }
             scenario.recreate()
-            scenario.onActivity { assertNotNull(it.findViewById<android.view.View>(R.id.ai_profile_balanced)) }
+            scenario.onActivity {
+                assertNotNull(it.findViewById<android.view.View>(R.id.ai_profile_balanced))
+                assertEquals("4567", it.findViewById<android.widget.EditText>(R.id.aigate_port).text.toString())
+            }
         }
     }
 
@@ -127,6 +199,11 @@ class AiRuntimeTest {
                 AiGateClient(AiGateEndpoint(server.port), readTimeoutMs = 100).health()
             }
         }
+        FakeAiGate("{}", responseDelayMillis = 750).use { server ->
+            assertThrows(java.net.SocketTimeoutException::class.java) {
+                AiGateClient(AiGateEndpoint(server.port), readTimeoutMs = 5_000, overallTimeoutMs = 100).health()
+            }
+        }
         FakeAiGate("{}", responseDelayMillis = 2_000).use { server ->
             val client = AiGateClient(AiGateEndpoint(server.port), readTimeoutMs = 5_000)
             val executor = Executors.newSingleThreadExecutor()
@@ -169,12 +246,34 @@ class AiRuntimeTest {
         ProfileId.entries.filter { requested == null || it.wire == requested }.forEach { profile ->
             val specs = catalog.trusted.artifacts(profile)
             assertTrue(profile.wire, specs.all { store.installed(it.sha256, it.size) })
-            ModelSelfTest(store, runtime, engine).validate(profile, specs)
+            ModelSelfTest(store, runtime, engine, catalog.trusted).validate(profile, specs)
             val expected = catalog.trusted.profiles.getValue(profile).pipelines.getValue(AiFeature.SEARCH).dimension
             assertEquals(expected, engine.query(profile, "красная машина и белый снег").size)
             val image = Bitmap.createBitmap(96, 64, Bitmap.Config.ARGB_8888).apply { eraseColor(0xff885533.toInt()) }
             try { assertEquals(expected, engine.imageBitmap(profile, image).size) } finally { image.recycle() }
         }
+    }
+
+    @Test fun isolatedRuntimeReusesSessionsAndRebindsAfterTransportDeath() {
+        assumeTrue("Explicit external emulator provisioning is required",
+            InstrumentationRegistry.getArguments().getString("likRuntimeModels") == "true")
+        val profile = ProfileId.COMPACT
+        val catalog = ModelCatalog.get(context)
+        val store = ArtifactStore(File(context.filesDir, "ai"))
+        assumeTrue(catalog.trusted.artifacts(profile).all { store.installed(it.sha256, it.size) })
+        val runtime = IsolatedRuntimeClient(context)
+        val engine = SemanticEmbeddingEngine(context)
+        engine.query(profile, "первый запрос")
+        val first = runtime.stats().getOrThrow()
+        engine.query(profile, "второй запрос")
+        val second = runtime.stats().getOrThrow()
+        assertEquals(first.createdSessions, second.createdSessions)
+        assertTrue(second.liveSessions > 0)
+        runtime.disconnectForTests()
+        engine.query(profile, "запрос после перезапуска")
+        val rebound = runtime.stats().getOrThrow()
+        assertTrue(rebound.connectionGeneration > second.connectionGeneration)
+        assertTrue(rebound.liveSessions > 0)
     }
 
     @Test fun realIndexWorkerPublishesRevisionCheckedGenerationAndNativeSearch() {
@@ -219,15 +318,15 @@ class AiRuntimeTest {
         val target = store.file(spec.sha256); assertTrue(store.installed(spec.sha256, spec.size))
         val bytes = target.readBytes(); val backup = File(context.cacheDir, "download-backup-${System.nanoTime()}")
         assertTrue(target.renameTo(backup))
-        val operation = store.operation(profile.wire)
-        File(operation, spec.sha256 + ".part").writeBytes(bytes.copyOf(bytes.size / 2))
+        val part = store.sharedPart(spec.sha256)
+        part.writeBytes(bytes.copyOf(bytes.size / 2))
         catalog.update { state -> state.copy(revision = state.revision + 1, selected = profile, active = profile,
             enabledFeatures = emptySet(), pending = null, profiles = state.profiles + (profile to ProfileState(ProfilePhase.ACTIVE))) }
         try {
             ModelDownloader(context).install(profile).getOrThrow()
             assertTrue(store.installed(spec.sha256, spec.size))
             assertArrayEquals(bytes, target.readBytes())
-            assertFalse(File(operation, spec.sha256 + ".part").exists())
+            assertFalse(part.exists())
         } finally {
             if (!target.exists()) assertTrue(backup.renameTo(target)) else backup.delete()
         }
@@ -243,9 +342,8 @@ class AiRuntimeTest {
         val target = store.file(spec.sha256); assertTrue(store.installed(spec.sha256, spec.size))
         val bytes = target.readBytes(); val backup = File(context.cacheDir, "recovery-backup-${System.nanoTime()}")
         assertTrue(target.renameTo(backup))
-        val operation = store.operation(profile.wire)
-        File(operation, spec.sha256 + ".part").writeBytes(bytes)
-        File(operation, spec.sha256 + ".json").writeText(org.json.JSONObject().put("schema", 1)
+        store.sharedPart(spec.sha256).writeBytes(bytes)
+        store.sharedJournal(spec.sha256).writeText(org.json.JSONObject().put("schema", 1)
             .put("path", spec.path).put("size", spec.size).put("sha256", spec.sha256)
             .put("url", spec.url.toString()).put("stage", DownloadJournalStage.VERIFIED.name)
             .put("bytes", spec.size).toString())

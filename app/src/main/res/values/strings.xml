@@ -57,6 +57,17 @@
   <string name="export_saved">Copy saved.</string>
   <string name="export_failed">Could not export. Check photo access, destination permissions, and free space. Originals are preserved.</string>
   <string name="ai_download_disclosure">Models are downloaded only after you tap Download, from immutable Hugging Face revisions, then verified and self-tested. No model weights are included in the app.</string>
+  <string name="ai_download_notification">Downloading AI profile</string>
+  <string name="ai_feature_unavailable">%1$s — available after the OCR and People update</string>
+  <string name="ai_state_not_installed">Not installed</string>
+  <string name="ai_state_downloading">Downloading</string>
+  <string name="ai_state_paused">Paused</string>
+  <string name="ai_state_verifying">Verifying</string>
+  <string name="ai_state_self_testing">Self-testing</string>
+  <string name="ai_state_preparing">Preparing index</string>
+  <string name="ai_state_installed">Installed</string>
+  <string name="ai_state_active">Active</string>
+  <string name="ai_state_error">Error</string>
   <string name="ai_features">Features</string>
   <string name="ai_feature_search">Search by description</string>
   <string name="ai_feature_ocr">Text in photos</string>
@@ -64,6 +75,7 @@
   <string name="ai_profile_compact">Compact</string>
   <string name="ai_profile_balanced">Balanced (default)</string>
   <string name="ai_profile_extended">Extended</string>
+  <string name="ai_profile_heading_status">%1$s · %2$s</string>
   <string name="ai_profile_components">Components: %1$s</string>
   <string name="ai_profile_size">Verified download/install size: %1$s</string>
   <string name="ai_profile_state">State: %1$s</string>

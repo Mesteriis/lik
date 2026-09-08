@@ -21,4 +21,5 @@ class PhotoSendConsent {
     @Synchronized fun grant(mediaId: String, revision: Long) = PhotoSendToken(UUID.randomUUID().toString(), mediaId, revision).also { tokens += it.value }
     @Synchronized fun consume(token: PhotoSendToken, mediaId: String, revision: Long): Boolean =
         token.mediaId == mediaId && token.revision == revision && tokens.remove(token.value)
+    @Synchronized fun clear() { tokens.clear() }
 }

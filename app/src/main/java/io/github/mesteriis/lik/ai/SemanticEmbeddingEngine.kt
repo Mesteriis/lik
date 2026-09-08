@@ -42,7 +42,7 @@ class SemanticEmbeddingEngine(
     fun image(profile: ProfileId, mediaId: String, expectedRevision: Long): FloatArray {
         val row = MediaDatabase.get(context).media().get(mediaId) ?: error("PHOTO_MISSING")
         require(row.contentRevision == expectedRevision && row.availability.name == "AVAILABLE") { "PHOTO_CHANGED" }
-        val bitmap = decode(row)
+        val bitmap = decode(row, 512)
         return try { imageBitmap(profile, bitmap) } finally { bitmap.recycle() }
     }
 
@@ -57,7 +57,7 @@ class SemanticEmbeddingEngine(
     fun sensitive(mediaId: String, expectedRevision: Long): FloatArray {
         val row = MediaDatabase.get(context).media().get(mediaId) ?: error("PHOTO_MISSING")
         require(row.contentRevision == expectedRevision && row.availability.name == "AVAILABLE") { "PHOTO_CHANGED" }
-        val bitmap = decode(row)
+        val bitmap = decode(row, 768)
         return try {
             val input = ImageTensor.prepareSensitive(bitmap)
             runtime.embedImage(file("sensitive-v1/model.onnx"), input.memory, input.shape, "logits", normalize = false).getOrThrow()
@@ -65,10 +65,15 @@ class SemanticEmbeddingEngine(
         } finally { bitmap.recycle() }
     }
 
-    private fun decode(row: io.github.mesteriis.lik.catalog.MediaRecord): Bitmap {
+    private fun decode(row: io.github.mesteriis.lik.catalog.MediaRecord, decodeBound: Int): Bitmap {
         val source = if (row.source == MediaSource.DEVICE) ImageDecoder.createSource(context.contentResolver, Uri.parse(row.contentUri))
         else ImageDecoder.createSource(PhotoLibrary.store(context).fileFor(requireNotNull(row.privateFileId)))
-        return ImageDecoder.decodeBitmap(source) { decoder, _, _ -> decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE; decoder.isMutableRequired = false }
+        return ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            decoder.isMutableRequired = false
+            val longest = maxOf(info.size.width, info.size.height)
+            decoder.setTargetSampleSize((longest / decodeBound).coerceAtLeast(1))
+        }
     }
 
     private fun file(path: String): File {

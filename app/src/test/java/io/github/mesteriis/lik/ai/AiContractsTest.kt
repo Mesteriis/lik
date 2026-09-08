@@ -82,4 +82,99 @@ class AiContractsTest {
         assertEquals(setOf("a", "b", "shared", "index", "staged", "leased"), retained)
         assertEquals(setOf("orphan"), ArtifactRetention.collectable(setOf("a", "shared", "orphan"), retained))
     }
+
+    @Test fun featureChangeKeepsPendingTargetAndCanAtomicallyFinishIt() {
+        var state = CatalogSnapshot.readyForTest(ProfileId.COMPACT).copy(
+            profiles = CatalogSnapshot.readyForTest(ProfileId.COMPACT).profiles +
+                (ProfileId.EXTENDED to ProfileState(ProfilePhase.INSTALLED)),
+            generations = mapOf("search" to IndexGeneration("search", AiFeature.SEARCH, "search-x", true, 3, 3)),
+        )
+        state = ProfileTransitions.select(state, ProfileId.EXTENDED, setOf(AiFeature.SEARCH, AiFeature.OCR),
+            mapOf(AiFeature.SEARCH to "search-x", AiFeature.OCR to "ocr-x"))
+        assertEquals(ProfileId.EXTENDED, state.pending?.profile)
+        val changed = ProfileTransitions.featuresChanged(state, setOf(AiFeature.SEARCH),
+            mapOf(AiFeature.SEARCH to "search-x"))
+        assertEquals(ProfileId.EXTENDED, changed.active)
+        assertNull(changed.pending)
+        assertEquals("search", changed.activeGenerations[AiFeature.SEARCH])
+    }
+
+    @Test fun requestedFeaturesDoNotChangeServingSnapshotUntilPendingProfileIsReady() {
+        var state = CatalogSnapshot.readyForTest(ProfileId.COMPACT).copy(
+            enabledFeatures = emptySet(),
+            profiles = CatalogSnapshot.readyForTest(ProfileId.COMPACT).profiles +
+                (ProfileId.EXTENDED to ProfileState(ProfilePhase.INSTALLED)),
+        )
+        state = ProfileTransitions.featuresChanged(state, setOf(AiFeature.SEARCH),
+            mapOf(AiFeature.SEARCH to "search-x"))
+
+        assertEquals(emptySet<AiFeature>(), state.enabledFeatures)
+        assertEquals(setOf(AiFeature.SEARCH), state.pending!!.enabled)
+        assertEquals(ProfileId.COMPACT, state.active)
+
+        state = ProfileTransitions.generationReady(state, ProfileId.COMPACT, AiFeature.SEARCH, "search-generation")
+        assertEquals(setOf(AiFeature.SEARCH), state.enabledFeatures)
+        assertEquals(ProfileId.COMPACT, state.active)
+        assertNull(state.pending)
+    }
+
+    @Test fun cancellingOrFailingNewFeaturePreparationKeepsActiveProfileServing() {
+        val active = CatalogSnapshot.readyForTest(ProfileId.COMPACT)
+        val pending = ProfileTransitions.featuresChanged(active, setOf(AiFeature.SEARCH),
+            mapOf(AiFeature.SEARCH to "missing"))
+        val cancelled = ProfileTransitions.cancel(pending, ProfileId.COMPACT)
+        assertEquals(ProfileId.COMPACT, cancelled.active)
+        assertEquals(ProfilePhase.ACTIVE, cancelled.profile(ProfileId.COMPACT).phase)
+        val failed = ProfileTransitions.fail(pending, ProfileId.COMPACT, "INDEX_FAILED")
+        assertEquals(ProfileId.COMPACT, failed.active)
+        assertEquals(ProfilePhase.ACTIVE, failed.profile(ProfileId.COMPACT).phase)
+        assertEquals("INDEX_FAILED", failed.profile(ProfileId.COMPACT).error)
+    }
+
+    @Test fun catalogVersionMigrationPreservesUserChoiceFeatureAndInstallKnowledge() {
+        val old = CatalogSnapshot.readyForTest(ProfileId.EXTENDED).copy(
+            catalogVersion = "old", enabledFeatures = setOf(AiFeature.SEARCH),
+            profiles = ProfileId.entries.associateWith { if (it == ProfileId.EXTENDED) ProfileState(ProfilePhase.ACTIVE, 9, 9) else ProfileState() },
+        )
+        val migrated = CatalogMigrations.toVersion(old, "new")
+        assertEquals("new", migrated.catalogVersion)
+        assertEquals(ProfileId.EXTENDED, migrated.selected)
+        assertEquals(setOf(AiFeature.SEARCH), migrated.enabledFeatures)
+        assertEquals(ProfilePhase.INSTALLED, migrated.profile(ProfileId.EXTENDED).phase)
+        assertNull(migrated.active)
+        assertTrue(migrated.generations.isEmpty())
+    }
+
+    @Test fun removingGenerationsClearsEveryCatalogPointer() {
+        val generation = IndexGeneration("old", AiFeature.SEARCH, "p", true, 1, 1)
+        val state = CatalogSnapshot.readyForTest(ProfileId.COMPACT).copy(
+            generations = mapOf("old" to generation), activeGenerations = mapOf(AiFeature.SEARCH to "old"),
+            pending = PendingProfile(ProfileId.EXTENDED, setOf(AiFeature.SEARCH), mapOf(AiFeature.SEARCH to "old")),
+        )
+        val cleaned = CatalogGenerationCleanup.remove(state, setOf("old"))
+        assertTrue(cleaned.generations.isEmpty())
+        assertTrue(cleaned.activeGenerations.isEmpty())
+        assertTrue(cleaned.pending!!.readyGenerations.isEmpty())
+    }
+
+    @Test fun missingPublishedIndexCannotRemainReusableOrActiveAfterRestart() {
+        val generation = IndexGeneration("missing", AiFeature.SEARCH, "p", true, 2, 2)
+        val state = CatalogSnapshot.readyForTest(ProfileId.COMPACT).copy(
+            enabledFeatures = setOf(AiFeature.SEARCH), generations = mapOf("missing" to generation),
+            activeGenerations = mapOf(AiFeature.SEARCH to "missing"),
+        )
+        val repaired = CatalogStorageRepair.repair(state) { false }
+        assertTrue(repaired.generations.isEmpty())
+        assertTrue(repaired.activeGenerations.isEmpty())
+        assertTrue(repaired.enabledFeatures.isEmpty())
+        assertEquals(setOf(AiFeature.SEARCH), repaired.pending!!.enabled)
+        assertEquals(ProfileId.COMPACT, repaired.pending.profile)
+    }
+
+    @Test fun indexCannotCompleteWithFailureRaceOrMissingCurrentRows() {
+        assertTrue(IndexCompletion.canPublish(3, 3, 0, cancelled = false))
+        assertFalse(IndexCompletion.canPublish(3, 2, 0, cancelled = false))
+        assertFalse(IndexCompletion.canPublish(3, 3, 1, cancelled = false))
+        assertFalse(IndexCompletion.canPublish(3, 3, 0, cancelled = true))
+    }
 }

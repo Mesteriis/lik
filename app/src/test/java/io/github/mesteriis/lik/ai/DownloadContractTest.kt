@@ -30,4 +30,16 @@ class DownloadContractTest {
         assertEquals(RecoveryAction.PUBLISH, DownloadRecovery.action(DownloadJournalStage.VERIFIED, 100, 100, true))
         assertEquals(RecoveryAction.DISCARD, DownloadRecovery.action(DownloadJournalStage.VERIFIED, 99, 100, true))
     }
+
+    @Test fun reservationCountsOnlyRemainingSharedBytesAndHasSingleDigestOwner() {
+        val second = artifact.copy(path = "shared/model.onnx", size = 200, sha256 = "c".repeat(64))
+        val plan = DownloadReservationPlan.create("compact", listOf(artifact to 40L, second to 200L), 10)
+        assertEquals(70, plan.requiredBytes)
+        assertEquals(setOf(artifact.sha256), plan.remainingByDigest.keys)
+        val ownership = DownloadOwnership()
+        assertTrue(ownership.claim("compact", artifact.sha256))
+        assertFalse(ownership.claim("balanced", artifact.sha256))
+        ownership.release("compact", artifact.sha256)
+        assertTrue(ownership.claim("balanced", artifact.sha256))
+    }
 }

@@ -52,6 +52,6 @@ Manifest приложения не запрашивает доступ к сет
 
 Built-in profile artifacts follow [the immutable model contract](MODEL_ARCHITECTURE.md); CPU is the required reference and fallback. [Samsung/NNAPI/NPU backends](SAMSUNG_BACKENDS.md) are optional device experiments gated by per-pipeline parity and measured Fold performance, never a replacement for the selected weights or an assumed API into Galaxy AI system models.
 
-[AiGate integration](AIGATE_INTEGRATION.md) is separate planned Task 10 work. It requires opt-in, same-device loopback transport and an explicit per-photo action before a resized metadata-stripped image can leave Lik. Provider credentials remain in AiGate; router output cannot silently change local indexes. Task 9 implements no connector or photo transfer.
+[AiGate integration](AIGATE_INTEGRATION.md) is implemented as separate opt-in Task 10 work over same-device loopback transport. It requires an explicit per-photo action before a sampled, resized, metadata-stripped image can leave Lik. Provider credentials remain in AiGate; router output cannot silently change local indexes. Real provider acceptance and the Task 13 sensitive-media reveal boundary remain open.
 
 [Local sensitive screening and biometric hiding](SENSITIVE_MEDIA.md) adds a shared classifier artifact in Task 9 and a future Task 13 visibility policy. Current artifact preparation does not hide media. Task 13 quarantines unclassified photos and enforces a BIOMETRIC_STRONG in-memory reveal across gallery, export and AI/router boundaries.

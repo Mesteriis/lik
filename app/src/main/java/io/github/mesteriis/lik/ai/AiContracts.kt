@@ -77,7 +77,11 @@ object ProfileTransitions {
         }.toMap()
         val canActivate = targetInstalled && reused.keys.containsAll(enabled)
         val profiles = current.profiles + (target to current.profile(target).copy(
-            phase = when { canActivate -> ProfilePhase.ACTIVE; targetInstalled -> ProfilePhase.PREPARING; else -> ProfilePhase.DOWNLOADING },
+            phase = when {
+                canActivate || target == current.active -> ProfilePhase.ACTIVE
+                targetInstalled -> ProfilePhase.PREPARING
+                else -> ProfilePhase.DOWNLOADING
+            },
             error = null,
         )) + listOfNotNull(current.active?.takeIf { it != target }?.let {
             it to current.profile(it).copy(phase = ProfilePhase.ACTIVE)
@@ -88,7 +92,7 @@ object ProfileTransitions {
             activeGenerations = reused,
         ) else current.copy(
             revision = current.revision + 1, selected = target, profiles = profiles,
-            enabledFeatures = enabled, pending = PendingProfile(target, enabled, reused),
+            pending = PendingProfile(target, enabled, reused),
         )
     }
 
@@ -98,6 +102,15 @@ object ProfileTransitions {
         val pending = requirePending(current, target)
         return if (pending.readyGenerations.keys.containsAll(pending.enabled)) activate(current, pending)
         else updatePending(current, target, ProfilePhase.PREPARING)
+    }
+
+    fun featuresChanged(
+        current: CatalogSnapshot,
+        enabled: Set<AiFeature>,
+        pipelineFingerprints: Map<AiFeature, String>,
+    ): CatalogSnapshot {
+        val target = current.pending?.profile ?: current.active ?: current.selected
+        return select(current, target, enabled, pipelineFingerprints)
     }
 
     fun generationReady(current: CatalogSnapshot, target: ProfileId, feature: AiFeature, generation: String): CatalogSnapshot {
@@ -110,10 +123,10 @@ object ProfileTransitions {
 
     fun cancel(current: CatalogSnapshot, target: ProfileId): CatalogSnapshot {
         requirePending(current, target)
-        val cancelledPhase = if (current.profile(target).phase == ProfilePhase.PREPARING) {
-            ProfilePhase.INSTALLED
-        } else {
-            ProfilePhase.NOT_INSTALLED
+        val cancelledPhase = when {
+            current.active == target -> ProfilePhase.ACTIVE
+            current.profile(target).phase == ProfilePhase.PREPARING -> ProfilePhase.INSTALLED
+            else -> ProfilePhase.NOT_INSTALLED
         }
         return current.copy(
             revision = current.revision + 1,
@@ -127,10 +140,11 @@ object ProfileTransitions {
 
     fun fail(current: CatalogSnapshot, target: ProfileId, code: String): CatalogSnapshot {
         requirePending(current, target)
+        val phase = if (current.active == target) ProfilePhase.ACTIVE else ProfilePhase.ERROR
         return current.copy(
             revision = current.revision + 1,
             pending = null,
-            profiles = current.profiles + (target to current.profile(target).copy(ProfilePhase.ERROR, error = code)),
+            profiles = current.profiles + (target to current.profile(target).copy(phase = phase, error = code)),
         )
     }
 
@@ -149,6 +163,7 @@ object ProfileTransitions {
         return current.copy(
             revision = current.revision + 1,
             active = pending.profile,
+            enabledFeatures = pending.enabled,
             pending = null,
             profiles = states,
             activeGenerations = pending.readyGenerations,
@@ -168,6 +183,56 @@ object ArtifactRetention {
     fun retained(installedProfiles: List<Set<String>>, activeGenerations: List<Set<String>>, staged: Set<String>, leases: Set<String>): Set<String> =
         (installedProfiles.asSequence() + activeGenerations.asSequence()).flatten().toSet() + staged + leases
     fun collectable(existing: Set<String>, retained: Set<String>) = existing - retained
+}
+
+object CatalogGenerationCleanup {
+    fun remove(state: CatalogSnapshot, removed: Set<String>): CatalogSnapshot = state.copy(
+        revision = state.revision + 1,
+        generations = state.generations - removed,
+        activeGenerations = state.activeGenerations.filterValues { it !in removed },
+        pending = state.pending?.let { it.copy(readyGenerations = it.readyGenerations.filterValues { id -> id !in removed }) },
+    )
+}
+
+object CatalogMigrations {
+    fun toVersion(state: CatalogSnapshot, version: String): CatalogSnapshot {
+        if (state.catalogVersion == version) return state
+        val profiles = state.profiles.mapValues { (_, value) ->
+            when (value.phase) {
+                ProfilePhase.ACTIVE, ProfilePhase.PREPARING, ProfilePhase.SELF_TESTING -> value.copy(phase = ProfilePhase.INSTALLED, error = null)
+                ProfilePhase.DOWNLOADING, ProfilePhase.VERIFYING, ProfilePhase.PAUSED, ProfilePhase.ERROR -> ProfileState()
+                else -> value
+            }
+        }
+        return state.copy(catalogVersion = version, revision = state.revision + 1, active = null,
+            profiles = profiles, pending = null, generations = emptyMap(), activeGenerations = emptyMap())
+    }
+}
+
+object CatalogStorageRepair {
+    fun repair(state: CatalogSnapshot, usable: (IndexGeneration) -> Boolean): CatalogSnapshot {
+        val generations = state.generations.filterValues { !it.complete || usable(it) }
+        val activeGenerations = state.activeGenerations.filterValues { id -> generations[id]?.complete == true }
+        val pending = state.pending?.let { value ->
+            value.copy(readyGenerations = value.readyGenerations.filterValues { id -> generations[id]?.complete == true })
+        }
+        val missingServingFeatures = state.enabledFeatures - activeGenerations.keys
+        if (generations == state.generations && activeGenerations == state.activeGenerations &&
+            pending == state.pending && missingServingFeatures.isEmpty()) return state
+        val activePending = if (missingServingFeatures.isNotEmpty() && state.active != null) {
+            val requested = pending?.enabled.orEmpty() + state.enabledFeatures
+            PendingProfile(pending?.profile ?: state.active, requested,
+                (pending?.readyGenerations.orEmpty() + activeGenerations).filterKeys { it in requested })
+        } else pending
+        return state.copy(revision = state.revision + 1, generations = generations,
+            activeGenerations = activeGenerations, enabledFeatures = state.enabledFeatures - missingServingFeatures,
+            pending = activePending)
+    }
+}
+
+object IndexCompletion {
+    fun canPublish(available: Int, currentEmbeddings: Int, failures: Int, cancelled: Boolean) =
+        available >= 0 && currentEmbeddings == available && failures == 0 && !cancelled
 }
 
 data class ArtifactSpec(val path: String, val size: Long, val sha256: String, val url: URI) {
@@ -212,6 +277,32 @@ object SpaceReservation {
     }
 }
 
+data class DownloadReservationPlan(val operation: String, val remainingByDigest: Map<String, Long>, val requiredBytes: Long) {
+    companion object {
+        fun create(operation: String, files: List<Pair<ArtifactSpec, Long>>, safetyMargin: Long): DownloadReservationPlan {
+            require(operation.isNotBlank() && safetyMargin >= 0)
+            val remaining = files.mapNotNull { (spec, existing) ->
+                require(existing in 0..spec.size)
+                (spec.size - existing).takeIf { it > 0 }?.let { spec.sha256 to it }
+            }.toMap()
+            val total = try { remaining.values.fold(safetyMargin, Math::addExact) }
+            catch (_: ArithmeticException) { throw IllegalArgumentException("Artifact reservation overflows") }
+            return DownloadReservationPlan(operation, remaining, total)
+        }
+    }
+}
+
+class DownloadOwnership {
+    private val owners = mutableMapOf<String, String>()
+    @Synchronized fun claim(operation: String, digest: String): Boolean {
+        val owner = owners[digest]
+        if (owner != null && owner != operation) return false
+        owners[digest] = operation
+        return true
+    }
+    @Synchronized fun release(operation: String, digest: String) { if (owners[digest] == operation) owners.remove(digest) }
+}
+
 enum class DownloadJournalStage { DOWNLOADING, VERIFYING, VERIFIED }
 enum class RecoveryAction { RESUME, VERIFY, PUBLISH, DISCARD }
 object DownloadRecovery {
@@ -252,8 +343,14 @@ object InferenceGate {
         synchronized(this) {
             waiter = Waiter(priority, sequence++)
             waiting += waiter
-            while (running || waiting.maxWithOrNull(compareBy<Waiter> { it.priority.ordinal }.thenBy { -it.sequence }) != waiter) {
-                (this as java.lang.Object).wait()
+            try {
+                while (running || waiting.maxWithOrNull(compareBy<Waiter> { it.priority.ordinal }.thenBy { -it.sequence }) != waiter) {
+                    (this as java.lang.Object).wait()
+                }
+            } catch (interrupted: InterruptedException) {
+                waiting.remove(waiter)
+                (this as java.lang.Object).notifyAll()
+                throw interrupted
             }
             waiting.remove(waiter); running = true
         }

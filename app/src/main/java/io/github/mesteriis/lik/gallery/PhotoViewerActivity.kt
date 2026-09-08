@@ -10,6 +10,7 @@ import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.core.view.isVisible
+import androidx.core.net.toUri
 import io.github.mesteriis.lik.R
 import io.github.mesteriis.lik.ui.applySystemBarInsets
 import java.text.DateFormat
@@ -18,6 +19,9 @@ import java.util.Locale
 import android.widget.EditText
 import android.widget.Toast
 import io.github.mesteriis.lik.aigate.*
+import io.github.mesteriis.lik.catalog.MediaDatabase
+import io.github.mesteriis.lik.catalog.MediaSource
+import io.github.mesteriis.lik.imports.PhotoLibrary
 import java.util.concurrent.Executors
 
 class PhotoViewerActivity : ComponentActivity() {
@@ -29,6 +33,8 @@ class PhotoViewerActivity : ComponentActivity() {
     private var currentMediaId: String? = null
     private var currentRevision: Long = -1
     private var aiGateRequest = 0L
+    @Volatile private var aiGateClient: AiGateClient? = null
+    private var aiGateSettingsSubscription: AutoCloseable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +53,9 @@ class PhotoViewerActivity : ComponentActivity() {
         }
         findViewById<View>(R.id.viewer_delete).setOnClickListener { confirmDelete() }
         findViewById<View>(R.id.viewer_aigate).setOnClickListener { sendToAiGate() }
+        aiGateSettingsSubscription = AiGateSettings(this).observeEnabled { enabled ->
+            if (!enabled) { aiGateRequest++; aiGateConsent.clear(); aiGateClient?.cancel(); aiGateClient = null }
+        }
         model.state.observe(this, ::render)
         model.start(intent.getStringExtra(EXTRA_PHOTO_ID))
     }
@@ -64,8 +73,15 @@ class PhotoViewerActivity : ComponentActivity() {
             isEnabled = state.cursor?.current?.canDeleteCopy == true && !state.loading && !state.deleting && !state.error
         }
         val currentId = state.cursor?.current?.id
+        val nextRevision = state.cursor?.current?.sourceRevision ?: -1
+        if (currentMediaId != currentId || currentRevision != nextRevision) {
+            aiGateRequest++
+            aiGateConsent.clear()
+            aiGateClient?.cancel()
+            aiGateClient = null
+        }
         currentMediaId = currentId
-        currentRevision = state.cursor?.current?.sourceRevision ?: -1
+        currentRevision = nextRevision
         if (image.tag != currentId || shownBitmap !== state.bitmap) {
             image.tag = currentId
             shownBitmap = state.bitmap
@@ -78,7 +94,22 @@ class PhotoViewerActivity : ComponentActivity() {
         }
     }
 
-    override fun onDestroy() { aiGateRequest++; aiGateIo.shutdownNow(); super.onDestroy() }
+    override fun onDestroy() {
+        aiGateRequest++
+        aiGateConsent.clear()
+        aiGateClient?.cancel()
+        aiGateSettingsSubscription?.close()
+        aiGateIo.shutdownNow()
+        super.onDestroy()
+    }
+
+    override fun onStop() {
+        aiGateRequest++
+        aiGateConsent.clear()
+        aiGateClient?.cancel()
+        aiGateClient = null
+        super.onStop()
+    }
 
     private fun sendToAiGate() {
         val settings = AiGateSettings(this)
@@ -88,7 +119,7 @@ class PhotoViewerActivity : ComponentActivity() {
         if (!AiGatePhotoBoundary.maySend(mediaId, revision)) {
             Toast.makeText(this, R.string.aigate_task13_required, Toast.LENGTH_LONG).show(); return
         }
-        val bitmap = shownBitmap ?: return
+        if (shownBitmap == null) return
         val prompt = EditText(this).apply { hint = getString(R.string.aigate_prompt_hint) }
         AlertDialog.Builder(this).setTitle(R.string.aigate_send_title).setMessage(R.string.aigate_send_disclosure)
             .setView(prompt).setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.aigate_send_photo) { _, _ ->
@@ -97,10 +128,26 @@ class PhotoViewerActivity : ComponentActivity() {
                 val request = ++aiGateRequest
                 val token = aiGateConsent.grant(mediaId, revision)
                 aiGateIo.execute {
-                    val result = runCatching { AiGateClient(AiGateEndpoint(settings.port)).chat(token, aiGateConsent,
-                        mediaId, revision, request, text, AiGateImage.encode(bitmap)) }
+                    val client = AiGateClient(AiGateEndpoint(settings.port))
+                    aiGateClient = client
+                    val result = runCatching {
+                        require(AiGateSettings(this).enabled) { "AIGATE_DISABLED" }
+                        require(client.health().running) { "AIGATE_NOT_RUNNING" }
+                        client.models()
+                        require(AiGateSettings(this).enabled && request == aiGateRequest) { "AIGATE_CANCELLED" }
+                        val row = requireNotNull(MediaDatabase.get(this).media().get(mediaId)) { "PHOTO_MISSING" }
+                        require(row.contentRevision == revision && row.availability.name == "AVAILABLE") { "PHOTO_CHANGED" }
+                        val jpeg = if (row.source == MediaSource.DEVICE) {
+                            AiGateImage.encode(this, requireNotNull(row.contentUri).toUri(), row.exifOrientation)
+                        } else {
+                            AiGateImage.encode(PhotoLibrary.store(this).fileFor(requireNotNull(row.privateFileId)))
+                        }
+                        client.chat(token, aiGateConsent, mediaId, revision, request, text, jpeg)
+                    }
                     runOnUiThread {
+                        if (aiGateClient === client) aiGateClient = null
                         if (request != aiGateRequest || currentMediaId != mediaId || currentRevision != revision) return@runOnUiThread
+                        if (!AiGateSettings(this).enabled) return@runOnUiThread
                         result.onSuccess { reply -> AlertDialog.Builder(this).setTitle(R.string.aigate_reply).setMessage(reply.text)
                             .setPositiveButton(android.R.string.ok, null).show() }
                             .onFailure { Toast.makeText(this, getString(R.string.aigate_send_failed, it.message ?: "error"), Toast.LENGTH_LONG).show() }

@@ -53,16 +53,47 @@ interface AiIndexDao {
     fun mediaBatch(after: String?, limit: Int): List<MediaRecord>
     @Upsert fun saveEmbedding(value: AiEmbeddingRecord)
     @Query("SELECT * FROM ai_embedding WHERE generationId = :generation ORDER BY nativeKey") fun embeddings(generation: String): List<AiEmbeddingRecord>
+    @Query("SELECT * FROM ai_embedding WHERE generationId = :generation AND mediaId = :mediaId LIMIT 1") fun embedding(generation: String, mediaId: String): AiEmbeddingRecord?
     @Query("SELECT * FROM ai_embedding WHERE generationId = :generation AND nativeKey IN (:keys)") fun byKeys(generation: String, keys: LongArray): List<AiEmbeddingRecord>
+    @Query("SELECT e.* FROM ai_embedding e JOIN media m ON m.mediaId = e.mediaId WHERE e.generationId = :generation AND e.nativeKey IN (:keys) AND m.availability = 'AVAILABLE' AND m.contentRevision = e.contentRevision AND m.lastSeenAt = e.accessEpoch")
+    fun currentByKeys(generation: String, keys: LongArray): List<AiEmbeddingRecord>
+    @Query("SELECT e.* FROM ai_embedding e JOIN media m ON m.mediaId = e.mediaId WHERE e.generationId = :generation AND m.availability = 'AVAILABLE' AND m.contentRevision = e.contentRevision AND m.lastSeenAt = e.accessEpoch ORDER BY e.nativeKey LIMIT :limit")
+    fun boundedCurrent(generation: String, limit: Int): List<AiEmbeddingRecord>
     @Query("SELECT MAX(nativeKey) FROM ai_embedding WHERE generationId = :generation") fun maxKey(generation: String): Long?
     @Query("SELECT COUNT(*) FROM ai_embedding WHERE generationId = :generation") fun embeddingCount(generation: String): Int
     @Query("SELECT COUNT(*) FROM media WHERE availability = 'AVAILABLE'") fun availableCount(): Int
+    @Query("SELECT COUNT(*) FROM ai_embedding e JOIN media m ON m.mediaId = e.mediaId WHERE e.generationId = :generation AND m.availability = 'AVAILABLE' AND m.contentRevision = e.contentRevision AND m.lastSeenAt = e.accessEpoch")
+    fun currentEmbeddingCount(generation: String): Int
+    @Query("SELECT * FROM media WHERE mediaId = :mediaId") fun currentMedia(mediaId: String): MediaRecord?
+    @Query("DELETE FROM ai_embedding WHERE generationId = :generation AND mediaId = :mediaId") fun deleteEmbedding(generation: String, mediaId: String): Int
+    @Query("SELECT e.mediaId FROM ai_embedding e LEFT JOIN media m ON m.mediaId = e.mediaId WHERE e.generationId = :generation AND (m.mediaId IS NULL OR m.availability != 'AVAILABLE' OR m.contentRevision != e.contentRevision OR m.lastSeenAt != e.accessEpoch)")
+    fun staleMediaIds(generation: String): List<String>
     @Query("SELECT mediaId FROM ai_embedding WHERE generationId = :generation AND nativeKey = :key LIMIT 1") fun mediaIdForKey(generation: String, key: Long): String?
     @Query("DELETE FROM ai_index_generation WHERE generationId = :id AND generationId NOT IN (:retained)") fun deleteGeneration(id: String, retained: Set<String>): Int
+    @Query("DELETE FROM ai_index_generation WHERE generationId IN (:ids)") fun deleteGenerations(ids: Set<String>): Int
     @Query("SELECT * FROM ai_index_generation ORDER BY createdAt") fun generations(): List<AiIndexGenerationRecord>
     @Upsert fun saveSensitive(value: AiSensitiveRunRecord)
     @Query("SELECT * FROM ai_sensitive_run WHERE mediaId = :mediaId AND contentRevision = :revision AND pipelineFingerprint = :pipeline")
     fun sensitive(mediaId: String, revision: Long, pipeline: String): AiSensitiveRunRecord?
+
+    @Transaction
+    fun publishEmbeddingIfCurrent(value: AiEmbeddingRecord, generation: AiIndexGenerationRecord): Boolean {
+        val media = currentMedia(value.mediaId)
+        if (media == null || media.availability.name != "AVAILABLE" || media.contentRevision != value.contentRevision ||
+            media.lastSeenAt != value.accessEpoch) return false
+        saveEmbedding(value)
+        saveGeneration(generation)
+        return true
+    }
+
+    @Transaction
+    fun completeIfCurrent(value: AiIndexGenerationRecord): AiIndexGenerationRecord? {
+        val available = availableCount()
+        val current = currentEmbeddingCount(value.generationId)
+        if (!IndexCompletion.canPublish(available, current, failures = 0, cancelled = false)) return null
+        return value.copy(status = GenerationStatus.COMPLETE, completed = current, total = available,
+            error = null).also(::saveGeneration)
+    }
 }
 
 fun FloatArray.toBytes(): ByteArray = ByteArray(size * 4).also { bytes -> java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).asFloatBuffer().put(this) }

@@ -6,6 +6,23 @@ import java.io.File
 import kotlin.math.sqrt
 
 data class VectorHit(val mediaId: String, val score: Float)
+data class NativeCandidate(val nativeKey: Long, val mediaId: String, val vector: FloatArray)
+
+object CandidateReranker {
+    fun rank(query: FloatArray, candidates: List<NativeCandidate>, limit: Int): List<VectorHit> {
+        require(query.isNotEmpty() && query.all(Float::isFinite) && limit > 0)
+        val norm = sqrt(query.sumOf { (it * it).toDouble() }).toFloat()
+        require(norm > 0)
+        return candidates.map { candidate ->
+            require(candidate.vector.size == query.size && candidate.vector.all(Float::isFinite))
+            val candidateNorm = sqrt(candidate.vector.sumOf { (it * it).toDouble() }).toFloat()
+            require(candidateNorm > 0)
+            var score = 0f
+            for (index in query.indices) score += query[index] * candidate.vector[index] / (norm * candidateNorm)
+            VectorHit(candidate.mediaId, score)
+        }.sortedWith(compareByDescending<VectorHit> { it.score }.thenBy { it.mediaId }).take(limit)
+    }
+}
 
 /** Deterministic exact reference used to validate every approximate/native index build. */
 class ExactVectorIndex(val dimension: Int) {
@@ -35,12 +52,15 @@ class ExactVectorIndex(val dimension: Int) {
     @Synchronized fun save(file: File) {
         val temporary = File(file.parentFile, ".${file.name}.tmp")
         temporary.parentFile?.mkdirs()
-        DataOutputStream(temporary.outputStream().buffered()).use { out ->
+        val stream = java.io.FileOutputStream(temporary)
+        DataOutputStream(stream.buffered()).use { out ->
             out.writeInt(MAGIC); out.writeInt(dimension); out.writeInt(vectors.size)
             vectors.forEach { (id, vector) -> out.writeUTF(id); vector.forEach(out::writeFloat) }
             out.flush()
         }
+        java.io.FileOutputStream(temporary, true).use { it.fd.sync() }
         check(temporary.renameTo(file)) { "Could not publish vector index" }
+        file.parentFile?.let(DurableAiFiles::syncDirectory)
     }
 
     companion object {

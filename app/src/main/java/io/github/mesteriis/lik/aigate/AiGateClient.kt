@@ -3,13 +3,13 @@ package io.github.mesteriis.lik.aigate
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Matrix
+import android.graphics.ImageDecoder
 import android.net.Uri
 import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
@@ -23,14 +23,22 @@ class AiGateSettings(context: Context) {
     private val values = context.getSharedPreferences("aigate-v1", Context.MODE_PRIVATE)
     var enabled: Boolean get() = values.getBoolean("enabled", false); set(value) { values.edit().putBoolean("enabled", value).apply() }
     var port: Int get() = values.getInt("port", 8889); set(value) { require(value in 1..65535); values.edit().putInt("port", value).apply() }
+    fun observeEnabled(listener: (Boolean) -> Unit): AutoCloseable {
+        val observer = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "enabled") listener(enabled)
+        }
+        values.registerOnSharedPreferenceChangeListener(observer)
+        return AutoCloseable { values.unregisterOnSharedPreferenceChangeListener(observer) }
+    }
 }
 
 class AiGateClient(
     private val endpoint: AiGateEndpoint,
     private val connectTimeoutMs: Int = CONNECT_TIMEOUT_MS,
     private val readTimeoutMs: Int = READ_TIMEOUT_MS,
+    private val overallTimeoutMs: Int = OVERALL_TIMEOUT_MS,
 ) {
-    init { require(connectTimeoutMs > 0 && readTimeoutMs > 0) }
+    init { require(connectTimeoutMs > 0 && readTimeoutMs > 0 && overallTimeoutMs > 0) }
     private val cancelled = AtomicBoolean()
     @Volatile private var connection: HttpURLConnection? = null
     fun cancel() { cancelled.set(true); connection?.disconnect() }
@@ -71,25 +79,33 @@ class AiGateClient(
     }
 
     private fun request(method: String, path: String, body: ByteArray? = null): JSONObject {
-        cancelled.set(false)
+        if (cancelled.get()) throw java.util.concurrent.CancellationException()
+        val deadline = System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(overallTimeoutMs.toLong())
+        fun remaining(): Int {
+            val value = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()).coerceAtLeast(0)
+            if (value <= 0 || cancelled.get()) throw if (cancelled.get()) java.util.concurrent.CancellationException()
+                else java.net.SocketTimeoutException("AiGate overall deadline exceeded")
+            return value.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        }
         val url = endpoint.url(path)
         require(url.host == "127.0.0.1" && url.scheme == "http")
         val current = (URL(url.toString()).openConnection() as HttpURLConnection).apply {
             instanceFollowRedirects = false; requestMethod = method
-            connectTimeout = connectTimeoutMs; readTimeout = readTimeoutMs
+            connectTimeout = minOf(connectTimeoutMs, remaining()); readTimeout = minOf(readTimeoutMs, remaining())
             setRequestProperty("Accept", "application/json")
             if (body != null) { doOutput = true; setFixedLengthStreamingMode(body.size); setRequestProperty("Content-Type", "application/json") }
         }
         connection = current
         return try {
             if (body != null) current.outputStream.use { it.write(body) }
+            current.readTimeout = minOf(readTimeoutMs, remaining())
             if (cancelled.get()) throw java.util.concurrent.CancellationException()
             val code = current.responseCode
             require(code !in 300..399) { "AiGate redirects are disabled" }
             val source = if (code in 200..299) current.inputStream else current.errorStream
             val bytes = source?.use { input ->
                 val output = ByteArrayOutputStream(); val buffer = ByteArray(8192)
-                while (true) { if (cancelled.get()) throw java.util.concurrent.CancellationException(); val count = input.read(buffer); if (count < 0) break
+                while (true) { current.readTimeout = minOf(readTimeoutMs, remaining()); val count = input.read(buffer); if (count < 0) break
                     require(output.size() + count <= MAX_RESPONSE_BYTES) { "AiGate response is too large" }; output.write(buffer, 0, count) }
                 output.toByteArray()
             } ?: byteArrayOf()
@@ -101,6 +117,7 @@ class AiGateClient(
     companion object {
         private const val CONNECT_TIMEOUT_MS = 2_000
         private const val READ_TIMEOUT_MS = 45_000
+        private const val OVERALL_TIMEOUT_MS = 50_000
         private const val MAX_RESPONSE_BYTES = 1024 * 1024
         private const val MAX_RESPONSE_CHARS = 200_000
         const val MAX_IMAGE_BYTES = 4 * 1024 * 1024
@@ -126,21 +143,20 @@ object AiGateImage {
         } finally { if (resized !== source) resized.recycle() }
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun encode(context: Context, uri: Uri?, orientation: Int?, maxSide: Int = 1600): ByteArray {
         require(uri != null)
-        val decoded = context.contentResolver.openInputStream(uri)?.use(BitmapFactory::decodeStream) ?: error("PHOTO_UNAVAILABLE")
-        val rotated = orientationMatrix(orientation).takeIf { !it.isIdentity }?.let { matrix ->
-            Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true).also { if (it !== decoded) decoded.recycle() }
-        } ?: decoded
-        val scale = minOf(1f, maxSide.toFloat() / maxOf(rotated.width, rotated.height))
-        val resized = if (scale < 1f) Bitmap.createScaledBitmap(rotated, (rotated.width * scale).toInt(), (rotated.height * scale).toInt(), true)
-            .also { if (it !== rotated) rotated.recycle() } else rotated
-        return try { encode(resized, maxSide) } finally { resized.recycle() }
+        return decode(ImageDecoder.createSource(context.contentResolver, uri), maxSide)
     }
 
-    private fun orientationMatrix(orientation: Int?) = Matrix().apply { when (orientation) {
-        2 -> postScale(-1f, 1f); 3 -> postRotate(180f); 4 -> postScale(1f, -1f)
-        5 -> { postRotate(90f); postScale(-1f, 1f) }; 6 -> postRotate(90f)
-        7 -> { postRotate(270f); postScale(-1f, 1f) }; 8 -> postRotate(270f)
-    } }
+    fun encode(file: File, maxSide: Int = 1600): ByteArray = decode(ImageDecoder.createSource(file), maxSide)
+
+    private fun decode(source: ImageDecoder.Source, maxSide: Int): ByteArray {
+        val decoded = ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            val longest = maxOf(info.size.width, info.size.height)
+            decoder.setTargetSampleSize((longest / (maxSide * 2)).coerceAtLeast(1))
+        }
+        return try { encode(decoded, maxSide) } finally { decoded.recycle() }
+    }
 }
