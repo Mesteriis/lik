@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Reviewed signing metadata for debug, androidTest and self-signed release APKs; no private key or certificate identity is enrolled by a build.",
+  "certificateVersions": [0, 2],
+  "maximumCertificateBytes": 16384,
+  "maximumSerialBytes": 20,
+  "subjectAttributeMaximumBytes": {
+    "2.5.4.3": 64,
+    "2.5.4.6": 2,
+    "2.5.4.7": 128,
+    "2.5.4.8": 128,
+    "2.5.4.10": 64,
+    "2.5.4.11": 64
+  },
+  "certificateSignatureAlgorithms": [
+    "1.2.840.113549.1.1.11",
+    "1.2.840.113549.1.1.12",
+    "1.2.840.113549.1.1.13",
+    "1.2.840.10045.4.3.2",
+    "1.2.840.10045.4.3.3",
+    "1.2.840.10045.4.3.4"
+  ],
+  "rsaModulusBits": [2048, 4096, 8192, 16384],
+  "ecUncompressedPointBytes": {
+    "1.2.840.10045.3.1.7": 65,
+    "1.3.132.0.34": 97,
+    "1.3.132.0.35": 133
+  },
+  "extensionSemantics": {
+    "2.5.29.14": "SHA-1 of the complete subjectPublicKey bit string, excluding unused-bits octet",
+    "2.5.29.15": "digitalSignature only",
+    "2.5.29.19": "CA false, no path length",
+    "2.5.29.35": "keyIdentifier only, equal to the self-signed public key identifier",
+    "2.5.29.37": "id-kp-codeSigning only"
+  },
+  "unknownExtensions": "reject",
+  "issuerPolicy": "subject and issuer must be identical; no issuer/subject unique IDs or extra fields",
+  "knownArtifactScan": "Every byte offset of the complete bounded APK signing block is checked against every fitting immutable HF artifact size/SHA-256; no external cache is read.",
+  "references": [
+    "https://www.rfc-editor.org/rfc/rfc5280",
+    "https://developer.android.com/studio/publish/app-signing",
+    "https://source.android.com/docs/security/features/apksigning/v2"
+  ]
+}

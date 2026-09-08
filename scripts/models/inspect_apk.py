@@ -12,6 +12,7 @@ import zlib
 from artifacts import safe_path
 from apk_signing import signing_block
 from compiled_apk import CompiledReceipts, build_tools_directory, verify_signature
+from certificate_policy import POLICY_PATH as SIGNING_POLICY_PATH
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = Path(__file__).with_name("apk-content-policy-v1.json")
@@ -40,7 +41,7 @@ def empty_zip_padding(data):
         data = data[end:]
 
 
-def zip_envelope(path, archive):
+def zip_envelope(path, archive, artifacts):
     """Account for physical bytes too, including renamed or unindexed payloads."""
     entries = sorted(archive.infolist(), key=lambda e: e.header_offset)
     require(entries and entries[0].header_offset == 0 and not archive.comment, "APK prefix/comment data is forbidden")
@@ -76,7 +77,12 @@ def zip_envelope(path, archive):
         require(end <= archive.start_dir, "ZIP data overlaps central directory")
         remaining = stream.read(archive.start_dir - end)
         if remaining:
-            signing_block(remaining)
+            require(len(remaining) >= 32, "Truncated APK signing envelope")
+            block_size = struct.unpack_from("<Q", remaining, len(remaining) - 24)[0] + 8
+            require(32 <= block_size <= len(remaining), "Invalid APK signing envelope size")
+            padding = remaining[:len(remaining) - block_size]
+            require(len(padding) < 4096 and not any(padding), "Payload in APK signing alignment padding")
+            signing_block(remaining[len(padding):], artifacts)
         return bool(remaining)
 
 
@@ -149,7 +155,7 @@ def inspect_apk(path, catalog, kind="app", variant=None, build_tools=None):
         require(len(names) == len(set(names)), "APK contains duplicate ZIP entries")
         require(sum(e.file_size for e in entries) <= MAX_APK_BYTES, "APK uncompressed content exceeds runtime budget")
         require(set(expected) <= set(names), "APK missing required trusted metadata")
-        signed = zip_envelope(path, archive)
+        signed = zip_envelope(path, archive, [file for component in catalog["components"] for file in component["artifacts"]])
         for entry in entries:
             name = entry.filename
             safe_path(name)
@@ -166,6 +172,7 @@ def inspect_apk(path, catalog, kind="app", variant=None, build_tools=None):
         if signed:
             verify_signature(path, build_tools_directory(build_tools))
         return {"compilerEvidence": compiler_evidence, "signatureVerified": signed, "path": str(path), "kind": kind, "bytes": path.stat().st_size, "entryCount": len(entries),
+                "signingPolicySha256": hashlib.sha256(SIGNING_POLICY_PATH.read_bytes()).hexdigest(),
                 "inspectedEntryCount": len(entries), "contentPolicySha256": hashlib.sha256(POLICY_PATH.read_bytes()).hexdigest(),
                 "uncompressedBytes": sum(e.file_size for e in entries),
                 "compressedPayloadBytes": sum(e.compress_size for e in entries),

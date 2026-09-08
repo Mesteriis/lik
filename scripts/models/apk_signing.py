@@ -4,12 +4,32 @@ Cryptographic/X.509 verification is additionally performed by SDK apksigner.
 See https://source.android.com/docs/security/features/apksigning/v2 .
 Unsupported signing schemes/attributes require a reviewed implementation first.
 """
+import hashlib
+import json
+from pathlib import Path
 import struct
+
+from certificate_policy import validate_certificate
 
 V2 = 0x7109871A
 PADDING = 0x42726577
 DIGEST_LENGTHS = {0x0101: 32, 0x0102: 64, 0x0103: 32, 0x0104: 64,
                   0x0201: 32, 0x0202: 64, 0x0301: 32}
+
+
+def reject_known_artifacts(data, artifacts):
+    # The only variable binary envelope outside exact-receipt ZIP entries is
+    # bounded to 64 KiB. Scan EVERY offset with whole-artifact size/SHA, including
+    # DER primitive contents and field boundaries. No artifact/cache bytes needed.
+    by_size = {}
+    for artifact in artifacts:
+        if 0 < artifact["size"] <= len(data):
+            by_size.setdefault(artifact["size"], {})[bytes.fromhex(artifact["sha256"])] = artifact["path"]
+    view = memoryview(data)
+    for size, hashes in by_size.items():
+        for offset in range(len(data) - size + 1):
+            match = hashes.get(hashlib.sha256(view[offset:offset + size]).digest())
+            require(match is None, "Known HF artifact bytes in APK signing envelope: " + str(match))
 
 
 def require(condition, message):
@@ -110,9 +130,10 @@ def v2_signature(data):
         der_sequence(signature, [0x02, 0x02])
     der_sequence(certificate, [0x30, 0x30, 0x03])
     der_sequence(public_key, [0x30, 0x03])
+    validate_certificate(certificate, public_key, der_nodes)
 
 
-def signing_block(data):
+def signing_block(data, artifacts=None):
     require(32 <= len(data) <= 64 * 1024 and data[-16:] == b"APK Sig Block 42",
             "Unexpected bytes before ZIP central directory")
     require(struct.unpack_from("<Q", data)[0] == len(data) - 8 == struct.unpack_from("<Q", data, len(data) - 24)[0],
@@ -135,3 +156,7 @@ def signing_block(data):
             raise ValueError("Unsupported APK signing record; no opaque records allowed: " + hex(identifier))
     reader.end()
     require(V2 in seen, "Missing supported APK signature record")
+    if artifacts is None:
+        catalog = json.loads((Path(__file__).resolve().parents[2] / "models/catalog-v1.json").read_text())
+        artifacts = [file for component in catalog["components"] for file in component["artifacts"]]
+    reject_known_artifacts(data, artifacts)
