@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.provider.DocumentsContract
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import io.github.mesteriis.lik.catalog.*
@@ -57,14 +56,10 @@ class PhotoExport(private val context: Context) {
         // A malicious/replaced result must not redirect a write into Lik's own shared cache.
         require(destination.scheme == "content" && destination.authority != "${context.packageName}.exports")
         return synchronized(store) {
-            try {
-                val row = record(id, MediaOperation.EXPORT)
-                files.save({ context.contentResolver.openOutputStream(destination, "wt") ?: throw IOException("Destination unavailable") }) { open(row) }
-            } catch (error: Exception) {
-                // Only the newly created destination document is eligible for best-effort cleanup.
-                runCatching { DocumentsContract.deleteDocument(context.contentResolver, destination) }
-                throw error
-            }
+            val row = record(id, MediaOperation.EXPORT)
+            // CREATE_DOCUMENT does not prove this URI is new or owned by Lik. Never delete or
+            // truncate it as failure cleanup. ExportFiles removes only our prepared snapshot.
+            files.save({ context.contentResolver.openOutputStream(destination, "wt") ?: throw IOException("Destination unavailable") }) { open(row) }
         }
     }
 

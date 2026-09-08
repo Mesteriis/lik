@@ -1,5 +1,16 @@
 # Проверка каркаса Lik · 7 сентября 2026
 
+## Task 8 · review round 1 · 8 сентября 2026
+
+Убрано удаление внешнего destination после ошибки Save copy: CREATE_DOCUMENT может вернуть существующий документ и не доказывает владение Lik. Остаётся finally-cleanup только app snapshot; подготовка source завершается до открытия destination. Обычная запись провайдера может уже изменить внешний документ, поэтому безопасный rollback не заявляется.
+
+- Real API37 RED: три новых теста separate-UID DocumentsProvider сначала читают существующий sentinel, получают тот же URI через createDocument и вызывают source-read, no-space и security failures. Старый код удалял документ: `expected:<1> but was:<0>` во всех трёх случаях (`/tmp/lik-task8-review1-red.log`). После исправления проверяются наличие документа, точные sentinel-байты, исходные байты и уборка app temp.
+- Focused GREEN: **8 тестов**, 0 failures/skips, 13s (`/tmp/lik-task8-review1-focused-final.log`). Существующие проверки отмены, write failure и original preservation не ослаблены.
+- `./gradlew lint testDebugUnitTest assembleDebug assembleRelease assembleDebugAndroidTest` — PASS, **64 JVM-теста**, 0 failures/errors/skips; 10s (`/tmp/lik-task8-review1-build-final.log`).
+- `ANDROID_SERIAL=emulator-5580 ./gradlew connectedDebugAndroidTest` — PASS, **83 теста**, XML totals 83/0/0/0; 2m 45s (`/tmp/lik-task8-review1-connected-final.log`). API37, Android17, AVD `lik_api37_qa`, 16KiB pages. Device-original GalleryTest прошёл; физическое устройство не использовалось.
+- Первый полный прогон выявил один timeout новой grant fixture: NEW_TASK доставил intent верхней Activity (START_DELIVERED_TO_TOP), а helper обрабатывал только onCreate. Добавлен onNewIntent и пропуск уже выданных grants; default grant остаётся READ-only. Остальные 82 теста того прогона прошли; финальные 83 прошли полностью. Это исправление test fixture, не production-регрессия.
+- Self-review и независимый read-only review не обнаружили оставшегося external-delete пути или регрессии обычного экспорта. Production manifest, permissions и зависимости не менялись; новый provider и WRITE grant находятся только в test APK. README, FEATURE_MATRIX и MEDIA_CATALOG отражают ограничение внешней очистки.
+
 ## Task 8 · экспорт и корзина · 8 сентября 2026
 
 Проверен commit `c8c29ed80431cd450d74c19d4faaad5c38997168`, debug/release 0.1.0 (versionCode 1), JDK17 / Gradle9.4.1 / AGP9.2.1. Room v4 и миграции v1→v2→v3→v4 сохраняют организацию; удаление приватной копии теперь означает TRASHED на 30×24 часа. Durable PURGING claim, unlink, повтор после сбоя и restore сериализованы общим PhotoStore monitor. Удаление оригиналов не добавлено.

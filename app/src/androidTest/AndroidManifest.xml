@@ -4,6 +4,11 @@
     <provider android:name="io.github.mesteriis.lik.ImportFixtureProvider"
         android:authorities="io.github.mesteriis.lik.test.photos"
         android:exported="false" android:grantUriPermissions="true" />
+    <provider android:name="io.github.mesteriis.lik.ExistingDocumentProvider"
+        android:authorities="io.github.mesteriis.lik.test.documents"
+        android:exported="true" android:grantUriPermissions="true" android:permission="android.permission.MANAGE_DOCUMENTS">
+      <intent-filter><action android:name="android.content.action.DOCUMENTS_PROVIDER" /></intent-filter>
+    </provider>
     <activity android:name="io.github.mesteriis.lik.FixtureGrantActivity" android:exported="true" />
     <activity android:name="io.github.mesteriis.lik.ExportReceiverActivity" android:exported="true" />
   </application>

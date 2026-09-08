@@ -10,9 +10,19 @@ import java.util.ArrayList;
 public class FixtureGrantActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        ArrayList<Uri> uris = getIntent().getParcelableArrayListExtra("uris", Uri.class);
+        grantAndFinish(getIntent());
+    }
+
+    @Override public void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        grantAndFinish(intent);
+    }
+
+    private void grantAndFinish(Intent intent) {
+        ArrayList<Uri> uris = intent.getParcelableArrayListExtra("uris", Uri.class);
         if (uris != null) for (Uri uri : uris) {
-            grantUriPermission("io.github.mesteriis.lik", uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            grantUriPermission("io.github.mesteriis.lik", uri,
+                intent.getIntExtra("grantFlags", Intent.FLAG_GRANT_READ_URI_PERMISSION));
         }
         finish();
     }
