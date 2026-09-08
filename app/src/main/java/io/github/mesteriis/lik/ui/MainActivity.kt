@@ -161,6 +161,7 @@ open class MainActivity : ComponentActivity() {
     }
 
     private fun render(state: io.github.mesteriis.lik.imports.ImportState) {
+        if (state.busy) findViewById<View>(R.id.import_summary).visibility = View.GONE
         importSummaryEvents.next(state.summary)?.let { summary ->
             findViewById<TextView>(R.id.import_summary).apply {
                 text = getString(R.string.import_summary, summary.added, summary.duplicates, summary.failed)

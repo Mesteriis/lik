@@ -78,11 +78,17 @@ class PhotoImportTest {
         fail("Import did not finish")
     }
 
-    private fun assertSummary(scenario: ActivityScenario<Activity>, visible: Boolean, added: Int = 0) {
+    private fun assertSummary(
+        scenario: ActivityScenario<Activity>,
+        visible: Boolean,
+        added: Int = 0,
+        duplicates: Int = 0,
+        failed: Int = 0,
+    ) {
         scenario.onActivity { activity ->
             val summary = activity.findViewById<TextView>(R.id.import_summary)
             assertEquals(if (visible) View.VISIBLE else View.GONE, summary.visibility)
-            if (visible) assertEquals(activity.getString(R.string.import_summary, added, 0, 0), summary.text)
+            if (visible) assertEquals(activity.getString(R.string.import_summary, added, duplicates, failed), summary.text)
         }
     }
 
@@ -159,6 +165,33 @@ class PhotoImportTest {
             scenario.recreate()
             awaitCompleted(scenario, 1)
             assertSummary(scenario, visible = true, added = 1)
+        }
+    }
+
+    @Test fun completedShareRendersDuplicateAndFailureCountsOnlyOnceAcrossRecreation() {
+        launchShare("green", "another_green", "missing").use { scenario ->
+            awaitCompleted(scenario, 3)
+            assertSummary(scenario, visible = true, added = 1, duplicates = 1, failed = 1)
+
+            scenario.recreate()
+            instrumentation.waitForIdleSync()
+            assertSummary(scenario, visible = false)
+        }
+    }
+
+    @Test fun nextAcceptedImportHidesPreviousSummaryUntilItsOwnResultArrives() {
+        val slow = Uri.parse("content://io.github.mesteriis.lik.test.photos/slow")
+        launchShare("slow").use { scenario ->
+            awaitCompleted(scenario, 1)
+            assertSummary(scenario, visible = true, added = 1)
+
+            scenario.onActivity { activity ->
+                ViewModelProvider(activity as MainActivity)[ImportViewModel::class.java].importPhotos(listOf(slow))
+            }
+            assertSummary(scenario, visible = false)
+
+            awaitCompleted(scenario, 1)
+            assertSummary(scenario, visible = true, duplicates = 1)
         }
     }
 
