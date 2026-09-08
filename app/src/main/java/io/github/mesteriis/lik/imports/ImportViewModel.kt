@@ -55,7 +55,9 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
         cancel
     }) { refresh(hasPhotoPermission()) }
     private val observer = object : ContentObserver(main) {
-        override fun onChange(selfChange: Boolean) = debounce.changed()
+        override fun onChange(selfChange: Boolean) {
+            if (observing && !closed) debounce.changed()
+        }
     }
 
     fun refresh(includeDevicePhotos: Boolean = false) {
@@ -246,6 +248,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
             context.checkSelfPermission(android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == android.content.pm.PackageManager.PERMISSION_GRANTED
     }
     fun stopObserving() {
+        refreshRevision++
         debounce.cancel()
         scanSignal?.cancel()
         if (observing) getApplication<Application>().contentResolver.unregisterContentObserver(observer)
