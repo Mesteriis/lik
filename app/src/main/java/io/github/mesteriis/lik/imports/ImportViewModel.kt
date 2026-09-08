@@ -21,9 +21,11 @@ private class ImportRejected(val kind: ImportFailureKind) : Exception()
 data class ImportState(
     val photos: List<GalleryPhoto> = emptyList(), val busy: Boolean = false,
     val operation: LibraryOperation = LibraryOperation.NONE,
+    val operationId: Long? = null,
     val total: Int = 0, val processed: Int = 0,
     val added: Int = 0, val duplicates: Int = 0, val failed: Int = 0,
     val failureKinds: Set<ImportFailureKind> = emptySet(),
+    val summary: ImportSummary? = null,
     val deleted: Int = 0, val deleteFailed: Int = 0,
     val deletedIds: Set<String> = emptySet(),
     val deleteFailedIds: Set<String> = emptySet(),
@@ -35,6 +37,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
     private val worker = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
     @Volatile private var closed = false
+    private val admissions = ImportAdmissions()
 
     fun refresh(includeDevicePhotos: Boolean = false) {
         if (updates.value?.busy == true) return
@@ -44,12 +47,25 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun importPhotos(uris: List<Uri>): Boolean {
-        if (uris.isEmpty() || uris.size > ImportInput.MAX_PHOTOS || updates.value?.busy == true) return false
+    fun importPhotos(uris: List<Uri>): ImportAdmission {
+        val admission = admissions.admit(uris.size, updates.value?.busy == true)
+        if (admission !is ImportAdmission.Accepted) return admission
         val before = requireNotNull(updates.value)
-        updates.value = ImportState(photos = before.photos, busy = true, operation = LibraryOperation.IMPORT, total = uris.size)
+        updates.value = ImportState(
+            photos = before.photos,
+            busy = true,
+            operation = LibraryOperation.IMPORT,
+            operationId = admission.operationId,
+            total = uris.size,
+        )
         worker.execute {
-            var current = ImportState(photos = before.photos, busy = true, operation = LibraryOperation.IMPORT, total = uris.size)
+            var current = ImportState(
+                photos = before.photos,
+                busy = true,
+                operation = LibraryOperation.IMPORT,
+                operationId = admission.operationId,
+                total = uris.size,
+            )
             try {
                 val store = PhotoLibrary.store(getApplication())
                 val resolver = getApplication<Application>().contentResolver
@@ -97,9 +113,19 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
                 current = current.copy(failed = current.failed + (current.total - current.processed), processed = current.total,
                     failureKinds = current.failureKinds + ImportFailureKind.STORAGE)
             }
-            publish(current.copy(busy = false, operation = LibraryOperation.NONE))
+            publish(current.copy(
+                busy = false,
+                operation = LibraryOperation.NONE,
+                summary = ImportSummary(
+                    operationId = admission.operationId,
+                    added = current.added,
+                    duplicates = current.duplicates,
+                    failed = current.failed,
+                    failureKinds = current.failureKinds,
+                ),
+            ))
         }
-        return true
+        return admission
     }
 
     fun deletePhotos(ids: Set<String>): Boolean {

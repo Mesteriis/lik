@@ -27,6 +27,8 @@ import io.github.mesteriis.lik.gallery.TimelineEntry
 import io.github.mesteriis.lik.gallery.TimelineLevel
 import io.github.mesteriis.lik.imports.ImportFailureKind
 import io.github.mesteriis.lik.imports.ImportInput
+import io.github.mesteriis.lik.imports.ImportAdmission
+import io.github.mesteriis.lik.imports.ImportSummaryEvents
 import io.github.mesteriis.lik.imports.ImportViewModel
 import io.github.mesteriis.lik.imports.ShareImportActivity
 import io.github.mesteriis.lik.settings.AppIconManager
@@ -43,6 +45,7 @@ open class MainActivity : ComponentActivity() {
     private var photos: List<GalleryPhoto> = emptyList()
     private var pendingRestore = false
     private lateinit var libraryZone: ZoneId
+    private var importSummaryEvents = ImportSummaryEvents()
 
     private val photoPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         refreshGallery()
@@ -60,6 +63,9 @@ open class MainActivity : ComponentActivity() {
         setContentView(R.layout.activity_main)
         findViewById<View>(R.id.main_content).applySystemBarInsets()
         model = ViewModelProvider(this)[ImportViewModel::class.java]
+        importSummaryEvents = ImportSummaryEvents(
+            savedInstanceState?.getLong(STATE_RENDERED_IMPORT_SUMMARY)?.takeIf { it > 0 },
+        )
         libraryZone = loadLibraryZone()
         ui = restoreUi(savedInstanceState)
         selection = GallerySelection(savedInstanceState?.getStringArrayList(STATE_SELECTION)?.toSet().orEmpty())
@@ -155,6 +161,13 @@ open class MainActivity : ComponentActivity() {
     }
 
     private fun render(state: io.github.mesteriis.lik.imports.ImportState) {
+        importSummaryEvents.next(state.summary)?.let { summary ->
+            Toast.makeText(
+                this,
+                getString(R.string.import_summary, summary.added, summary.duplicates, summary.failed),
+                Toast.LENGTH_LONG,
+            ).show()
+        }
         photos = state.photos
         selection = selection.retainAvailable(state.photos.filter { it.canDeleteCopy }.mapTo(mutableSetOf()) { it.id })
         if (!state.busy && state.deleted + state.deleteFailed > 0) {
@@ -350,11 +363,16 @@ open class MainActivity : ComponentActivity() {
         outState.putString(STATE_SCROLL_ID, ui.anchorId)
         outState.putInt(STATE_SCROLL_OFFSET, ui.anchorOffset)
         outState.putStringArrayList(STATE_SELECTION, ArrayList(selection.ids))
+        importSummaryEvents.renderedOperationId?.let { outState.putLong(STATE_RENDERED_IMPORT_SUMMARY, it) }
         super.onSaveInstanceState(outState)
     }
 
     private fun accept(data: Intent?) {
-        if (!model.importPhotos(data?.let(ImportInput::uris).orEmpty())) Toast.makeText(this, R.string.import_invalid, Toast.LENGTH_LONG).show()
+        when (model.importPhotos(data?.let(ImportInput::uris).orEmpty())) {
+            is ImportAdmission.Accepted -> Unit
+            ImportAdmission.InvalidInput -> Toast.makeText(this, R.string.import_invalid, Toast.LENGTH_LONG).show()
+            ImportAdmission.Busy -> Toast.makeText(this, R.string.import_busy, Toast.LENGTH_LONG).show()
+        }
     }
     private fun hasFullPhotoAccess() = checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED
     private fun hasPhotoAccess() = hasFullPhotoAccess() || checkSelfPermission(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED
@@ -372,6 +390,7 @@ open class MainActivity : ComponentActivity() {
         private const val STATE_SECTION = "gallery.section"
         private const val STATE_SCROLL_ID = "gallery.scroll.id"
         private const val STATE_SCROLL_OFFSET = "gallery.scroll.offset"
+        private const val STATE_RENDERED_IMPORT_SUMMARY = "import.rendered_summary"
         private const val PREF_LEVEL = "gallery.last.level"
         private const val PREF_LIBRARY_ZONE = "gallery.library.zone"
         private const val PREFS = "gallery_ui"

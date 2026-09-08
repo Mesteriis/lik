@@ -102,9 +102,9 @@ Rune Keyboard добавлен отдельным столбцом: это ре�
 
 ## Принято: D16 — импорт из Google Photos (2026-09-08)
 
-Пользователь уточнил модель хранения: локальные фото читаются напрямую через MediaStore без копирования, а приватные копии создаются только при явном Google Photos → «Поделиться → Лик». Реализованы импорт до 50 фото, SHA-256-дедупликация, прогресс, частичные ошибки, единая сетка, просмотр и удаление только импортированных копий. Прямой OEM API и синхронизация облачного каталога не входят в решение. ИИ пока не подключён.
+Пользователь уточнил модель хранения: локальные фото читаются напрямую через MediaStore без копирования, а приватные копии создаются только при явном Google Photos → «Поделиться → Лик». Реализованы импорт до 50 фото, SHA-256-дедупликация, прогресс, частичные ошибки, одноразовый итог операции с числами добавленных/дубликатов/ошибок и устойчивое к пересозданию Activity отображение, единая сетка, просмотр и удаление только импортированных копий. Ввод отклоняется отдельными типизированными причинами для некорректного набора и уже выполняемой операции. Прямой OEM API и синхронизация облачного каталога не входят в решение. ИИ пока не подключён.
 
-Источник — публичные Android MediaStore и Share Intent API; реализация написана для Lik, runtime-код референсов не копировался. Файлы: `gallery/GalleryPhoto.kt`, `imports/PhotoStore.kt`, `PhotoLibrary.kt`, `ImportInput.kt`, `ImportViewModel.kt`, `ShareImportActivity.kt`, `ui/MainActivity.kt`, `ui/TimelineAdapter.kt`, `gallery/PhotoViewerActivity.kt`, `PhotoViewerViewModel.kt`, `ZoomImageView.kt`. [Спецификация и источники](GOOGLE_PHOTOS_IMPORT.md). Успешный импорт test-provider не считается проверкой облачного аккаунта Google Photos.
+Источник — публичные Android MediaStore и Share Intent API; реализация написана для Lik, runtime-код референсов не копировался. Файлы: `gallery/GalleryPhoto.kt`, `imports/PhotoStore.kt`, `PhotoLibrary.kt`, `ImportInput.kt`, `ImportAdmission.kt`, `ImportViewModel.kt`, `ShareImportActivity.kt`, `ui/MainActivity.kt`, `ui/TimelineAdapter.kt`, `gallery/PhotoViewerActivity.kt`, `PhotoViewerViewModel.kt`, `ZoomImageView.kt`. [Спецификация и источники](GOOGLE_PHOTOS_IMPORT.md). Успешный импорт test-provider не считается проверкой облачного аккаунта Google Photos.
 
 ## Выбрано направление: лента и Fold (2026-09-08)
 

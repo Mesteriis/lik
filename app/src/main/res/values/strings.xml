@@ -24,6 +24,8 @@
   <string name="google_photos_unavailable">Google Photos is unavailable on this device.</string>
   <string name="device_photo_kept_in_system_gallery">This photo stays in the system gallery. Lik does not create or delete a copy.</string>
   <string name="import_invalid">Choose 1–50 photos and wait for the current import to finish.</string>
+  <string name="import_busy">An import is already in progress.</string>
+  <string name="import_summary">Import complete: Added %1$d · Already in Lik %2$d · Failed %3$d.</string>
   <string name="import_source_failure">Some selected photos are unavailable. Check Google Photos or your connection, then select them again.</string>
   <string name="import_invalid_image_failure">Some selected files are not supported images.</string>
   <string name="import_too_large_failure">Some photos exceed the 200 MiB limit.</string>

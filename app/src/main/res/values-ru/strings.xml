@@ -24,6 +24,8 @@
   <string name="google_photos_unavailable">Google Фото недоступны на этом устройстве.</string>
   <string name="device_photo_kept_in_system_gallery">Фото остаётся в системной галерее. Лик не создаёт и не удаляет его копию.</string>
   <string name="import_invalid">Выберите от 1 до 50 фото и дождитесь завершения текущего импорта.</string>
+  <string name="import_busy">Импорт уже выполняется.</string>
+  <string name="import_summary">Импорт завершён: добавлено %1$d · уже в Лике %2$d · не удалось %3$d.</string>
   <string name="import_source_failure">Некоторые выбранные фото недоступны. Проверьте Google Фото или подключение и выберите их снова.</string>
   <string name="import_invalid_image_failure">Некоторые выбранные файлы не являются поддерживаемыми изображениями.</string>
   <string name="import_too_large_failure">Некоторые фотографии превышают лимит 200 МиБ.</string>
