@@ -98,3 +98,14 @@ Room 2.8.4 хранит метаданные и доступность; прив
 
 - Полный `lint testDebugUnitTest assembleDebug assembleRelease assembleDebugAndroidTest` прошёл: 55 JVM-тестов, 0 ошибок/пропусков.
 - `ANDROID_SERIAL=emulator-5580 ./gradlew connectedDebugAndroidTest` прошёл: 43 теста на Android 17 / API 37, 0 ошибок/пропусков.
+
+## Инкрементальный каталог и Paging · Task 6 · 8 сентября 2026
+
+Проверен код commit `59bc0d5b99c193d660591516f25b23f4844164f1`, сборки `0.1.0` (`versionCode 1`) debug/release. Room v2 хранит checkpoint томов, period keys и EXIF revision cache; миграция v1→v2 сохраняет метаданные. Удаление из полного стабильного inventory отделено от ограниченного/отозванного доступа. Изменение generation во время MediaProvider scan откатывает транзакцию и повторяет её максимум три раза; cancellation и permission change не повторяются.
+
+- `./gradlew lint testDebugUnitTest assembleDebug assembleRelease assembleDebugAndroidTest` — успешно, **58 JVM-тестов**, 0 ошибок/пропусков; строгий lint, debug/release APK и release shrink прошли. Лог: `/tmp/lik-task6-matrix-verified.log`.
+- `ANDROID_SERIAL=emulator-5580 ./gradlew connectedDebugAndroidTest` — успешно, **59 тестов**, 0 ошибок/пропусков; `BUILD SUCCESSFUL in 2m 33s`. AVD `lik_api37_qa`, Android 17 / API 37. Лог: `/tmp/lik-task6-connected-verified.log`.
+- Настоящие Room/SQLite и Paging проверены на 2 000 / 20 000 / 100 000 metadata-only записей без файлов изображений: страницы по 60, SQL counts, максимум три обложки, окно viewer до трёх записей. Отдельный AsyncPagingDataDiffer-тест проверяет начало по далёкому ID и удаление старых страниц из памяти при прокрутке.
+- Проверены insert/update/remove, limited access, revoked source/URI, version reset, отмена и постоянный generation churn без частичного commit, EXIF по revision обоих источников, UTC offsets/DST и сохранение EXIF при повторной ограниченной выборке. Новые регрессии сначала воспроизведены: полный viewer list, устаревшая file revision, scan token вместо epoch time, anchor внутри периода, однократный generation churn и потеря EXIF при повторном scan.
+- Существующие Share, gallery access, выбор, жесты, resize/large fonts, viewer navigation и lifecycle/launcher tests прошли. `git diff --check` чист; `references/`, manifest permissions и пользовательские PNG не менялись.
+- Это функциональная проверка bounded metadata workloads, а не замеры задержек/памяти на Fold. На данном этапе не было установки на физическое устройство; физический API 36/Fold и реальный Google cloud Share остаются отдельной приёмкой. EXIF enrichment ленивый; полный EXIF UI не заявляется.
