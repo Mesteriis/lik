@@ -21,7 +21,6 @@ import androidx.recyclerview.widget.RecyclerView
 import io.github.mesteriis.lik.R
 import io.github.mesteriis.lik.gallery.GalleryPhoto
 import io.github.mesteriis.lik.gallery.GallerySelection
-import io.github.mesteriis.lik.gallery.GalleryTimeline
 import io.github.mesteriis.lik.gallery.PhotoViewerActivity
 import io.github.mesteriis.lik.gallery.TimelineEntry
 import io.github.mesteriis.lik.gallery.TimelineLevel
@@ -71,7 +70,7 @@ open class MainActivity : ComponentActivity() {
         ui = restoreUi(savedInstanceState)
         selection = GallerySelection(savedInstanceState?.getStringArrayList(STATE_SELECTION)?.toSet().orEmpty())
 
-        timeline = TimelineAdapter(this, ::onPhotoClick, ::onPhotoLongClick, ::onPeriodClick)
+        timeline = TimelineAdapter(this, ::onPhotoClick, ::onPhotoLongClick, ::onPeriodClick, libraryZone)
         layoutManager = GridLayoutManager(this, spansFor(resources.displayMetrics.widthPixels)).apply {
             spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
                 override fun getSpanSize(position: Int) = timeline.spanSize(position, spanCount)
@@ -247,8 +246,14 @@ open class MainActivity : ComponentActivity() {
     }
 
     private fun renderTimeline() {
-        val entries = GalleryTimeline.build(photos, ui.level, libraryZone)
-        timeline.submit(entries, ui.level)
+        val publish = {
+            timeline.select(selection.ids)
+            if (pendingRestore || ui.anchorId != null) {
+                pendingRestore = false
+                ui.anchorId?.let { restoreAnchor(it, ui.anchorOffset) }
+            }
+        }
+        if (!timeline.submit(photos, ui.level, publish)) publish()
         timeline.select(selection.ids)
         val buttons = mapOf(
             TimelineLevel.PHOTO to R.id.timeline_level_photo,
@@ -258,10 +263,6 @@ open class MainActivity : ComponentActivity() {
             TimelineLevel.YEARS to R.id.timeline_level_years,
         )
         buttons.forEach { (level, id) -> findViewById<View>(id).isSelected = level == ui.level }
-        if (pendingRestore || ui.anchorId != null) {
-            pendingRestore = false
-            ui.anchorId?.let { restoreAnchor(it, ui.anchorOffset) }
-        }
     }
 
     @SuppressLint("UseKtx")
@@ -429,7 +430,9 @@ open class MainActivity : ComponentActivity() {
     private fun requestPhotoAccess() = photoPermission.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED))
     private fun refreshGallery() {
         findViewById<View>(R.id.allow_photo_access).visibility = if (hasFullPhotoAccess()) View.GONE else View.VISIBLE
-        model.refresh(hasPhotoAccess())
+        val access = hasPhotoAccess()
+        timeline.updateAccess(access)
+        model.refresh(access)
     }
     private fun spansFor(widthPx: Int) = if (widthPx / resources.displayMetrics.density >= 600f) 12 else 6
     override fun onDestroy() { timeline.close(); super.onDestroy() }

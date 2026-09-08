@@ -24,6 +24,7 @@ data class GalleryPhoto(
     val bytes: Long = 0,
     val takenAt: Long? = null,
     val addedAt: Long = 0,
+    val sourceRevision: Long = 0,
 ) {
     val canDeleteCopy: Boolean get() = source == PhotoSource.GOOGLE_IMPORT && file != null
     val timelineAt: Long? get() = takenAt?.takeIf { it > 0 } ?: addedAt.takeIf { it > 0 }
@@ -56,6 +57,7 @@ object GalleryCatalog {
             null
         },
         addedAt = photo.file.lastModified(),
+        sourceRevision = photo.file.lastModified(),
     )
 
     fun importedId(id: String): String? = id.takeUnless { it.startsWith(DEVICE_PREFIX) }
@@ -81,6 +83,7 @@ object GalleryCatalog {
             MediaStore.Images.Media.SIZE,
             MediaStore.Images.Media.DATE_TAKEN,
             MediaStore.Images.Media.DATE_ADDED,
+            MediaStore.Images.Media.DATE_MODIFIED,
         )
         return context.contentResolver.query(
             collection,
@@ -96,6 +99,7 @@ object GalleryCatalog {
             val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.SIZE)
             val takenColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_TAKEN)
             val dateColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
+            val modifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_MODIFIED)
             buildList {
                 while (cursor.moveToNext()) {
                     val mediaId = cursor.getLong(idColumn)
@@ -109,6 +113,7 @@ object GalleryCatalog {
                         bytes = cursor.getLong(sizeColumn),
                         takenAt = cursor.getLong(takenColumn).takeIf { !cursor.isNull(takenColumn) && it > 0 },
                         addedAt = cursor.getLong(dateColumn) * 1000,
+                        sourceRevision = cursor.getLong(modifiedColumn) * 1000,
                     ))
                 }
             }

@@ -24,6 +24,7 @@ import io.github.mesteriis.lik.imports.ImportViewModel
 import io.github.mesteriis.lik.imports.PhotoLibrary
 import io.github.mesteriis.lik.ui.MainActivity
 import io.github.mesteriis.lik.ui.TimelineAdapter
+import java.time.ZoneId
 import java.io.ByteArrayOutputStream
 import java.io.File
 import org.junit.After
@@ -35,7 +36,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import io.github.mesteriis.lik.gallery.GalleryPhoto
 import io.github.mesteriis.lik.gallery.PhotoSource
-import io.github.mesteriis.lik.gallery.TimelineEntry
 import io.github.mesteriis.lik.gallery.TimelineLevel
 
 @RunWith(AndroidJUnit4::class)
@@ -124,19 +124,23 @@ class GalleryTest {
     }
 
     @Test fun hashCollidingTimelineKeysDoNotEnableRecyclerViewStableIds() {
-        val adapter = TimelineAdapter(context, {}, {}, {})
+        val adapter = TimelineAdapter(context, {}, {}, {}, ZoneId.of("UTC"))
         val aa = GalleryPhoto(id = "Aa", source = PhotoSource.GOOGLE_IMPORT)
         val bb = GalleryPhoto(id = "BB", source = PhotoSource.GOOGLE_IMPORT)
-        val entries = listOf(
-            TimelineEntry.Photo(aa, indexInGroup = 0, groupSize = 2),
-            TimelineEntry.Photo(bb, indexInGroup = 1, groupSize = 2),
-        )
-
         assertEquals("photo:Aa".hashCode(), "photo:BB".hashCode())
-        adapter.submit(entries, TimelineLevel.PHOTO)
+        try {
+            adapter.submit(listOf(aa, bb), TimelineLevel.PHOTO)
+            val deadline = System.nanoTime() + 5_000_000_000
+            while (adapter.itemCount < 2 && System.nanoTime() < deadline) {
+                instrumentation.waitForIdleSync()
+                Thread.sleep(10)
+            }
 
-        assertFalse(adapter.hasStableIds())
-        assertEquals(2, adapter.itemCount)
+            assertFalse(adapter.hasStableIds())
+            assertEquals(2, adapter.itemCount)
+        } finally {
+            adapter.close()
+        }
     }
 
     @Test fun completedPinchChangesOnlyOneTimelineLevelAndCancelledPinchChangesNone() {

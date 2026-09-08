@@ -8,7 +8,6 @@ import android.util.LruCache
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
@@ -18,9 +17,8 @@ import io.github.mesteriis.lik.gallery.GalleryCatalog
 import io.github.mesteriis.lik.gallery.GalleryPhoto
 import io.github.mesteriis.lik.gallery.TimelineEntry
 import io.github.mesteriis.lik.gallery.TimelineLevel
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.ThreadPoolExecutor
-import java.util.concurrent.TimeUnit
+import java.time.ZoneId
+import java.util.concurrent.Executors
 
 internal fun daySpanUnits(index: Int, columns: Int, groupSize: Int = Int.MAX_VALUE): Int {
     val pattern = if (columns >= 4) intArrayOf(2, 1, 1, 1, 1, 2, 1, 1, 1, 1)
@@ -42,32 +40,72 @@ class TimelineAdapter(
     private val onPhotoClick: (GalleryPhoto) -> Unit,
     private val onPhotoLongClick: (GalleryPhoto) -> Unit,
     private val onPeriodClick: (TimelineEntry.Period) -> Unit,
+    private val zoneId: ZoneId,
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
     private var entries: List<TimelineEntry> = emptyList()
     private var selected: Set<String> = emptySet()
     private var level = TimelineLevel.DAYS
     private var availableWidth = context.resources.displayMetrics.widthPixels
     private val main = Handler(Looper.getMainLooper())
-    private val worker = ThreadPoolExecutor(2, 2, 0, TimeUnit.SECONDS, LinkedBlockingQueue())
-    private val cache = object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
-        override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
+    private val timelineWorker = Executors.newSingleThreadExecutor()
+    private val thumbnailWorker = Executors.newFixedThreadPool(2)
+    private val cache = object : LruCache<ThumbnailKey, Bitmap>(24 * 1024 * 1024) {
+        override fun sizeOf(key: ThumbnailKey, value: Bitmap) = value.allocationByteCount
     }
+    private val thumbnailCache = object : ThumbnailCache<Bitmap> {
+        override fun get(key: ThumbnailKey) = cache.get(key)
+        override fun put(key: ThumbnailKey, value: Bitmap) { cache.put(key, value) }
+        override fun remove(key: ThumbnailKey) { cache.remove(key) }
+        override fun keys() = cache.snapshot().keys
+        override fun clear() { cache.evictAll() }
+    }
+    private val thumbnailLoader = ThumbnailLoader(thumbnailWorker, thumbnailCache, THUMBNAIL_QUEUE_CAPACITY)
+    private val callbacks = mutableMapOf<Long, () -> Unit>()
+    private lateinit var timelineController: TimelineController
+    private var accessGranted: Boolean? = null
+    private var accessEpoch = 0L
     private var closed = false
 
-    fun submit(items: List<TimelineEntry>, timelineLevel: TimelineLevel) {
-        val previous = entries
-        val previousLevel = level
-        val difference = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
-            override fun getOldListSize() = previous.size
-            override fun getNewListSize() = items.size
+    init {
+        timelineController = TimelineController(timelineWorker, zoneId) { revision ->
+            val difference = calculateDiff(revision.previous, revision.entries, revision.level)
+            main.post {
+                val callback = callbacks.remove(revision.id)
+                if (!closed && timelineController.publish(revision)) {
+                    entries = revision.entries
+                    level = revision.level
+                    difference.dispatchUpdatesTo(this)
+                    callback?.invoke()
+                }
+            }
+        }
+    }
+
+    fun submit(photos: List<GalleryPhoto>, timelineLevel: TimelineLevel, onPublished: () -> Unit = {}): Boolean {
+        val id = timelineController.submit(photos, timelineLevel) ?: return false
+        callbacks.keys.filter { it < id }.toList().forEach(callbacks::remove)
+        callbacks[id] = onPublished
+        return true
+    }
+
+    private fun calculateDiff(
+        previous: TimelineSnapshot,
+        next: List<TimelineEntry>,
+        nextLevel: TimelineLevel,
+    ) = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = previous.entries.size
+            override fun getNewListSize() = next.size
             override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int) =
-                previous[oldItemPosition].stableKey == items[newItemPosition].stableKey
+                previous.entries[oldItemPosition].stableKey == next[newItemPosition].stableKey
             override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int) =
-                previous[oldItemPosition] == items[newItemPosition] && previousLevel == timelineLevel
+                previous.entries[oldItemPosition] == next[newItemPosition] && previous.level == nextLevel
         })
-        entries = items
-        level = timelineLevel
-        difference.dispatchUpdatesTo(this)
+
+    fun updateAccess(access: Boolean) {
+        if (accessGranted == access) return
+        accessGranted = access
+        accessEpoch++
+        thumbnailLoader.invalidate { it.accessEpoch != accessEpoch }
     }
 
     fun select(ids: Set<String>) {
@@ -145,10 +183,9 @@ class TimelineAdapter(
     }
 
     override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
-        holder.itemView.findViewById<ImageView?>(R.id.photo_thumbnail)?.tag = null
-        holder.itemView.findViewById<ImageView?>(R.id.period_cover)?.tag = null
-        holder.itemView.findViewById<ImageView?>(R.id.period_sample_2)?.tag = null
-        holder.itemView.findViewById<ImageView?>(R.id.period_sample_3)?.tag = null
+        listOf(R.id.photo_thumbnail, R.id.period_cover, R.id.period_sample_2, R.id.period_sample_3)
+            .mapNotNull { holder.itemView.findViewById<ImageView?>(it) }
+            .forEach(::cancelLoad)
         super.onViewRecycled(holder)
     }
 
@@ -205,19 +242,18 @@ class TimelineAdapter(
     }
 
     private fun load(photo: GalleryPhoto, view: ImageView, edge: Int) {
-        val key = "${photo.id}:$edge"
-        view.tag = key
+        cancelLoad(view)
+        val key = ThumbnailKey(photo.id, photo.sourceRevision, edge, accessEpoch)
         view.setOnClickListener(null)
         view.isClickable = false
         view.setImageBitmap(null)
-        cache.get(key)?.let { view.setImageBitmap(it); return }
-        worker.execute {
-            val bitmap = try { GalleryCatalog.decode(context, photo, edge) } catch (_: Exception) { null }
+        val request = thumbnailLoader.load(key, ThumbnailPriority.VISIBLE, {
+            try { GalleryCatalog.decode(context, photo, edge) } catch (_: Exception) { null }
+        }) { result ->
             main.post {
-                if (!closed && view.tag == key) {
-                    if (bitmap != null) {
-                        cache.put(key, bitmap)
-                        view.setImageBitmap(bitmap)
+                if (!closed && (view.tag as? ThumbnailBinding)?.key == key) {
+                    if (result.value != null) {
+                        view.setImageBitmap(result.value)
                     } else {
                         view.setImageResource(android.R.drawable.ic_menu_report_image)
                         view.setOnClickListener { load(photo, view, edge) }
@@ -225,16 +261,33 @@ class TimelineAdapter(
                 }
             }
         }
+        view.tag = ThumbnailBinding(key, request)
     }
 
     fun forget(ids: Set<String>) {
-        cache.snapshot().keys.filter { key -> ids.any { key.startsWith("$it:") } }.forEach(cache::remove)
+        thumbnailLoader.invalidate { it.photoId in ids }
     }
 
-    fun close() { closed = true; worker.shutdownNow(); cache.evictAll() }
+    fun close() {
+        closed = true
+        timelineController.close()
+        timelineWorker.shutdownNow()
+        thumbnailLoader.close()
+    }
+    private fun cancelLoad(view: ImageView) {
+        (view.tag as? ThumbnailBinding)?.request?.cancel()
+        view.tag = null
+    }
     private fun dp(value: Int) = (value * context.resources.displayMetrics.density).toInt()
 
-    companion object { private const val TYPE_HEADER = 0; private const val TYPE_PHOTO = 1; private const val TYPE_PERIOD = 2 }
+    private data class ThumbnailBinding(val key: ThumbnailKey, val request: ThumbnailRequest<Bitmap>)
+
+    companion object {
+        private const val TYPE_HEADER = 0
+        private const val TYPE_PHOTO = 1
+        private const val TYPE_PERIOD = 2
+        private const val THUMBNAIL_QUEUE_CAPACITY = 24
+    }
 }
 
 internal fun photoSpanSize(spanCount: Int): Int = (spanCount / 3).coerceAtLeast(1)
