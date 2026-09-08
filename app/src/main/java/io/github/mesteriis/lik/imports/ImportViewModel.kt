@@ -20,6 +20,8 @@ private class ImportRejected(val kind: ImportFailureKind) : Exception()
 
 data class ImportState(
     val photos: List<GalleryPhoto> = emptyList(), val busy: Boolean = false,
+    val scanning: Boolean = false,
+    val deviceSourceError: Boolean = false,
     val operation: LibraryOperation = LibraryOperation.NONE,
     val operationId: Long? = null,
     val total: Int = 0, val processed: Int = 0,
@@ -37,13 +39,23 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
     private val worker = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
     @Volatile private var closed = false
+    @Volatile private var refreshRevision = 0L
     private val admissions = ImportAdmissions()
 
     fun refresh(includeDevicePhotos: Boolean = false) {
-        if (updates.value?.busy == true) return
+        val revision = ++refreshRevision
+        updates.value = requireNotNull(updates.value).copy(scanning = true, deviceSourceError = false)
         worker.execute {
-            val photos = GalleryCatalog.load(getApplication(), includeDevicePhotos)
-            main.post { if (!closed) updates.value = requireNotNull(updates.value).copy(photos = photos) }
+            val loaded = GalleryCatalog.loadResult(getApplication(), includeDevicePhotos)
+            main.post {
+                if (!closed && revision == refreshRevision) {
+                    updates.value = requireNotNull(updates.value).copy(
+                        photos = loaded.photos,
+                        scanning = false,
+                        deviceSourceError = loaded.deviceSourceError,
+                    )
+                }
+            }
         }
     }
 
@@ -177,7 +189,17 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
         return true
     }
 
-    private fun publish(state: ImportState) { main.post { if (!closed) updates.value = state } }
+    private fun publish(state: ImportState) {
+        main.post {
+            if (!closed) {
+                val current = requireNotNull(updates.value)
+                updates.value = state.copy(
+                    scanning = current.scanning,
+                    deviceSourceError = current.deviceSourceError,
+                )
+            }
+        }
+    }
     private fun isGooglePhotosUri(uri: Uri): Boolean {
         if (uri.scheme != "content") return false
         val context = getApplication<Application>()

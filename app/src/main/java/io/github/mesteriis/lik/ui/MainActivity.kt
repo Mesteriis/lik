@@ -6,7 +6,9 @@ import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.view.ScaleGestureDetector
 import android.view.View
 import android.widget.ImageView
@@ -42,6 +44,8 @@ open class MainActivity : ComponentActivity() {
     private var selection = GallerySelection()
     private var ui = GalleryUiState()
     private var photos: List<GalleryPhoto> = emptyList()
+    private var photoAccess = DevicePhotoAccess.DENIED
+    private var currentScreenState: GalleryScreenState = GalleryScreenState.Loading(DevicePhotoAccess.DENIED)
     private var pendingRestore = false
     private lateinit var libraryZone: ZoneId
     private var importSummaryEvents = ImportSummaryEvents()
@@ -89,7 +93,7 @@ open class MainActivity : ComponentActivity() {
                     this@MainActivity.layoutManager.spanCount = newSpans
                 }
                 timeline.updateAvailableWidth(width)
-                anchor?.let { restoreAnchor(it.first, it.second) }
+                anchor?.let(::restoreAnchor)
             }
         }
         installPinchGesture()
@@ -114,7 +118,9 @@ open class MainActivity : ComponentActivity() {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
         findViewById<View>(R.id.import_photos).setOnClickListener { showImportInstructions() }
-        findViewById<View>(R.id.allow_photo_access).setOnClickListener { requestPhotoAccess() }
+        findViewById<View>(R.id.allow_photo_access).setOnClickListener {
+            if (photoAccess == DevicePhotoAccess.PERMANENTLY_DENIED) openPhotoAccessSettings() else requestPhotoAccess()
+        }
         findViewById<View>(R.id.cancel_selection).setOnClickListener {
             selection = GallerySelection()
             updateSelection()
@@ -152,12 +158,13 @@ open class MainActivity : ComponentActivity() {
             val vertical = event.getY(1) - event.getY(0)
             return kotlin.math.hypot(horizontal, vertical)
         }
-        fun finishPinch() {
+        fun finishPinch(focusY: Int) {
             if (cancelled || completed) return
             completed = true
+            val focusAnchor = captureAnchor(focusY)
             when {
-                scale > 1.12f -> setLevel(ui.zoomIn().level)
-                scale < 0.89f -> setLevel(ui.zoomOut().level)
+                scale > 1.12f -> setLevel(ui.zoomIn().level, focusAnchor)
+                scale < 0.89f -> setLevel(ui.zoomOut().level, focusAnchor)
             }
         }
         val detector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -170,7 +177,7 @@ open class MainActivity : ComponentActivity() {
             }
             override fun onScale(detector: ScaleGestureDetector): Boolean { scale *= detector.scaleFactor; return true }
             override fun onScaleEnd(detector: ScaleGestureDetector) {
-                finishPinch()
+                finishPinch(detector.focusY.toInt())
             }
         })
         timelinePinch = { event ->
@@ -190,7 +197,7 @@ open class MainActivity : ComponentActivity() {
                 android.view.MotionEvent.ACTION_POINTER_UP,
                 android.view.MotionEvent.ACTION_UP,
                 android.view.MotionEvent.ACTION_CANCEL -> {
-                    finishPinch()
+                    finishPinch((event.getY(0)).toInt())
                     capturing = false
                     initialSpan = 0f
                 }
@@ -225,7 +232,14 @@ open class MainActivity : ComponentActivity() {
         }
         updateSelection()
         findViewById<View>(R.id.import_photos).isEnabled = !state.busy
-        findViewById<View>(R.id.empty_gallery).visibility = if (ui.section == GallerySection.FEED && state.photos.isEmpty() && !state.busy) View.VISIBLE else View.GONE
+        currentScreenState = GalleryScreenState.resolve(
+            access = photoAccess,
+            scanning = state.scanning,
+            photos = state.photos.size,
+            imports = state.photos.count { it.source == io.github.mesteriis.lik.gallery.PhotoSource.GOOGLE_IMPORT },
+            sourceError = state.deviceSourceError,
+        )
+        renderAccessState()
         findViewById<TextView>(R.id.import_error).apply {
             visibility = if (!state.busy && state.failed > 0) View.VISIBLE else View.GONE
             text = state.failureKinds.map { kind ->
@@ -250,7 +264,9 @@ open class MainActivity : ComponentActivity() {
             timeline.select(selection.ids)
             if (pendingRestore || ui.anchorId != null) {
                 pendingRestore = false
-                ui.anchorId?.let { restoreAnchor(it, ui.anchorOffset) }
+                ui.anchorId?.let {
+                    restoreAnchor(GalleryAnchor(it, ui.anchorChronologicalIndex, ui.anchorOffset))
+                }
             }
         }
         if (!timeline.submit(photos, ui.level, publish)) publish()
@@ -266,10 +282,15 @@ open class MainActivity : ComponentActivity() {
     }
 
     @SuppressLint("UseKtx")
-    private fun setLevel(level: TimelineLevel, preferredAnchor: String? = null) {
+    private fun setLevel(level: TimelineLevel, preferredAnchor: GalleryAnchor? = null) {
         if (level == ui.level && preferredAnchor == null) return
-        val anchor = captureAnchor()
-        ui = ui.copy(level = level, anchorId = preferredAnchor ?: anchor?.first ?: ui.anchorId, anchorOffset = anchor?.second ?: 0)
+        val anchor = preferredAnchor ?: captureAnchor()
+        ui = ui.copy(
+            level = level,
+            anchorId = anchor?.photoId ?: ui.anchorId,
+            anchorOffset = anchor?.relativeOffset ?: ui.anchorOffset,
+            anchorChronologicalIndex = anchor?.chronologicalIndex ?: ui.anchorChronologicalIndex,
+        )
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(PREF_LEVEL, level.name).apply()
         pendingRestore = true
         renderTimeline()
@@ -277,7 +298,7 @@ open class MainActivity : ComponentActivity() {
 
     private fun selectSection(section: GallerySection) {
         if (section == ui.section) return
-        captureAnchor()?.let { ui = ui.copy(anchorId = it.first, anchorOffset = it.second) }
+        captureAnchor()?.let { ui = ui.copy(anchorId = it.photoId, anchorOffset = it.relativeOffset, anchorChronologicalIndex = it.chronologicalIndex) }
         ui = ui.copy(section = section)
         renderSection()
     }
@@ -296,7 +317,7 @@ open class MainActivity : ComponentActivity() {
             GallerySection.MORE to R.id.nav_more,
         ).forEach { (section, id) -> findViewById<View>(id).isSelected = section == ui.section }
         if (feed) {
-            findViewById<View>(R.id.empty_gallery).visibility = if (photos.isEmpty() && model.state.value?.busy != true) View.VISIBLE else View.GONE
+            renderAccessState()
             pendingRestore = true
             renderTimeline()
         } else findViewById<View>(R.id.empty_gallery).visibility = View.GONE
@@ -332,7 +353,10 @@ open class MainActivity : ComponentActivity() {
         updateSelection()
     }
 
-    private fun onPeriodClick(period: TimelineEntry.Period) = setLevel(period.targetLevel, period.cover.id)
+    private fun onPeriodClick(period: TimelineEntry.Period) = setLevel(
+        period.targetLevel,
+        GalleryAnchor(period.cover.id, timeline.chronologicalIndex(period.cover.id), 0),
+    )
 
     private fun updateSelection() {
         timeline.select(selection.ids)
@@ -370,18 +394,26 @@ open class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun captureAnchor(): Pair<String, Int>? {
-        val position = layoutManager.findFirstVisibleItemPosition()
-        if (position == RecyclerView.NO_POSITION) return null
-        val id = timeline.anchorId(position) ?: return null
-        val offset = layoutManager.findViewByPosition(position)?.top ?: 0
-        return id to offset
+    private fun captureAnchor(focusY: Int? = null): GalleryAnchor? {
+        if (focusY == null) {
+            val position = layoutManager.findFirstVisibleItemPosition()
+            if (position == RecyclerView.NO_POSITION) return null
+            val view = layoutManager.findViewByPosition(position) ?: return null
+            val candidate = timeline.anchorCandidate(position, view.top, view.bottom) ?: return null
+            return GalleryAnchor(candidate.photoId, candidate.chronologicalIndex, view.top)
+        }
+        val candidates = (0 until recycler.childCount).mapNotNull { index ->
+            val child = recycler.getChildAt(index)
+            val position = recycler.getChildAdapterPosition(child)
+            if (position == RecyclerView.NO_POSITION) null else timeline.anchorCandidate(position, child.top, child.bottom)
+        }
+        return GalleryAnchor.capture(focusY, candidates)
     }
 
-    private fun restoreAnchor(id: String, offset: Int) {
+    private fun restoreAnchor(anchor: GalleryAnchor) {
         recycler.post {
-            val position = timeline.positionForPhoto(id)
-            if (position >= 0) layoutManager.scrollToPositionWithOffset(position, offset)
+            val position = timeline.positionForAnchor(anchor)
+            if (position >= 0) layoutManager.scrollToPositionWithOffset(position, anchor.relativeOffset)
         }
     }
 
@@ -390,7 +422,13 @@ open class MainActivity : ComponentActivity() {
             TimelineLevel.valueOf(state?.getString(STATE_LEVEL) ?: getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_LEVEL, null).orEmpty())
         }.getOrDefault(TimelineLevel.DAYS)
         val section = runCatching { GallerySection.valueOf(state?.getString(STATE_SECTION).orEmpty()) }.getOrDefault(GallerySection.FEED)
-        return GalleryUiState(defaultLevel, section, state?.getString(STATE_SCROLL_ID), state?.getInt(STATE_SCROLL_OFFSET) ?: 0)
+        return GalleryUiState(
+            defaultLevel,
+            section,
+            state?.getString(STATE_SCROLL_ID),
+            state?.getInt(STATE_SCROLL_OFFSET) ?: 0,
+            state?.getInt(STATE_SCROLL_CHRONOLOGICAL_INDEX) ?: 0,
+        )
     }
 
     @SuppressLint("UseKtx")
@@ -408,11 +446,12 @@ open class MainActivity : ComponentActivity() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        captureAnchor()?.let { ui = ui.copy(anchorId = it.first, anchorOffset = it.second) }
+        captureAnchor()?.let { ui = ui.copy(anchorId = it.photoId, anchorOffset = it.relativeOffset, anchorChronologicalIndex = it.chronologicalIndex) }
         outState.putString(STATE_LEVEL, ui.level.name)
         outState.putString(STATE_SECTION, ui.section.name)
         outState.putString(STATE_SCROLL_ID, ui.anchorId)
         outState.putInt(STATE_SCROLL_OFFSET, ui.anchorOffset)
+        outState.putInt(STATE_SCROLL_CHRONOLOGICAL_INDEX, ui.anchorChronologicalIndex)
         outState.putStringArrayList(STATE_SELECTION, ArrayList(selection.ids))
         importSummaryEvents.renderedOperationId?.let { outState.putLong(STATE_RENDERED_IMPORT_SUMMARY, it) }
         super.onSaveInstanceState(outState)
@@ -427,12 +466,49 @@ open class MainActivity : ComponentActivity() {
     }
     private fun hasFullPhotoAccess() = checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED
     private fun hasPhotoAccess() = hasFullPhotoAccess() || checkSelfPermission(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED
-    private fun requestPhotoAccess() = photoPermission.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED))
+    @SuppressLint("UseKtx")
+    private fun requestPhotoAccess() {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(PREF_REQUESTED_PHOTO_ACCESS, true).apply()
+        photoPermission.launch(arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED))
+    }
+    private fun currentPhotoAccess() = DevicePhotoAccess.fromPermissions(
+        fullGranted = hasFullPhotoAccess(),
+        selectedGranted = checkSelfPermission(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED,
+        requestedBefore = getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_REQUESTED_PHOTO_ACCESS, false),
+        shouldShowRationale = shouldShowRequestPermissionRationale(Manifest.permission.READ_MEDIA_IMAGES),
+    )
+    private fun openPhotoAccessSettings() {
+        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
+    }
     private fun refreshGallery() {
-        findViewById<View>(R.id.allow_photo_access).visibility = if (hasFullPhotoAccess()) View.GONE else View.VISIBLE
-        val access = hasPhotoAccess()
-        timeline.refreshAccessEpoch()
-        model.refresh(access)
+        val access = currentPhotoAccess()
+        if (access != photoAccess) {
+            photoAccess = access
+            timeline.refreshDeviceAccessEpoch()
+        }
+        model.refresh(access.canReadDevicePhotos)
+    }
+    private fun renderAccessState() {
+        val button = findViewById<android.widget.Button>(R.id.allow_photo_access)
+        button.visibility = if (photoAccess == DevicePhotoAccess.FULL) View.GONE else View.VISIBLE
+        button.setText(if (photoAccess == DevicePhotoAccess.PERMANENTLY_DENIED) R.string.open_photo_access_settings else R.string.allow_photo_access)
+        val status = findViewById<TextView>(R.id.gallery_access_status)
+        val message = when (currentScreenState) {
+            is GalleryScreenState.Loading -> R.string.gallery_scanning
+            is GalleryScreenState.Partial -> R.string.gallery_partial_access
+            is GalleryScreenState.Denied -> R.string.gallery_access_denied
+            is GalleryScreenState.PermanentlyDenied -> R.string.gallery_access_permanently_denied
+            is GalleryScreenState.SourceError -> R.string.gallery_source_error
+            else -> null
+        }
+        status.text = message?.let(::getString).orEmpty()
+        status.visibility = if (message == null) View.GONE else View.VISIBLE
+        val showEmpty = currentScreenState is GalleryScreenState.Empty ||
+            (photos.isEmpty() && (currentScreenState is GalleryScreenState.Denied || currentScreenState is GalleryScreenState.PermanentlyDenied || currentScreenState is GalleryScreenState.SourceError))
+        findViewById<TextView>(R.id.empty_gallery).apply {
+            text = if (showEmpty && currentScreenState is GalleryScreenState.SourceError) getString(R.string.gallery_source_error) else getString(R.string.gallery_placeholder)
+            visibility = if (ui.section == GallerySection.FEED && showEmpty) View.VISIBLE else View.GONE
+        }
     }
     private fun spansFor(widthPx: Int) = if (widthPx / resources.displayMetrics.density >= 600f) 12 else 6
     override fun onDestroy() { timeline.close(); super.onDestroy() }
@@ -443,9 +519,11 @@ open class MainActivity : ComponentActivity() {
         private const val STATE_SECTION = "gallery.section"
         private const val STATE_SCROLL_ID = "gallery.scroll.id"
         private const val STATE_SCROLL_OFFSET = "gallery.scroll.offset"
+        private const val STATE_SCROLL_CHRONOLOGICAL_INDEX = "gallery.scroll.chronological_index"
         private const val STATE_RENDERED_IMPORT_SUMMARY = "import.rendered_summary"
         private const val PREF_LEVEL = "gallery.last.level"
         private const val PREF_LIBRARY_ZONE = "gallery.library.zone"
+        private const val PREF_REQUESTED_PHOTO_ACCESS = "gallery.requested_photo_access"
         private const val PREFS = "gallery_ui"
         private const val GOOGLE_PHOTOS_PACKAGE = "com.google.android.apps.photos"
     }

@@ -24,6 +24,8 @@
   </HorizontalScrollView>
   <Button android:id="@+id/allow_photo_access" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginHorizontal="16dp"
       android:minHeight="48dp" android:text="@string/allow_photo_access" android:textAllCaps="false" android:visibility="gone" />
+  <TextView android:id="@+id/gallery_access_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingHorizontal="16dp" android:paddingVertical="6dp"
+      android:textColor="@color/lik_text_secondary" android:textSize="14sp" android:visibility="gone" />
   <ProgressBar android:id="@+id/import_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="wrap_content"
       android:layout_marginHorizontal="16dp" android:visibility="gone" />
   <TextView android:id="@+id/import_error" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingHorizontal="16dp" android:paddingVertical="6dp"

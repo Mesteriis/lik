@@ -9,6 +9,7 @@ data class GalleryUiState(
     val section: GallerySection = GallerySection.FEED,
     val anchorId: String? = null,
     val anchorOffset: Int = 0,
+    val anchorChronologicalIndex: Int = 0,
 ) {
     fun zoomIn() = withLevel(level.closer())
     fun zoomOut() = withLevel(level.farther())

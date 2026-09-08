@@ -30,18 +30,26 @@ data class GalleryPhoto(
     val timelineAt: Long? get() = takenAt?.takeIf { it > 0 } ?: addedAt.takeIf { it > 0 }
 }
 
+data class GalleryCatalogLoad(
+    val photos: List<GalleryPhoto>,
+    val deviceSourceError: Boolean = false,
+)
+
 object GalleryCatalog {
     private const val DEVICE_PREFIX = "device:"
 
-    fun load(context: Context, includeDevicePhotos: Boolean): List<GalleryPhoto> {
+    fun load(context: Context, includeDevicePhotos: Boolean): List<GalleryPhoto> =
+        loadResult(context, includeDevicePhotos).photos
+
+    fun loadResult(context: Context, includeDevicePhotos: Boolean): GalleryCatalogLoad {
         val imported = PhotoLibrary.store(context).photos().map(::fromImported)
-        val device = if (includeDevicePhotos) try {
-            queryDevice(context)
-        } catch (_: SecurityException) {
-            emptyList()
-        } else emptyList()
-        return (device + imported).sortedWith(
+        val queried = if (includeDevicePhotos) runCatching { queryDevice(context) } else Result.success(emptyList())
+        val device = queried.getOrDefault(emptyList())
+        return GalleryCatalogLoad(
+            photos = (device + imported).sortedWith(
             compareByDescending<GalleryPhoto> { it.timelineAt ?: Long.MIN_VALUE }.thenByDescending { it.id },
+            ),
+            deviceSourceError = includeDevicePhotos && queried.isFailure,
         )
     }
 

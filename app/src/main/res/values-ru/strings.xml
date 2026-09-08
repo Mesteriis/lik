@@ -20,6 +20,12 @@
   <string name="import_photos">Открыть Google Фото</string>
   <string name="share_to_lik">Импорт в Лик</string>
   <string name="allow_photo_access">Разрешить доступ к фото на устройстве</string>
+  <string name="open_photo_access_settings">Открыть настройки доступа к фото</string>
+  <string name="gallery_scanning">Сканирование фотографий на устройстве…</string>
+  <string name="gallery_partial_access">Показаны выбранные вами фото. Разрешите больший доступ, чтобы увидеть больше фото на устройстве.</string>
+  <string name="gallery_access_denied">Доступ к фото на устройстве выключен. Импортированные копии остаются доступны в Лике.</string>
+  <string name="gallery_access_permanently_denied">Доступ к фото на устройстве выключен. Откройте настройки приложения, чтобы разрешить его; импортированные копии остаются доступны.</string>
+  <string name="gallery_source_error">Сейчас Лик не может прочитать фото на устройстве. Импортированные копии остаются доступны.</string>
   <string name="imported_photo">Фото %1$d</string>
   <string name="google_photos_unavailable">Google Фото недоступны на этом устройстве.</string>
   <string name="device_photo_kept_in_system_gallery">Фото остаётся в системной галерее. Лик не создаёт и не удаляет его копию.</string>

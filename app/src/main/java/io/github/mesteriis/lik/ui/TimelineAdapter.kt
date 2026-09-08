@@ -63,6 +63,7 @@ class TimelineAdapter(
     private val callbacks = mutableMapOf<Long, () -> Unit>()
     private lateinit var timelineController: TimelineController
     private val accessEpoch = ThumbnailAccessEpoch()
+    private var chronologicalPhotoIds: List<String> = emptyList()
     private var closed = false
 
     init {
@@ -81,6 +82,9 @@ class TimelineAdapter(
     }
 
     fun submit(photos: List<GalleryPhoto>, timelineLevel: TimelineLevel, onPublished: () -> Unit = {}): Boolean {
+        chronologicalPhotoIds = photos.sortedWith(
+            compareByDescending<GalleryPhoto> { it.timelineAt ?: Long.MIN_VALUE }.thenByDescending { it.id },
+        ).map { it.id }
         val id = timelineController.submit(photos, timelineLevel) ?: return false
         callbacks.keys.filter { it < id }.toList().forEach(callbacks::remove)
         callbacks[id] = onPublished
@@ -100,9 +104,9 @@ class TimelineAdapter(
                 previous.entries[oldItemPosition] == next[newItemPosition] && previous.level == nextLevel
         })
 
-    fun refreshAccessEpoch() {
+    fun refreshDeviceAccessEpoch() {
         accessEpoch.refresh()
-        thumbnailLoader.invalidate { !accessEpoch.accepts(it) }
+        thumbnailLoader.invalidate { it.photoId.startsWith(DEVICE_PHOTO_PREFIX) && !accessEpoch.accepts(it) }
         if (entries.isNotEmpty()) notifyItemRangeChanged(0, entries.size)
     }
 
@@ -152,6 +156,17 @@ class TimelineAdapter(
         val period = entries.indexOfFirst { it is TimelineEntry.Period && it.photos.any { photo -> photo.id == id } }
         if (period >= 0) return period
         return entries.indexOfFirst { it is TimelineEntry.Header && it.anchorId == id }
+    }
+
+    fun anchorCandidate(position: Int, top: Int, bottom: Int): AnchorCandidate? = anchorId(position)?.let { id ->
+        AnchorCandidate(id, chronologicalIndex(id), top, bottom)
+    }
+
+    fun chronologicalIndex(id: String) = chronologicalPhotoIds.indexOf(id).coerceAtLeast(0)
+
+    fun positionForAnchor(anchor: GalleryAnchor): Int {
+        val resolvedId = anchor.resolveId(chronologicalPhotoIds) ?: return RecyclerView.NO_POSITION
+        return positionForPhoto(resolvedId)
     }
 
     fun entryAt(position: Int): TimelineEntry = entries[position]
@@ -253,7 +268,12 @@ class TimelineAdapter(
         forceReload: Boolean = false,
     ) {
         val priority = thumbnailPriority(view.isAttachedToWindow)
-        val key = ThumbnailKey(photo.id, photo.sourceRevision, edge, accessEpoch.current)
+        val key = ThumbnailKey(
+            photo.id,
+            photo.sourceRevision,
+            edge,
+            if (photo.source == io.github.mesteriis.lik.gallery.PhotoSource.DEVICE) accessEpoch.current else IMPORT_EPOCH,
+        )
         val existing = view.tag as? ThumbnailBinding
         if (!forceReload && existing?.key == key && existing.priority == priority) return
         cancelLoad(view)
@@ -264,7 +284,7 @@ class TimelineAdapter(
             try { GalleryCatalog.decode(context, photo, edge) } catch (_: Exception) { null }
         }) { result ->
             main.post {
-                if (!closed && accessEpoch.accepts(key) && (view.tag as? ThumbnailBinding)?.key == key) {
+                if (!closed && acceptsThumbnailResult(photo, key) && (view.tag as? ThumbnailBinding)?.key == key) {
                     if (result.value != null) {
                         view.setImageBitmap(result.value)
                     } else {
@@ -297,6 +317,8 @@ class TimelineAdapter(
             load(binding.photo, view, binding.edge)
         }
     }
+    private fun acceptsThumbnailResult(photo: GalleryPhoto, key: ThumbnailKey) =
+        photo.source != io.github.mesteriis.lik.gallery.PhotoSource.DEVICE || accessEpoch.accepts(key)
     private fun dp(value: Int) = (value * context.resources.displayMetrics.density).toInt()
 
     private data class ThumbnailBinding(
@@ -312,6 +334,8 @@ class TimelineAdapter(
         private const val TYPE_PHOTO = 1
         private const val TYPE_PERIOD = 2
         private const val THUMBNAIL_QUEUE_CAPACITY = 24
+        private const val IMPORT_EPOCH = 0L
+        private const val DEVICE_PHOTO_PREFIX = "device:"
     }
 }
 

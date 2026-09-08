@@ -20,6 +20,12 @@
   <string name="import_photos">Open Google Photos</string>
   <string name="share_to_lik">Import into Lik</string>
   <string name="allow_photo_access">Allow access to photos on this device</string>
+  <string name="open_photo_access_settings">Open photo access settings</string>
+  <string name="gallery_scanning">Scanning photos on this device…</string>
+  <string name="gallery_partial_access">Showing the photos you selected. Allow more access to see more device photos.</string>
+  <string name="gallery_access_denied">Device photo access is off. Imported copies remain available in Lik.</string>
+  <string name="gallery_access_permanently_denied">Device photo access is off. Open app settings to allow it; imported copies remain available.</string>
+  <string name="gallery_source_error">Lik could not read device photos right now. Imported copies remain available.</string>
   <string name="imported_photo">Photo %1$d</string>
   <string name="google_photos_unavailable">Google Photos is unavailable on this device.</string>
   <string name="device_photo_kept_in_system_gallery">This photo stays in the system gallery. Lik does not create or delete a copy.</string>
