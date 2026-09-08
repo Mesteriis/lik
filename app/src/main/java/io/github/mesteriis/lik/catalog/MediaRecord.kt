@@ -9,7 +9,7 @@ import io.github.mesteriis.lik.gallery.GalleryPhoto
 import io.github.mesteriis.lik.gallery.PhotoSource
 import java.io.File
 
-enum class MediaAvailability { AVAILABLE, INACCESSIBLE, MISSING }
+enum class MediaAvailability { AVAILABLE, INACCESSIBLE, MISSING, TRASHED, PURGING }
 enum class MediaDateSource { UNKNOWN, MEDIASTORE_TAKEN, MEDIASTORE_ADDED, EXIF, FILE_MODIFIED }
 
 /** Times are UTC epoch milliseconds; offsets are preserved evidence, never guessed from the current zone. */
@@ -56,6 +56,7 @@ data class MediaRecord(
     val exifRevision: Long? = null,
     val exifOrientation: Int? = null,
     @ColumnInfo(defaultValue = "''") val scanMarker: String = "",
+    val trashedAt: Long? = null,
 ) {
     // A body property deliberately recomputes on copy(displayName = ...), including scanner updates.
     @ColumnInfo(defaultValue = "''") var displayNameSearch: String = searchKey(displayName.orEmpty())

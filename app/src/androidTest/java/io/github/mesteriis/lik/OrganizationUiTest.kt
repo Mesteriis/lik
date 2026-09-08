@@ -30,7 +30,7 @@ class OrganizationUiTest {
                 assertEquals("2026-09-01", activity.findViewById<android.widget.EditText>(R.id.search_from).text.toString())
                 activity.findViewById<View>(R.id.nav_more).performClick()
                 activity.findViewById<View>(R.id.organization_trash).performClick()
-                assertTrue(texts(activity.findViewById(R.id.section_placeholder)).contains(activity.getString(R.string.trash_future)))
+                assertTrue(texts(activity.findViewById(R.id.section_placeholder)).contains(activity.getString(R.string.trash_help)))
                 activity.findViewById<View>(R.id.nav_albums).performClick()
                 activity.findViewById<View>(R.id.nav_more).performClick()
                 activity.findViewById<View>(R.id.organization_ai).performClick()

@@ -43,7 +43,7 @@ class PhotoViewerTest {
             output.toByteArray()
         }
         bitmap.recycle()
-        return PhotoLibrary.store(context).importPhoto(bytes.inputStream()).photo.id
+        return io.github.mesteriis.lik.catalog.TrashRepository(io.github.mesteriis.lik.catalog.MediaDatabase.get(context), PhotoLibrary.store(context)).importPhoto(bytes.inputStream()).photo.id
     }
 
     private fun addOrientedJpeg(orientation: Int): String {
@@ -201,7 +201,9 @@ class PhotoViewerTest {
             while (model?.state?.value?.cursor?.current?.id == first && System.nanoTime() < deleteDeadline) Thread.sleep(50)
             assertTrue(model?.state?.value?.cursor?.photos?.any { it.id == second } == true)
             assertTrue(model?.state?.value?.cursor?.current?.id != first)
-            assertTrue(!File(library, "$first.image").exists())
+            assertTrue(File(library, "$first.image").exists())
+            assertEquals(io.github.mesteriis.lik.catalog.MediaAvailability.TRASHED,
+                io.github.mesteriis.lik.catalog.MediaDatabase.get(context).media().get(first)!!.availability)
         }
     }
 

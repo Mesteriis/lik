@@ -17,6 +17,7 @@ class MediaRepository(private val database: MediaDatabase) {
                 ImportedCatalogMigration.migrate(store, now) { record ->
                     dao.insertIfAbsent(record.withPeriods(zone))
                     var current = requireNotNull(dao.get(record.mediaId))
+                    if (current.availability in setOf(MediaAvailability.TRASHED, MediaAvailability.PURGING)) return@migrate
                     if (current.contentRevision != record.contentRevision || current.byteSize != record.byteSize) {
                         current = current.copy(contentRevision = record.contentRevision, modifiedAt = record.modifiedAt,
                             byteSize = record.byteSize, exifRevision = null, exifOrientation = null,

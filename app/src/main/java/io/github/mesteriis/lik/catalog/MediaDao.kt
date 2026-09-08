@@ -30,11 +30,32 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE availability = 'AVAILABLE' ORDER BY COALESCE(takenAt, addedAt, -9223372036854775808) DESC, mediaId DESC")
     fun available(): List<MediaRecord>
 
-    @Query("UPDATE media SET availability = :availability WHERE source = :source")
+    @Query("UPDATE media SET availability = :availability WHERE source = :source AND availability NOT IN ('TRASHED', 'PURGING')")
     fun markSource(source: MediaSource, availability: MediaAvailability)
 
-    @Query("UPDATE media SET availability = 'AVAILABLE', lastSeenAt = :now WHERE mediaId = :id")
+    @Query("UPDATE media SET availability = 'AVAILABLE', lastSeenAt = :now WHERE mediaId = :id AND availability NOT IN ('TRASHED', 'PURGING')")
     fun markSeen(id: String, now: Long)
+
+    @Query("SELECT * FROM media WHERE source = 'GOOGLE_IMPORT' AND availability = 'TRASHED' ORDER BY trashedAt DESC, mediaId LIMIT :limit OFFSET :offset")
+    fun trashPage(limit: Int = 60, offset: Int = 0): List<MediaRecord>
+
+    @Query("UPDATE media SET availability = 'TRASHED', trashedAt = :now WHERE mediaId IN (:ids) AND source = 'GOOGLE_IMPORT' AND availability = 'AVAILABLE' AND privateFileId IS NOT NULL")
+    fun trash(ids: Set<String>, now: Long): Int
+
+    @Query("UPDATE media SET availability = 'AVAILABLE', trashedAt = NULL WHERE mediaId = :id AND source = 'GOOGLE_IMPORT' AND availability = 'TRASHED'")
+    fun restoreTrash(id: String): Int
+
+    @Query("UPDATE media SET availability = 'PURGING' WHERE source = 'GOOGLE_IMPORT' AND availability = 'TRASHED' AND trashedAt <= :cutoff")
+    fun claimExpired(cutoff: Long)
+
+    @Query("UPDATE media SET availability = 'PURGING' WHERE mediaId IN (:ids) AND source = 'GOOGLE_IMPORT' AND availability = 'TRASHED'")
+    fun claimPurge(ids: Set<String>)
+
+    @Query("SELECT * FROM media WHERE source = 'GOOGLE_IMPORT' AND availability = 'PURGING' LIMIT 60")
+    fun pendingPurge(): List<MediaRecord>
+
+    @Query("DELETE FROM media WHERE mediaId = :id AND source = 'GOOGLE_IMPORT' AND availability = 'PURGING'")
+    fun finishPurge(id: String)
 
     @Query("SELECT * FROM volume_checkpoint WHERE volume = :volume")
     fun checkpoint(volume: String): VolumeCheckpoint?

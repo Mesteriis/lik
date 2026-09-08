@@ -84,11 +84,12 @@ class PhotoImportTest {
         added: Int = 0,
         duplicates: Int = 0,
         failed: Int = 0,
+        restored: Int = 0,
     ) {
         scenario.onActivity { activity ->
             val summary = activity.findViewById<TextView>(R.id.import_summary)
             assertEquals(if (visible) View.VISIBLE else View.GONE, summary.visibility)
-            if (visible) assertEquals(activity.getString(R.string.import_summary, added, duplicates, failed), summary.text)
+            if (visible) assertEquals(activity.getString(R.string.import_summary, added, duplicates, failed, restored), summary.text)
         }
     }
 
@@ -111,6 +112,22 @@ class PhotoImportTest {
         }
         launchShare("green").use { awaitCompleted(it, 1); awaitPhotos(1) }
         assertEquals(1, library.listFiles()!!.count { it.extension == "image" })
+    }
+
+    @Test fun identicalShareRestoresTrashAndReportsRestoredInsteadOfDuplicate() {
+        launchShare("green").use { awaitCompleted(it, 1) }
+        val store = io.github.mesteriis.lik.imports.PhotoLibrary.store(context)
+        val photo = store.photos().single()
+        val bytes = photo.file.readBytes()
+        val db = io.github.mesteriis.lik.catalog.MediaDatabase.get(context)
+        val trash = io.github.mesteriis.lik.catalog.TrashRepository(db, store)
+        trash.trash(setOf(photo.id))
+        launchShare("another_green").use { scenario ->
+            awaitCompleted(scenario, 1)
+            assertSummary(scenario, visible = true, restored = 1)
+            assertEquals(io.github.mesteriis.lik.catalog.MediaAvailability.AVAILABLE, db.media().get(photo.id)!!.availability)
+            assertArrayEquals(bytes, photo.file.readBytes())
+        }
     }
 
     @Test fun multipleShareKeepsGoodImagesWhenOneUriFails() {

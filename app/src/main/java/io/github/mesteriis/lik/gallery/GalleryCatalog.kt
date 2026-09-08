@@ -33,6 +33,7 @@ object GalleryCatalog {
         val zone = libraryZone(context)
         signal.throwIfCanceled()
         val importedSourceError = try {
+            io.github.mesteriis.lik.catalog.TrashRepository(database, store).purgeExpired()
             repository.reconcileImports(store, System.currentTimeMillis(), zone)
             false
         } catch (_: IOException) {

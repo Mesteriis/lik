@@ -141,17 +141,43 @@ class OrganizationPanel(
             "albums" -> albums()
             "search" -> search()
             "results" -> results()
-            "trash", "ai" -> {
-                root(text(if (screen == "trash") R.string.trash_title else R.string.ai_settings_title))
+            "trash" -> trash()
+            "ai" -> {
+                root(text(R.string.ai_settings_title))
                 button(text(R.string.back)) { screen = "more"; render() }
-                label(text(if (screen == "trash") R.string.trash_future else R.string.ai_future))
+                label(text(R.string.ai_future))
             }
             else -> {
                 root(text(R.string.nav_more))
                 button(text(R.string.search_title), R.id.organization_search) { screen = "search"; render() }
-                button(text(R.string.trash_title), R.id.organization_trash) { screen = "trash"; render() }
+                button(text(R.string.trash_title), R.id.organization_trash) { screen = "trash"; offset = 0; render() }
                 button(text(R.string.ai_settings_title), R.id.organization_ai) { screen = "ai"; render() }
             }
+        }
+    }
+
+    private fun trash() {
+        root(text(R.string.trash_title))
+        button(text(R.string.back)) { screen = "more"; render() }
+        label(text(R.string.trash_help))
+        val db = MediaDatabase.get(activity)
+        val trash = TrashRepository(db, io.github.mesteriis.lik.imports.PhotoLibrary.store(activity))
+        load({ db.media().trashPage(61, offset) }) { rows ->
+            if (rows.isEmpty()) label(text(R.string.trash_empty))
+            rows.take(60).forEach { row ->
+                val title = row.displayName ?: row.mediaId.takeLast(12)
+                label(title, true)
+                row.trashedAt?.let { label(activity.getString(R.string.trash_since,
+                    DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).format(Instant.ofEpochMilli(it).atZone(libraryZone(activity))))) }
+                button(text(R.string.restore_photo)) { mutate { trash.restore(row.mediaId) } }
+                button(text(R.string.purge_photo)) {
+                    AlertDialog.Builder(activity).setTitle(R.string.purge_photo).setMessage(R.string.purge_message)
+                        .setNegativeButton(R.string.cancel, null)
+                        .setPositiveButton(R.string.purge_photo) { _, _ -> mutate { trash.purgeNow(setOf(row.mediaId)) } }.show()
+                }
+            }
+            if (offset > 0) button(text(R.string.previous_page)) { offset = (offset - 60).coerceAtLeast(0); render() }
+            if (rows.size > 60) button(text(R.string.next_page)) { offset += 60; render() }
         }
     }
 

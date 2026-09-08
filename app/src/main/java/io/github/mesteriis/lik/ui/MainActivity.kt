@@ -57,6 +57,23 @@ open class MainActivity : ComponentActivity() {
     private lateinit var organization: OrganizationPanel
     private val organizationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var capabilityRevision = 0
+    private var pendingExportId: String? = null
+    private var exporting = false
+    private val exportDestination = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val id = pendingExportId
+        pendingExportId = null
+        updateSelection()
+        val uri = result.data?.data.takeIf { result.resultCode == RESULT_OK }
+        if (id != null && uri != null) organizationScope.launch {
+            exporting = true; updateSelection()
+            try {
+                withContext(Dispatchers.IO) { io.github.mesteriis.lik.exports.PhotoExport(this@MainActivity).save(id, uri) }
+                Toast.makeText(this@MainActivity, R.string.export_saved, Toast.LENGTH_SHORT).show()
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { Toast.makeText(this@MainActivity, R.string.export_failed, Toast.LENGTH_LONG).show() }
+            finally { exporting = false; updateSelection() }
+        }
+    }
 
     private val photoPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         refreshGallery()
@@ -71,6 +88,7 @@ open class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingExportId = savedInstanceState?.getString("export.pending")
         setContentView(R.layout.activity_main)
         findViewById<View>(R.id.main_content).applySystemBarInsets()
         model = ViewModelProvider(this)[ImportViewModel::class.java]
@@ -85,6 +103,8 @@ open class MainActivity : ComponentActivity() {
             updateSelection()
         }
         organization.restore(savedInstanceState)
+        findViewById<View>(R.id.share_selected).setOnClickListener { exportSelection(false) }
+        findViewById<View>(R.id.save_copy).setOnClickListener { exportSelection(true) }
 
         timeline = TimelineAdapter(this, ::onPhotoClick, ::onPhotoLongClick, ::onPeriodClick, libraryZone)
         layoutManager = GridLayoutManager(this, spansFor(resources.displayMetrics.widthPixels)).apply {
@@ -235,7 +255,7 @@ open class MainActivity : ComponentActivity() {
         if (state.busy) findViewById<View>(R.id.import_summary).visibility = View.GONE
         importSummaryEvents.next(state.summary)?.let { summary ->
             findViewById<TextView>(R.id.import_summary).apply {
-                text = getString(R.string.import_summary, summary.added, summary.duplicates, summary.failed)
+                text = getString(R.string.import_summary, summary.added, summary.duplicates, summary.failed, summary.restored)
                 visibility = View.VISIBLE
             }
         }
@@ -387,11 +407,33 @@ open class MainActivity : ComponentActivity() {
         val ids = selection.ids
         findViewById<View>(R.id.delete_selected).isEnabled = false
         findViewById<View>(R.id.organize_selected).isEnabled = ids.isNotEmpty() && model.state.value?.busy != true
+        findViewById<View>(R.id.share_selected).isEnabled = ids.isNotEmpty() && !exporting && model.state.value?.busy != true
+        findViewById<View>(R.id.save_copy).isEnabled = ids.size == 1 && !exporting && pendingExportId == null && model.state.value?.busy != true
         if (ids.isNotEmpty() && model.state.value?.busy != true) organizationScope.launch {
             val eligible = withContext(Dispatchers.IO) {
                 runCatching { OrganizationRepository(MediaDatabase.get(this@MainActivity)).eligible(ids, MediaOperation.DELETE_COPY) }.getOrDefault(emptySet())
             }
             if (revision == capabilityRevision) findViewById<View>(R.id.delete_selected).isEnabled = eligible.isNotEmpty() && model.state.value?.busy != true
+        }
+    }
+
+    private fun exportSelection(save: Boolean) {
+        val ids = selection.ids
+        if (ids.isEmpty() || exporting || (save && (ids.size != 1 || pendingExportId != null))) return
+        exporting = true; updateSelection()
+        organizationScope.launch {
+            try {
+                val export = io.github.mesteriis.lik.exports.PhotoExport(this@MainActivity)
+                val intent = withContext(Dispatchers.IO) { if (save) export.destinationIntent(ids.single()) else export.share(ids) }
+                if (save) {
+                    pendingExportId = ids.single()
+                    exportDestination.launch(intent)
+                } else startActivity(Intent.createChooser(intent, getString(R.string.share_selected)))
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                pendingExportId = null
+                Toast.makeText(this@MainActivity, R.string.export_failed, Toast.LENGTH_LONG).show()
+            } finally { exporting = false; updateSelection() }
         }
     }
 
@@ -484,6 +526,7 @@ open class MainActivity : ComponentActivity() {
     override fun onStop() { model.stopObserving(); super.onStop() }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("export.pending", pendingExportId)
         captureAnchor()?.let { ui = ui.copy(anchorId = it.photoId, anchorOffset = it.relativeOffset, anchorChronologicalIndex = it.chronologicalIndex) }
         outState.putString(STATE_LEVEL, ui.level.name)
         outState.putString(STATE_SECTION, ui.section.name)

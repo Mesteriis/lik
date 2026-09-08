@@ -17,6 +17,8 @@ import android.database.ContentObserver
 import android.os.CancellationSignal
 import android.os.OperationCanceledException
 import android.provider.MediaStore
+import io.github.mesteriis.lik.catalog.MediaDatabase
+import io.github.mesteriis.lik.catalog.TrashRepository
 
 enum class LibraryOperation { NONE, IMPORT, DELETE }
 enum class ImportFailureKind { SOURCE_UNAVAILABLE, INVALID_IMAGE, TOO_LARGE, STORAGE }
@@ -31,6 +33,7 @@ data class ImportState(
     val operationId: Long? = null,
     val total: Int = 0, val processed: Int = 0,
     val added: Int = 0, val duplicates: Int = 0, val failed: Int = 0,
+    val restored: Int = 0,
     val failureKinds: Set<ImportFailureKind> = emptySet(),
     val summary: ImportSummary? = null,
     val deleted: Int = 0, val deleteFailed: Int = 0,
@@ -122,7 +125,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
                             throw ImportRejected(ImportFailureKind.SOURCE_UNAVAILABLE)
                         } ?: throw ImportRejected(ImportFailureKind.SOURCE_UNAVAILABLE)
                         val result = try {
-                            store.importPhoto(stream)
+                            TrashRepository(MediaDatabase.get(getApplication()), store).importPhoto(stream)
                         } catch (error: PhotoStoreException) {
                             throw ImportRejected(error.reason.toImportFailure())
                         }
@@ -132,7 +135,8 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
                         current.copy(
                             photos = photos,
                             added = current.added + if (result.added) 1 else 0,
-                            duplicates = current.duplicates + if (result.added) 0 else 1,
+                            duplicates = current.duplicates + if (result.added || result.restored) 0 else 1,
+                            restored = current.restored + if (result.restored) 1 else 0,
                         )
                     } catch (error: ImportRejected) {
                         current.copy(failed = current.failed + 1, failureKinds = current.failureKinds + error.kind)
@@ -163,6 +167,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
                     duplicates = current.duplicates,
                     failed = current.failed,
                     failureKinds = current.failureKinds,
+                    restored = current.restored,
                 ),
             ))
         }
@@ -183,10 +188,19 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
             val deletedIds = linkedSetOf<String>()
             val failed = linkedSetOf<String>()
             val store = PhotoLibrary.store(getApplication())
+            val trashed = try {
+                synchronized(store) {
+                    val db = MediaDatabase.get(getApplication())
+                    val eligible = io.github.mesteriis.lik.catalog.OrganizationRepository(db)
+                        .eligible(ids, io.github.mesteriis.lik.catalog.MediaOperation.DELETE_COPY)
+                    TrashRepository(db, store).trash(eligible)
+                    eligible
+                }
+            } catch (_: Exception) { failed.addAll(ids); emptySet() }
             ids.forEachIndexed { index, id ->
                 try {
                     val importedId = GalleryCatalog.importedId(id)
-                    if (importedId != null && store.deletePhoto(importedId)) {
+                    if (importedId != null && id in trashed) {
                         deleted++
                         deletedIds += id
                     }

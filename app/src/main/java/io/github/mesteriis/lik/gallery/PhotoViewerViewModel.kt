@@ -54,7 +54,7 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
     private val scanSignal = android.os.CancellationSignal()
 
     private fun window(id: String?): PhotoCursor {
-        id?.let(dao::get)?.takeIf { it.exifRevision != it.contentRevision }?.let { record ->
+        id?.let(dao::get)?.takeIf { it.availability == io.github.mesteriis.lik.catalog.MediaAvailability.AVAILABLE && it.exifRevision != it.contentRevision }?.let { record ->
             io.github.mesteriis.lik.catalog.CatalogExif.enrich(getApplication(), MediaDatabase.get(getApplication()), record, libraryZone(getApplication()))
         }
         return PhotoCursor(id?.let { repository.viewerWindow(it).map { record ->
@@ -111,7 +111,8 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
             try {
                 val importedId = GalleryCatalog.importedId(current.id)
                     ?: return@execute publish(request, revision, state.copy(deleting = false))
-                PhotoLibrary.store(getApplication()).deletePhoto(importedId)
+                io.github.mesteriis.lik.catalog.TrashRepository(MediaDatabase.get(getApplication()), PhotoLibrary.store(getApplication()))
+                    .trash(setOf(importedId))
                 val old = dao.get(current.id)
                 repository.reconcileImports(PhotoLibrary.store(getApplication()), System.currentTimeMillis(), libraryZone(getApplication()))
                 val adjacent = old?.let { dao.next(it.mediaId, it.sortAt) ?: dao.previous(it.mediaId, it.sortAt) }

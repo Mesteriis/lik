@@ -6,7 +6,7 @@ import java.io.InputStream
 import java.security.MessageDigest
 
 data class ImportedPhoto(val id: String, val file: File)
-data class StoredPhoto(val photo: ImportedPhoto, val added: Boolean)
+data class StoredPhoto(val photo: ImportedPhoto, val added: Boolean, val restored: Boolean = false)
 enum class PhotoStoreError { EMPTY, TOO_LARGE, INVALID_IMAGE, STORAGE, INTERRUPTED, READ_FAILED }
 class PhotoStoreException(val reason: PhotoStoreError, cause: Throwable? = null) :
     IOException(reason.name, cause)

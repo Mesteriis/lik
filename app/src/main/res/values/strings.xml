@@ -42,10 +42,19 @@
   <string name="organization_updated">Accessible photos updated: %1$d</string>
   <string name="trash_title">Trash</string>
   <string name="ai_settings_title">AI settings</string>
-  <string name="trash_future">Trash is not available yet. The upcoming trash feature will retain deleted private copies for 30 days. Current deletion is permanent for the private copy; originals are preserved.</string>
+  <string name="trash_help">Deleted private copies are retained for 30 days (720 hours), then removed when cleanup next runs. Restore keeps albums, favorites, and tags. Device and Google Photos originals are preserved.</string>
+  <string name="trash_empty">Trash is empty.</string>
+  <string name="trash_since">Moved to trash: %1$s</string>
+  <string name="restore_photo">Restore</string>
+  <string name="purge_photo">Delete permanently</string>
+  <string name="purge_message">Permanently delete this private copy and its Lik organization data? This cannot be undone. Originals remain unchanged.</string>
+  <string name="share_selected">Share</string>
+  <string name="save_copy">Save copy (one photo)</string>
+  <string name="export_saved">Copy saved.</string>
+  <string name="export_failed">Could not export. Check photo access, destination permissions, and free space. Originals are preserved.</string>
   <string name="ai_future">Offline AI is not available yet. Compact, Balanced (default), and Extended profiles are planned. No models are bundled or running.</string>
   <string name="section_future">%1$s is not available yet.</string>
-  <string name="delete_selected_copies_message">Permanently delete only the selected accessible private copies from Lik? Device and Google Photos originals remain unchanged.</string>
+  <string name="delete_selected_copies_message">Move the selected private copies to trash for 30 days? Device and Google Photos originals remain unchanged.</string>
     <string name="timeline_undated">No date</string>
   <string name="app_name">Lik</string>
   <string name="gallery_placeholder">No photos are available.</string>
@@ -78,7 +87,7 @@
   <string name="google_photos_unavailable">Google Photos is unavailable on this device.</string>
   <string name="import_invalid">Choose 1–50 photos and wait for the current import to finish.</string>
   <string name="import_busy">An import is already in progress.</string>
-  <string name="import_summary">Import complete: Added %1$d · Already in Lik %2$d · Failed %3$d.</string>
+  <string name="import_summary">Import complete: Added %1$d · Already in Lik %2$d · Failed %3$d · Restored %4$d.</string>
   <string name="import_source_failure">Some selected photos are unavailable. Check Google Photos or your connection, then select them again.</string>
   <string name="import_invalid_image_failure">Some selected files are not supported images.</string>
   <string name="import_too_large_failure">Some photos exceed the 200 MiB limit.</string>
@@ -90,7 +99,7 @@
     <item quantity="one">Delete %1$d photo?</item>
     <item quantity="other">Delete %1$d photos?</item>
   </plurals>
-  <string name="delete_photos_message">Delete the copies from Lik? The originals in Google Photos will remain.</string>
+  <string name="delete_photos_message">Move the copies to trash for 30 days? The originals in Google Photos will remain.</string>
   <string name="viewer_back">Back</string>
   <string name="viewer_previous">Previous</string>
   <string name="viewer_next">Next</string>

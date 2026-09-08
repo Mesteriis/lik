@@ -42,10 +42,19 @@
   <string name="organization_updated">Обновлено доступных фото: %1$d.</string>
   <string name="trash_title">Корзина</string>
   <string name="ai_settings_title">Настройки ИИ</string>
-  <string name="trash_future">Корзина пока недоступна. Будущая функция сохранит удалённые приватные копии на 30 дней. Сейчас копия удаляется безвозвратно; оригиналы сохраняются.</string>
+  <string name="trash_help">Удалённые приватные копии хранятся 30 дней (720 часов), затем удаляются при следующей очистке. Восстановление сохраняет альбомы, избранное и теги. Оригиналы на устройстве и в Google Фото сохраняются.</string>
+  <string name="trash_empty">Корзина пуста.</string>
+  <string name="trash_since">В корзине с: %1$s</string>
+  <string name="restore_photo">Восстановить</string>
+  <string name="purge_photo">Удалить навсегда</string>
+  <string name="purge_message">Навсегда удалить эту приватную копию и её данные организации в Лике? Это нельзя отменить. Оригиналы сохранятся.</string>
+  <string name="share_selected">Поделиться</string>
+  <string name="save_copy">Сохранить копию (одно фото)</string>
+  <string name="export_saved">Копия сохранена.</string>
+  <string name="export_failed">Не удалось экспортировать. Проверьте доступ к фото, разрешения места назначения и свободное место. Оригиналы сохранены.</string>
   <string name="ai_future">Офлайн-ИИ пока недоступен. Запланированы профили «Компактный», «Сбалансированный» (по умолчанию) и «Расширенный». Модели пока не включены и не работают.</string>
   <string name="section_future">Раздел «%1$s» пока недоступен.</string>
-  <string name="delete_selected_copies_message">Безвозвратно удалить только выбранные доступные приватные копии из Лика? Оригиналы на устройстве и в Google Фото останутся без изменений.</string>
+  <string name="delete_selected_copies_message">Переместить выбранные приватные копии в корзину на 30 дней? Оригиналы на устройстве и в Google Фото останутся без изменений.</string>
     <string name="timeline_undated">Без даты</string>
   <string name="app_name">Лик</string>
   <string name="gallery_placeholder">Нет доступных фотографий.</string>
@@ -78,7 +87,7 @@
   <string name="google_photos_unavailable">Google Фото недоступны на этом устройстве.</string>
   <string name="import_invalid">Выберите от 1 до 50 фото и дождитесь завершения текущего импорта.</string>
   <string name="import_busy">Импорт уже выполняется.</string>
-  <string name="import_summary">Импорт завершён: добавлено %1$d · уже в Лике %2$d · не удалось %3$d.</string>
+  <string name="import_summary">Импорт завершён: добавлено %1$d · уже в Лике %2$d · не удалось %3$d · восстановлено %4$d.</string>
   <string name="import_source_failure">Некоторые выбранные фото недоступны. Проверьте Google Фото или подключение и выберите их снова.</string>
   <string name="import_invalid_image_failure">Некоторые выбранные файлы не являются поддерживаемыми изображениями.</string>
   <string name="import_too_large_failure">Некоторые фотографии превышают лимит 200 МиБ.</string>
@@ -92,7 +101,7 @@
     <item quantity="many">Удалить %1$d фото?</item>
     <item quantity="other">Удалить %1$d фото?</item>
   </plurals>
-  <string name="delete_photos_message">Удалить копии из Лика? Оригиналы в Google Фото сохранятся.</string>
+  <string name="delete_photos_message">Переместить копии в корзину на 30 дней? Оригиналы в Google Фото сохранятся.</string>
   <string name="viewer_back">Назад</string>
   <string name="viewer_previous">Предыдущее</string>
   <string name="viewer_next">Следующее</string>

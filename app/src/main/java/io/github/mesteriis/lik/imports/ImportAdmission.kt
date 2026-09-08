@@ -12,6 +12,7 @@ data class ImportSummary(
     val duplicates: Int,
     val failed: Int,
     val failureKinds: Set<ImportFailureKind>,
+    val restored: Int = 0,
 )
 
 class ImportSummaryEvents(initialRenderedOperationId: Long? = null) {

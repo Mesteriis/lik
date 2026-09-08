@@ -43,6 +43,8 @@
         android:textColor="@color/lik_text_primary" android:textSize="16sp" />
     <Button android:id="@+id/delete_selected" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/delete" android:textAllCaps="false" />
     <Button android:id="@+id/organize_selected" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/organize_selected" android:textAllCaps="false" />
+    <Button android:id="@+id/share_selected" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/share_selected" android:textAllCaps="false" />
+    <Button android:id="@+id/save_copy" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/save_copy" android:textAllCaps="false" />
   </LinearLayout>
   </HorizontalScrollView>
   <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">

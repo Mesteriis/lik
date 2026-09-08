@@ -62,7 +62,7 @@ class GalleryTest {
             output.toByteArray()
         }
         bitmap.recycle()
-        return PhotoLibrary.store(context).importPhoto(bytes.inputStream()).photo.id
+        return io.github.mesteriis.lik.catalog.TrashRepository(io.github.mesteriis.lik.catalog.MediaDatabase.get(context), PhotoLibrary.store(context)).importPhoto(bytes.inputStream()).photo.id
     }
 
     private fun png(color: Int): ByteArray {
@@ -303,7 +303,7 @@ class GalleryTest {
                 assertTrue(ViewModelProvider(activity)[ImportViewModel::class.java].deletePhotos(setOf(first, second)))
             }
             val deadline = System.nanoTime() + 5_000_000_000
-            while (System.nanoTime() < deadline && library.listFiles().orEmpty().any { it.extension == "image" }) {
+            while (System.nanoTime() < deadline && io.github.mesteriis.lik.catalog.MediaDatabase.get(context).media().get(first)?.availability != io.github.mesteriis.lik.catalog.MediaAvailability.TRASHED) {
                 Thread.sleep(50)
             }
             scenario.onActivity { activity ->
@@ -312,7 +312,7 @@ class GalleryTest {
                 assertEquals(2, state.deleted)
                 assertEquals(0, state.deleteFailed)
             }
-            assertTrue(library.listFiles().orEmpty().none { it.extension == "image" })
+            assertEquals(2, library.listFiles().orEmpty().count { it.extension == "image" })
         }
     }
 
@@ -354,7 +354,7 @@ class GalleryTest {
                 scenario.onActivity { activity ->
                     val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
                     val position = (list.adapter as TimelineAdapter).positionForPhoto(requireNotNull(localId))
-                    bindingState = "device=$localId position=$position count=${list.adapter!!.itemCount} shown=${list.isShown} size=${list.width}x${list.height}"
+                    bindingState = "device=$localId position=$position count=${list.adapter!!.itemCount} shown=${list.isShown} size=${list.width}x${list.height} anchors=${(0 until list.adapter!!.itemCount).map((list.adapter as TimelineAdapter)::anchorId)}"
                     if (position >= 0) {
                         list.scrollToPosition(position)
                         bound = list.findViewHolderForAdapterPosition(position) != null
@@ -362,6 +362,8 @@ class GalleryTest {
                 }
                 bound
             }
+            if (!deviceBound) bindingState += " catalog=" + io.github.mesteriis.lik.catalog.MediaDatabase.get(context).media().available()
+                .map { "${it.mediaId}:${it.contentUri}" }
             assertTrue(bindingState, deviceBound)
             scenario.onActivity { activity ->
                 val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
@@ -384,7 +386,8 @@ class GalleryTest {
                 }
                 clicked
             })
-            assertTrue(waitFor(5_000) { !PhotoLibrary.store(context).fileFor(importedId).exists() })
+            assertTrue(waitFor(5_000) { io.github.mesteriis.lik.catalog.MediaDatabase.get(context).media().get(importedId)?.availability == io.github.mesteriis.lik.catalog.MediaAvailability.TRASHED })
+            assertTrue(PhotoLibrary.store(context).fileFor(importedId).exists())
             context.contentResolver.openInputStream(uri)!!.use { assertTrue(it.read() >= 0) }
             assertTrue(waitFor(5_000) {
                 var retained = false
