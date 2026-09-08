@@ -35,6 +35,14 @@ data class GalleryCatalogLoad(
     val deviceSourceError: Boolean = false,
 )
 
+internal fun deviceQueryResult(
+    includeDevicePhotos: Boolean,
+    query: () -> List<GalleryPhoto>?,
+): Result<List<GalleryPhoto>> = when {
+    !includeDevicePhotos -> Result.success(emptyList())
+    else -> runCatching { requireNotNull(query()) { "MediaStore image query returned null" } }
+}
+
 object GalleryCatalog {
     private const val DEVICE_PREFIX = "device:"
 
@@ -43,7 +51,7 @@ object GalleryCatalog {
 
     fun loadResult(context: Context, includeDevicePhotos: Boolean): GalleryCatalogLoad {
         val imported = PhotoLibrary.store(context).photos().map(::fromImported)
-        val queried = if (includeDevicePhotos) runCatching { queryDevice(context) } else Result.success(emptyList())
+        val queried = deviceQueryResult(includeDevicePhotos) { queryDevice(context) }
         val device = queried.getOrDefault(emptyList())
         return GalleryCatalogLoad(
             photos = (device + imported).sortedWith(
@@ -81,7 +89,7 @@ object GalleryCatalog {
         }
     }
 
-    private fun queryDevice(context: Context): List<GalleryPhoto> {
+    private fun queryDevice(context: Context): List<GalleryPhoto>? {
         val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
         val projection = arrayOf(
             MediaStore.Images.Media._ID,
@@ -125,6 +133,6 @@ object GalleryCatalog {
                     ))
                 }
             }
-        }.orEmpty()
+        }
     }
 }

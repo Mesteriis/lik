@@ -162,6 +162,13 @@ class TimelineAdapter(
         AnchorCandidate(id, chronologicalIndex(id), top, bottom)
     }
 
+    /** Pinch focus intentionally excludes headers and overview cards. */
+    fun renderedPhotoAnchorCandidate(position: Int, top: Int, bottom: Int): AnchorCandidate? {
+        val entry = entries.getOrNull(position) ?: return null
+        val id = (entry as? TimelineEntry.Photo)?.photo?.id ?: return null
+        return renderedPhotoAnchorCandidate(entry, chronologicalIndex(id), top, bottom)
+    }
+
     fun chronologicalIndex(id: String) = chronologicalPhotoIds.indexOf(id).coerceAtLeast(0)
 
     fun positionForAnchor(anchor: GalleryAnchor): Int {

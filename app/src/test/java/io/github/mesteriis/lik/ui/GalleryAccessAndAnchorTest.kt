@@ -1,5 +1,8 @@
 package io.github.mesteriis.lik.ui
 
+import io.github.mesteriis.lik.gallery.GalleryPhoto
+import io.github.mesteriis.lik.gallery.PhotoSource
+import io.github.mesteriis.lik.gallery.TimelineEntry
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -50,5 +53,21 @@ class GalleryAccessAndAnchorTest {
 
         assertEquals("third", anchor.resolveId(listOf("newest", "second", "third", "oldest")))
         assertEquals("only", anchor.resolveId(listOf("only")))
+    }
+
+    @Test fun missingAnchorReturnsNullWhenTheLibraryIsNowEmpty() {
+        val anchor = GalleryAnchor("removed", chronologicalIndex = 2, relativeOffset = -18)
+
+        assertEquals(null, anchor.resolveId(emptyList()))
+    }
+
+    @Test fun pinchCandidatesExcludeHeadersAndKeepRenderedPhotos() {
+        val photo = GalleryPhoto("photo", PhotoSource.GOOGLE_IMPORT)
+
+        assertEquals(null, renderedPhotoAnchorCandidate(TimelineEntry.Header("day", "Today", "photo"), 0, 20, 100))
+        assertEquals(
+            AnchorCandidate("photo", 4, 20, 100),
+            renderedPhotoAnchorCandidate(TimelineEntry.Photo(photo, 0, 1), 4, 20, 100),
+        )
     }
 }

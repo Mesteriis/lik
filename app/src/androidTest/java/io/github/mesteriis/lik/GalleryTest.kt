@@ -3,6 +3,7 @@ package io.github.mesteriis.lik
 import android.Manifest
 import android.content.ContentValues
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.media.ExifInterface
@@ -71,6 +72,15 @@ class GalleryTest {
             bitmap.recycle()
             output.toByteArray()
         }
+    }
+
+    private fun waitFor(timeoutMillis: Long, condition: () -> Boolean): Boolean {
+        val deadline = System.nanoTime() + timeoutMillis * 1_000_000
+        while (System.nanoTime() < deadline) {
+            if (condition()) return true
+            Thread.sleep(50)
+        }
+        return condition()
     }
 
     private fun dispatchPinch(
@@ -340,6 +350,56 @@ class GalleryTest {
                 assertTrue(requireNotNull(list.findViewHolderForAdapterPosition(position)).itemView.performClick())
                 assertEquals(context.getString(R.string.selected_count, 1), activity.findViewById<TextView>(R.id.selection_count).text)
             }
+        }
+    }
+
+    @Test fun timelineAnchorAndControlsSurviveResizeAndLargeFontConfiguration() {
+        instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_IMAGES)
+        repeat(48) { index -> addPhoto(Color.rgb(index, 255 - index, index)) }
+        instrumentation.uiAutomation.executeShellCommand("settings put system font_scale 1.30").close()
+        try {
+            ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+                assertTrue(waitFor(5_000) {
+                    var loaded = false
+                    scenario.onActivity { activity ->
+                        loaded = (activity.findViewById<RecyclerView>(R.id.photo_timeline).adapter?.itemCount ?: 0) >= 48
+                    }
+                    loaded
+                })
+                var anchorId = ""
+                scenario.onActivity { activity ->
+                    assertTrue(activity.resources.configuration.fontScale >= 1.3f)
+                    val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                    (list.layoutManager as GridLayoutManager).scrollToPositionWithOffset(24, 0)
+                }
+                assertTrue(waitFor(5_000) {
+                    var scrolled = false
+                    scenario.onActivity { activity ->
+                        val manager = activity.findViewById<RecyclerView>(R.id.photo_timeline).layoutManager as GridLayoutManager
+                        scrolled = manager.findFirstVisibleItemPosition() >= 20
+                    }
+                    scrolled
+                })
+                scenario.onActivity { activity ->
+                    val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                    val position = (list.layoutManager as GridLayoutManager).findFirstVisibleItemPosition()
+                    anchorId = (list.adapter as TimelineAdapter).anchorId(position).orEmpty()
+                    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                }
+                assertTrue(waitFor(5_000) {
+                    var restored = false
+                    scenario.onActivity { activity ->
+                        assertTrue(activity.findViewById<View>(R.id.timeline_level_scroll).isShown)
+                        val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                        val position = (list.layoutManager as GridLayoutManager).findFirstVisibleItemPosition()
+                        restored = anchorId == (list.adapter as TimelineAdapter).anchorId(position)
+                    }
+                    restored
+                })
+                scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
+            }
+        } finally {
+            instrumentation.uiAutomation.executeShellCommand("settings put system font_scale 1.0").close()
         }
     }
 

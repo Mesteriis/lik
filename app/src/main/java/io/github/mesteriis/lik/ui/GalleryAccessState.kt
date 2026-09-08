@@ -1,5 +1,7 @@
 package io.github.mesteriis.lik.ui
 
+import io.github.mesteriis.lik.gallery.TimelineEntry
+
 /** The device-library permission state. Private Lik imports do not depend on this state. */
 enum class DevicePhotoAccess {
     FULL,
@@ -60,6 +62,16 @@ data class AnchorCandidate(
     val bottom: Int,
 )
 
+internal fun renderedPhotoAnchorCandidate(
+    entry: TimelineEntry,
+    chronologicalIndex: Int,
+    top: Int,
+    bottom: Int,
+): AnchorCandidate? {
+    val photo = (entry as? TimelineEntry.Photo)?.photo ?: return null
+    return AnchorCandidate(photo.id, chronologicalIndex, top, bottom)
+}
+
 /** A photo identity plus the point within it that should remain under the user's focus. */
 data class GalleryAnchor(
     val photoId: String,
@@ -68,6 +80,7 @@ data class GalleryAnchor(
 ) {
     fun resolveId(currentChronologicalIds: List<String>): String? {
         if (photoId in currentChronologicalIds) return photoId
+        if (currentChronologicalIds.isEmpty()) return null
         return currentChronologicalIds.getOrNull(chronologicalIndex.coerceIn(0, currentChronologicalIds.lastIndex))
     }
 

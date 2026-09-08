@@ -107,7 +107,7 @@ open class MainActivity : ComponentActivity() {
             } else {
                 Toast.makeText(this, R.string.import_invalid, Toast.LENGTH_LONG).show()
             }
-        } else if (savedInstanceState == null && !hasPhotoAccess()) {
+        } else if (savedInstanceState == null && !hasPhotoAccess() && !hasRequestedPhotoAccess()) {
             requestPhotoAccess()
         }
         renderSection()
@@ -405,7 +405,7 @@ open class MainActivity : ComponentActivity() {
         val candidates = (0 until recycler.childCount).mapNotNull { index ->
             val child = recycler.getChildAt(index)
             val position = recycler.getChildAdapterPosition(child)
-            if (position == RecyclerView.NO_POSITION) null else timeline.anchorCandidate(position, child.top, child.bottom)
+            if (position == RecyclerView.NO_POSITION) null else timeline.renderedPhotoAnchorCandidate(position, child.top, child.bottom)
         }
         return GalleryAnchor.capture(focusY, candidates)
     }
@@ -474,9 +474,11 @@ open class MainActivity : ComponentActivity() {
     private fun currentPhotoAccess() = DevicePhotoAccess.fromPermissions(
         fullGranted = hasFullPhotoAccess(),
         selectedGranted = checkSelfPermission(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED,
-        requestedBefore = getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_REQUESTED_PHOTO_ACCESS, false),
+        requestedBefore = hasRequestedPhotoAccess(),
         shouldShowRationale = shouldShowRequestPermissionRationale(Manifest.permission.READ_MEDIA_IMAGES),
     )
+    private fun hasRequestedPhotoAccess() =
+        getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_REQUESTED_PHOTO_ACCESS, false)
     private fun openPhotoAccessSettings() {
         startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
     }
@@ -484,8 +486,9 @@ open class MainActivity : ComponentActivity() {
         val access = currentPhotoAccess()
         if (access != photoAccess) {
             photoAccess = access
-            timeline.refreshDeviceAccessEpoch()
         }
+        // Android can change the selected-photo set without changing its PARTIAL enum state.
+        timeline.refreshDeviceAccessEpoch()
         model.refresh(access.canReadDevicePhotos)
     }
     private fun renderAccessState() {
