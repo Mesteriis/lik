@@ -14,6 +14,17 @@ internal data class ThumbnailKey(
 internal enum class ThumbnailPriority { PREFETCH, VISIBLE }
 internal enum class ThumbnailRequestDisposition { CACHED, QUEUED, COALESCED, REJECTED }
 
+internal fun thumbnailPriority(isAttached: Boolean) =
+    if (isAttached) ThumbnailPriority.VISIBLE else ThumbnailPriority.PREFETCH
+
+internal class ThumbnailAccessEpoch {
+    var current = 0L
+        private set
+
+    fun refresh() { current++ }
+    fun accepts(key: ThumbnailKey) = key.accessEpoch == current
+}
+
 internal data class ThumbnailResult<T>(
     val value: T? = null,
     val cancelled: Boolean = false,

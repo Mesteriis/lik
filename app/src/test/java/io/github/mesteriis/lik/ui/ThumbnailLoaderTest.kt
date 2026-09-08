@@ -6,6 +6,29 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ThumbnailLoaderTest {
+    @Test fun detachedBindingUsesPrefetchAndAttachedBindingUsesVisiblePriority() {
+        assertEquals(ThumbnailPriority.PREFETCH, thumbnailPriority(isAttached = false))
+        assertEquals(ThumbnailPriority.VISIBLE, thumbnailPriority(isAttached = true))
+    }
+
+    @Test fun repeatedAccessRefreshCreatesANewEpochAndRejectsStaleCompletion() {
+        val executor = QueuedExecutor()
+        val loader = ThumbnailLoader<String>(executor, MapThumbnailCache(), queueCapacity = 1)
+        val access = ThumbnailAccessEpoch()
+        val staleKey = ThumbnailKey("photo", 1, 128, access.current)
+        var displayed = false
+
+        loader.load(staleKey, ThumbnailPriority.VISIBLE, { "old" }) {
+            if (access.accepts(staleKey) && it.value != null) displayed = true
+        }
+        access.refresh()
+        executor.runAll()
+
+        assertEquals(staleKey.accessEpoch + 1, access.current)
+        assertTrue(!access.accepts(staleKey))
+        assertTrue(!displayed)
+    }
+
     @Test fun duplicateVisibleRequestsShareOneDecodeAndBothReceiveTheBitmap() {
         val executor = QueuedExecutor()
         val loader = ThumbnailLoader<String>(executor, MapThumbnailCache(), queueCapacity = 2)

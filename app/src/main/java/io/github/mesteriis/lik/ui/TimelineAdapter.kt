@@ -62,8 +62,7 @@ class TimelineAdapter(
     private val thumbnailLoader = ThumbnailLoader(thumbnailWorker, thumbnailCache, THUMBNAIL_QUEUE_CAPACITY)
     private val callbacks = mutableMapOf<Long, () -> Unit>()
     private lateinit var timelineController: TimelineController
-    private var accessGranted: Boolean? = null
-    private var accessEpoch = 0L
+    private val accessEpoch = ThumbnailAccessEpoch()
     private var closed = false
 
     init {
@@ -101,11 +100,10 @@ class TimelineAdapter(
                 previous.entries[oldItemPosition] == next[newItemPosition] && previous.level == nextLevel
         })
 
-    fun updateAccess(access: Boolean) {
-        if (accessGranted == access) return
-        accessGranted = access
-        accessEpoch++
-        thumbnailLoader.invalidate { it.accessEpoch != accessEpoch }
+    fun refreshAccessEpoch() {
+        accessEpoch.refresh()
+        thumbnailLoader.invalidate { !accessEpoch.accepts(it) }
+        if (entries.isNotEmpty()) notifyItemRangeChanged(0, entries.size)
     }
 
     fun select(ids: Set<String>) {
@@ -189,6 +187,13 @@ class TimelineAdapter(
         super.onViewRecycled(holder)
     }
 
+    override fun onViewAttachedToWindow(holder: RecyclerView.ViewHolder) {
+        super.onViewAttachedToWindow(holder)
+        listOf(R.id.photo_thumbnail, R.id.period_cover, R.id.period_sample_2, R.id.period_sample_3)
+            .mapNotNull { holder.itemView.findViewById<ImageView?>(it) }
+            .forEach(::prioritizeAttached)
+    }
+
     private inner class HeaderHolder(view: View) : RecyclerView.ViewHolder(view) {
         fun bind(entry: TimelineEntry.Header) {
             (itemView as TextView).text = entry.label
@@ -235,15 +240,23 @@ class TimelineAdapter(
         private fun bindSample(view: ImageView, photo: GalleryPhoto?) {
             view.visibility = if (photo == null) View.GONE else View.VISIBLE
             if (photo == null) {
-                view.tag = null
+                cancelLoad(view)
                 view.setImageBitmap(null)
             } else load(photo, view, 480)
         }
     }
 
-    private fun load(photo: GalleryPhoto, view: ImageView, edge: Int) {
+    private fun load(
+        photo: GalleryPhoto,
+        view: ImageView,
+        edge: Int,
+        priority: ThumbnailPriority = thumbnailPriority(view.isAttachedToWindow),
+        forceReload: Boolean = false,
+    ) {
+        val key = ThumbnailKey(photo.id, photo.sourceRevision, edge, accessEpoch.current)
+        val existing = view.tag as? ThumbnailBinding
+        if (!forceReload && existing?.key == key && existing.priority == priority) return
         cancelLoad(view)
-        val key = ThumbnailKey(photo.id, photo.sourceRevision, edge, accessEpoch)
         view.setOnClickListener(null)
         view.isClickable = false
         view.setImageBitmap(null)
@@ -251,17 +264,17 @@ class TimelineAdapter(
             try { GalleryCatalog.decode(context, photo, edge) } catch (_: Exception) { null }
         }) { result ->
             main.post {
-                if (!closed && (view.tag as? ThumbnailBinding)?.key == key) {
+                if (!closed && accessEpoch.accepts(key) && (view.tag as? ThumbnailBinding)?.key == key) {
                     if (result.value != null) {
                         view.setImageBitmap(result.value)
                     } else {
                         view.setImageResource(android.R.drawable.ic_menu_report_image)
-                        view.setOnClickListener { load(photo, view, edge) }
+                        view.setOnClickListener { load(photo, view, edge, forceReload = true) }
                     }
                 }
             }
         }
-        view.tag = ThumbnailBinding(key, request)
+        view.tag = ThumbnailBinding(key, photo, edge, priority, request)
     }
 
     fun forget(ids: Set<String>) {
@@ -278,9 +291,21 @@ class TimelineAdapter(
         (view.tag as? ThumbnailBinding)?.request?.cancel()
         view.tag = null
     }
+    private fun prioritizeAttached(view: ImageView) {
+        val binding = view.tag as? ThumbnailBinding ?: return
+        if (binding.priority != ThumbnailPriority.VISIBLE) {
+            load(binding.photo, view, binding.edge, ThumbnailPriority.VISIBLE)
+        }
+    }
     private fun dp(value: Int) = (value * context.resources.displayMetrics.density).toInt()
 
-    private data class ThumbnailBinding(val key: ThumbnailKey, val request: ThumbnailRequest<Bitmap>)
+    private data class ThumbnailBinding(
+        val key: ThumbnailKey,
+        val photo: GalleryPhoto,
+        val edge: Int,
+        val priority: ThumbnailPriority,
+        val request: ThumbnailRequest<Bitmap>,
+    )
 
     companion object {
         private const val TYPE_HEADER = 0

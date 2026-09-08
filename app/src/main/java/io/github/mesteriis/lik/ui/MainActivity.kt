@@ -431,7 +431,7 @@ open class MainActivity : ComponentActivity() {
     private fun refreshGallery() {
         findViewById<View>(R.id.allow_photo_access).visibility = if (hasFullPhotoAccess()) View.GONE else View.VISIBLE
         val access = hasPhotoAccess()
-        timeline.updateAccess(access)
+        timeline.refreshAccessEpoch()
         model.refresh(access)
     }
     private fun spansFor(widthPx: Int) = if (widthPx / resources.displayMetrics.density >= 600f) 12 else 6
