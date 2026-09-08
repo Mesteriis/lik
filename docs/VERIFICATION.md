@@ -82,3 +82,12 @@ ANDROID_SERIAL=emulator-5580 ./gradlew connectedDebugAndroidTest
 - Физическая проверка внутреннего экрана отложена до раскрытия устройства, а проверка реального обновлённого Fold — до появления Android 17 на устройстве. API 37 покрыт эмулятором и тем же APK-кодом без отдельной ветки совместимости; это не принятие внутреннего экрана.
 - По снятому на Fold референсу Google Photos уровень «Фото» изменён на три квадратные `centerCrop`-плитки с зазором 1 dp. Строка «Фотографии / Фото: N» удалена, поэтому после верхней панели сразу расположен переключатель масштаба.
 - После изменения успешно прошли 25 JVM-тестов и 25 instrumentation-тестов на Android 17. Финальный APK установлен и визуально проверен на внешнем экране Fold с реальными локальными фото.
+
+## Постоянный каталог · Task 5 · 8 сентября 2026
+
+Room 2.8.4 хранит метаданные и доступность; приватные файлы остаются в PhotoStore. Проверены сохранение SHA-ID, разделение device identity по volume/version/row/generation, повтор миграции после ошибки SQLite, неизвестные метаданные, DST overlap, восстановление доступности и повторное открытие базы. [Контракт каталога](MEDIA_CATALOG.md) отделяет эту реализацию от будущего incremental scan/Paging и полного EXIF cache.
+
+- `./gradlew lint testDebugUnitTest assembleDebug assembleRelease assembleDebugAndroidTest` — успешно на финальном коде; 55 JVM-тестов, 0 ошибок/пропусков, строгий lint и release shrink прошли.
+- `ANDROID_SERIAL=emulator-5580 ./gradlew connectedDebugAndroidTest` — 41 тест на AVD `lik_api37_qa`, Android 17 / API 37, 0 ошибок/пропусков. Полный набор повторён после ужесточения проверки файлового inventory и снова прошёл.
+- Включены пять новых тестов на настоящем Room/SQLite; существующие Share, MediaStore, viewer, access transition, lifecycle и launcher tests прошли с подключённым каталогом.
+- `git diff --check` чист. Физические устройства на этом этапе не использовались.

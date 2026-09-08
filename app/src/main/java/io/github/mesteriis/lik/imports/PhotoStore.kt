@@ -22,18 +22,26 @@ class PhotoStore(
     }
 
     @Synchronized
-    fun photos(): List<ImportedPhoto> = directory.listFiles().orEmpty()
-        .filter { it.isFile && it.name.matches(Regex("[0-9a-f]{64}\\.image")) }
-        .sortedWith(compareByDescending<File> { it.lastModified() }.thenBy { it.nameWithoutExtension })
-        .map { ImportedPhoto(it.nameWithoutExtension, it) }
+    fun photos(): List<ImportedPhoto> {
+        if (!directory.exists()) return emptyList()
+        val files = directory.listFiles() ?: throw IOException("Cannot enumerate imported photos")
+        return files.filter { it.isFile && it.name.matches(Regex("[0-9a-f]{64}\\.image")) }
+            .sortedWith(compareByDescending<File> { it.lastModified() }.thenBy { it.nameWithoutExtension })
+            .map { ImportedPhoto(it.nameWithoutExtension, it) }
+    }
 
     @Synchronized
     fun deletePhoto(id: String): Boolean {
-        require(id.matches(Regex("[0-9a-f]{64}"))) { "Invalid photo id" }
-        val photo = File(directory, "$id.image")
+        val photo = fileFor(id)
         if (!photo.exists()) return false
         if (!photo.isFile || !photo.delete()) throw IOException("Cannot delete image")
         return true
+    }
+
+    /** Resolve only an opaque private ID; callers cannot inject paths into the catalog. */
+    fun fileFor(id: String): File {
+        require(id.matches(Regex("[0-9a-f]{64}"))) { "Invalid photo id" }
+        return File(directory, "$id.image")
     }
 
     @Synchronized

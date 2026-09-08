@@ -2,6 +2,12 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.androidx.room)
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -67,6 +73,8 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.livedata)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit4)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)
