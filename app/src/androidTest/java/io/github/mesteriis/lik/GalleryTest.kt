@@ -152,16 +152,21 @@ class GalleryTest {
                 if (!loaded) Thread.sleep(50)
             }
             assertTrue(loaded)
+            scenario.onActivity { activity ->
+                assertTrue(activity.findViewById<View>(R.id.timeline_level_weeks).performClick())
+                assertTrue(activity.findViewById<View>(R.id.timeline_level_weeks).isSelected)
+            }
             scenario.onActivity { activity -> dispatchPinch(activity.findViewById(R.id.photo_timeline), cancel = false) }
             instrumentation.waitForIdleSync()
             scenario.onActivity { activity ->
-                assertTrue(activity.findViewById<View>(R.id.timeline_level_photo).isSelected)
+                assertTrue(activity.findViewById<View>(R.id.timeline_level_days).isSelected)
+                assertFalse(activity.findViewById<View>(R.id.timeline_level_photo).isSelected)
             }
             scenario.onActivity { activity -> dispatchPinch(activity.findViewById(R.id.photo_timeline), cancel = true) }
             instrumentation.waitForIdleSync()
             scenario.onActivity { activity ->
-                assertTrue(activity.findViewById<View>(R.id.timeline_level_photo).isSelected)
-                assertFalse(activity.findViewById<View>(R.id.timeline_level_days).isSelected)
+                assertTrue(activity.findViewById<View>(R.id.timeline_level_days).isSelected)
+                assertFalse(activity.findViewById<View>(R.id.timeline_level_photo).isSelected)
             }
         }
     }

@@ -9,6 +9,7 @@ import android.widget.Button
 import android.widget.TextView
 import android.view.View
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.Observer
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -17,6 +18,7 @@ import io.github.mesteriis.lik.gallery.PhotoViewerViewModel
 import io.github.mesteriis.lik.imports.PhotoLibrary
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -269,6 +271,41 @@ class PhotoViewerTest {
             while (model?.state?.value?.cursor?.current?.id != expected && System.nanoTime() < finalDeadline) Thread.sleep(50)
             assertEquals(expected, model?.state?.value?.cursor?.current?.id)
             assertFalse(first == model?.state?.value?.cursor?.current?.id)
+        }
+    }
+
+    @Test fun movingPastTheFirstPhotoDoesNotStartAnotherLoad() {
+        val id = addPhoto()
+        val intent = Intent(context, PhotoViewerActivity::class.java)
+            .putExtra(PhotoViewerActivity.EXTRA_PHOTO_ID, id)
+        ActivityScenario.launch<PhotoViewerActivity>(intent).use { scenario ->
+            var model: PhotoViewerViewModel? = null
+            val readyDeadline = System.nanoTime() + 5_000_000_000
+            while (model?.state?.value?.bitmap == null && System.nanoTime() < readyDeadline) {
+                scenario.onActivity { activity -> model = ViewModelProvider(activity)[PhotoViewerViewModel::class.java] }
+                if (model?.state?.value?.bitmap == null) Thread.sleep(50)
+            }
+            val cursor = requireNotNull(model?.state?.value?.cursor)
+            val firstId = cursor.photos.first().id
+            scenario.onActivity { model?.move(-cursor.photos.size) }
+            val firstDeadline = System.nanoTime() + 5_000_000_000
+            while (model?.state?.value?.cursor?.current?.id != firstId || model?.state?.value?.bitmap == null) {
+                if (System.nanoTime() >= firstDeadline) break
+                Thread.sleep(50)
+            }
+            val loading = AtomicBoolean(false)
+            val observer = Observer<io.github.mesteriis.lik.gallery.ViewerState> { state ->
+                if (state.cursor?.current?.id == firstId && state.loading) loading.set(true)
+            }
+            scenario.onActivity {
+                model?.state?.observeForever(observer)
+                model?.move(-1)
+            }
+            Thread.sleep(250)
+            scenario.onActivity { model?.state?.removeObserver(observer) }
+
+            assertFalse(loading.get())
+            assertEquals(firstId, model?.state?.value?.cursor?.current?.id)
         }
     }
 

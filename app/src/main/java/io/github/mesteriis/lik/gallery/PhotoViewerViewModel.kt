@@ -62,7 +62,9 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun move(delta: Int) {
         if (updates.value?.deleting == true) return
-        val cursor = (requestedCursor ?: updates.value?.cursor)?.move(delta) ?: return
+        val current = requestedCursor ?: updates.value?.cursor ?: return
+        val cursor = current.move(delta)
+        if (cursor.current?.id == current.current?.id) return
         requestedCursor = cursor
         val request = generation.incrementAndGet()
         val revision = contentRevision.get()
