@@ -4,4 +4,9 @@
   <color name="lik_text_primary">#F4EDE2</color>
   <color name="lik_text_secondary">#C0B5A4</color>
   <color name="lik_accent">#ECC27D</color>
+  <color name="lik_accent_soft">#4A3821</color>
+  <color name="lik_surface">#29251F</color>
+  <color name="lik_icon_background">#17191C</color>
+  <color name="lik_viewer_background">#090806</color>
+  <color name="lik_viewer_text">#FFF8ED</color>
 </resources>

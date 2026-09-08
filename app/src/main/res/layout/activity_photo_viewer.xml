@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/viewer_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+  <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:gravity="center_vertical"
+      android:orientation="horizontal"
+      android:padding="8dp">
+    <Button android:id="@+id/viewer_back" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/viewer_back"
+        android:textAllCaps="false" />
+    <Space android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+    <Button android:id="@+id/viewer_info" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/viewer_info"
+        android:textAllCaps="false" />
+    <Button android:id="@+id/viewer_delete" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/delete"
+        android:textAllCaps="false" />
+  </LinearLayout>
+
+  <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+    <io.github.mesteriis.lik.gallery.ZoomImageView
+        android:id="@+id/viewer_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/viewer_photo" />
+    <ProgressBar android:id="@+id/viewer_progress" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:layout_gravity="center" />
+    <TextView android:id="@+id/viewer_error" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:layout_gravity="center" android:padding="24dp"
+        android:text="@string/viewer_unavailable" android:textColor="@color/lik_viewer_text"
+        android:textSize="18sp" android:visibility="gone" />
+  </FrameLayout>
+
+  <TextView android:id="@+id/photo_details" android:layout_width="match_parent"
+      android:layout_height="wrap_content" android:padding="12dp" android:textColor="@color/lik_viewer_text"
+      android:textSize="14sp" android:visibility="gone" />
+
+  <LinearLayout style="?android:attr/buttonBarStyle" android:layout_width="match_parent" android:layout_height="wrap_content"
+      android:gravity="center" android:orientation="horizontal" android:padding="8dp">
+    <Button android:id="@+id/viewer_previous" style="?android:attr/buttonBarButtonStyle" android:layout_width="0dp"
+        android:layout_height="wrap_content" android:layout_weight="1" android:minHeight="48dp"
+        android:text="@string/viewer_previous" android:textAllCaps="false" />
+    <Button android:id="@+id/viewer_next" style="?android:attr/buttonBarButtonStyle" android:layout_width="0dp"
+        android:layout_height="wrap_content" android:layout_weight="1" android:minHeight="48dp"
+        android:text="@string/viewer_next" android:textAllCaps="false" />
+  </LinearLayout>
+</LinearLayout>

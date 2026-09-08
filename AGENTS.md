@@ -2,13 +2,13 @@
 
 ## Scope
 
-Lik (Лик) is an Android AI gallery. The repository contains a runnable scaffold and a working app-icon picker in Settings. Do not add gallery access, AI providers, model downloads or background work as incidental setup.
+Lik (Лик) is an Android AI gallery. The repository contains a gallery for explicitly imported photos, Photo Picker/Share intake and an app-icon picker in Settings. Import preserves originals and stores private copies. Do not add broad media access, AI providers, model downloads or background services as incidental setup.
 
 ## Conventions
 
 - Kotlin and native Android Views, following the neighboring Rune Keyboard project.
 - One `:app` module; package and application ID: `io.github.mesteriis.lik`.
-- JDK 17, AGP 9.2.1, Gradle 9.4.1; min/compile/target SDK 37. Support the latest Android release only (currently Android 17); do not add backward-compatibility branches.
+- JDK 17, AGP 9.2.1, Gradle 9.4.1; min SDK 36, compile/target SDK 37. Support Android 16 on the target Galaxy Fold and Android 17 after its update; do not add compatibility branches for older releases.
 - Keep dependency versions in `gradle/libs.versions.toml`; use the checked-in Wrapper.
 - User-facing strings belong in English and Russian resources. Support system light/dark themes, large fonts and resizable windows.
 - Keep Android lifecycle code small; add packages and dependencies only when functionality needs them.

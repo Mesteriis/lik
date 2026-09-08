@@ -18,7 +18,7 @@ android {
 
     defaultConfig {
         applicationId = "io.github.mesteriis.lik"
-        minSdk = 37
+        minSdk = 36
         targetSdk = 37
         versionCode = 1
         versionName = "0.1.0"
@@ -64,6 +64,9 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.activity)
+    implementation(libs.androidx.livedata)
+    implementation(libs.androidx.recyclerview)
     testImplementation(libs.junit4)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)

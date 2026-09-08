@@ -1,64 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/main_content"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:clipToPadding="false"
-    android:fillViewport="true">
-
-  <LinearLayout
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:gravity="center"
-      android:orientation="vertical"
-      android:padding="32dp">
-
-    <ImageView
-        android:id="@+id/app_emblem"
-        android:layout_width="144dp"
-        android:layout_height="144dp"
-        android:importantForAccessibility="no"
-        android:scaleType="fitCenter"
-        android:src="@mipmap/ic_launcher" />
-
-    <TextView
-        android:id="@+id/app_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:fontFamily="sans-serif-medium"
-        android:gravity="center"
-        android:text="@string/app_name"
-        android:textColor="@color/lik_text_primary"
-        android:textSize="40sp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:gravity="center"
-        android:maxWidth="360dp"
-        android:text="@string/app_description"
-        android:textColor="@color/lik_text_secondary"
-        android:textSize="18sp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:gravity="center"
-        android:maxWidth="360dp"
-        android:text="@string/gallery_placeholder"
-        android:textColor="@color/lik_text_secondary"
-        android:textSize="14sp" />
-
-    <Button
-        android:id="@+id/open_settings"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:minHeight="48dp"
-        android:text="@string/settings_title"
-        android:textAllCaps="false" />
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/main_content"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical"
+      android:paddingStart="16dp" android:paddingTop="8dp" android:paddingEnd="8dp" android:paddingBottom="4dp">
+    <ImageView android:id="@+id/app_emblem" android:layout_width="42dp" android:layout_height="42dp" android:importantForAccessibility="no" android:src="@mipmap/ic_launcher" />
+    <TextView android:id="@+id/app_title" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+        android:layout_marginStart="10dp" android:text="@string/app_name" android:textColor="@color/lik_text_primary" android:textSize="25sp" />
+    <ImageButton android:id="@+id/import_photos" android:layout_width="48dp" android:layout_height="48dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless" android:contentDescription="@string/import_photos" android:padding="12dp" android:src="@drawable/ic_cloud_import" />
+    <ImageButton android:id="@+id/open_settings" android:layout_width="48dp" android:layout_height="48dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless" android:contentDescription="@string/settings_title" android:padding="12dp" android:src="@drawable/ic_settings" />
   </LinearLayout>
-</ScrollView>
+  <LinearLayout android:id="@+id/feed_header" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="16dp">
+    <TextView android:id="@+id/gallery_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/gallery_title"
+        android:textColor="@color/lik_text_primary" android:textSize="24sp" android:textStyle="bold" />
+    <TextView android:id="@+id/import_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:accessibilityLiveRegion="polite"
+        android:paddingTop="2dp" android:paddingBottom="8dp" android:textColor="@color/lik_text_secondary" android:textSize="14sp" />
+  </LinearLayout>
+  <HorizontalScrollView android:id="@+id/timeline_level_scroll" android:layout_width="match_parent" android:layout_height="wrap_content" android:fillViewport="true" android:scrollbars="none">
+    <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="9dp" android:background="@drawable/lik_scale_track" android:gravity="center"
+        android:orientation="horizontal" android:padding="3dp">
+      <TextView android:id="@+id/timeline_level_photo" style="@style/LikTimelineTab" android:text="@string/timeline_photo" />
+      <TextView android:id="@+id/timeline_level_days" style="@style/LikTimelineTab" android:text="@string/timeline_days" />
+      <TextView android:id="@+id/timeline_level_weeks" style="@style/LikTimelineTab" android:text="@string/timeline_weeks" />
+      <TextView android:id="@+id/timeline_level_months" style="@style/LikTimelineTab" android:text="@string/timeline_months" />
+      <TextView android:id="@+id/timeline_level_years" style="@style/LikTimelineTab" android:text="@string/timeline_years" />
+    </LinearLayout>
+  </HorizontalScrollView>
+  <Button android:id="@+id/allow_photo_access" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginHorizontal="16dp"
+      android:minHeight="48dp" android:text="@string/allow_photo_access" android:textAllCaps="false" android:visibility="gone" />
+  <ProgressBar android:id="@+id/import_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="wrap_content"
+      android:layout_marginHorizontal="16dp" android:visibility="gone" />
+  <TextView android:id="@+id/import_error" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingHorizontal="16dp" android:paddingVertical="6dp"
+      android:textColor="@color/lik_text_secondary" android:textSize="14sp" android:visibility="gone" />
+  <LinearLayout android:id="@+id/selection_bar" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical"
+      android:orientation="horizontal" android:paddingHorizontal="8dp" android:visibility="gone">
+    <Button android:id="@+id/cancel_selection" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/cancel" android:textAllCaps="false" />
+    <TextView android:id="@+id/selection_count" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center"
+        android:textColor="@color/lik_text_primary" android:textSize="16sp" />
+    <Button android:id="@+id/delete_selected" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/delete" android:textAllCaps="false" />
+  </LinearLayout>
+  <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+    <androidx.recyclerview.widget.RecyclerView android:id="@+id/photo_timeline" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:clipToPadding="false" android:paddingBottom="10dp" android:saveEnabled="false" />
+    <TextView android:id="@+id/empty_gallery" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="center"
+        android:gravity="center" android:padding="24dp" android:text="@string/gallery_placeholder" android:textColor="@color/lik_text_secondary" android:textSize="16sp" android:visibility="gone" />
+    <LinearLayout android:id="@+id/section_placeholder" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:orientation="vertical"
+        android:padding="24dp" android:visibility="gone">
+      <TextView android:id="@+id/section_title" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/lik_text_primary" android:textSize="26sp" android:textStyle="bold" />
+      <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:gravity="center"
+          android:text="@string/section_unavailable" android:textColor="@color/lik_text_secondary" android:textSize="16sp" />
+    </LinearLayout>
+  </FrameLayout>
+  <LinearLayout android:id="@+id/bottom_navigation" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center"
+      android:orientation="horizontal" android:paddingHorizontal="4dp" android:paddingVertical="5dp">
+    <TextView android:id="@+id/nav_feed" style="@style/LikBottomNav" android:text="@string/nav_feed" />
+    <TextView android:id="@+id/nav_albums" style="@style/LikBottomNav" android:text="@string/nav_albums" />
+    <TextView android:id="@+id/nav_places" style="@style/LikBottomNav" android:text="@string/nav_places" />
+    <TextView android:id="@+id/nav_people" style="@style/LikBottomNav" android:text="@string/nav_people" />
+    <TextView android:id="@+id/nav_more" style="@style/LikBottomNav" android:text="@string/nav_more" />
+  </LinearLayout>
+</LinearLayout>

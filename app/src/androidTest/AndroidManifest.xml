@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <provider android:name="io.github.mesteriis.lik.ImportFixtureProvider"
+        android:authorities="io.github.mesteriis.lik.test.photos"
+        android:exported="false" android:grantUriPermissions="true" />
+    <activity android:name="io.github.mesteriis.lik.FixtureGrantActivity" android:exported="true" />
+  </application>
+</manifest>

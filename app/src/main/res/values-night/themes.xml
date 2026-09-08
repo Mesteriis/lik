@@ -7,4 +7,20 @@
     <item name="android:windowLightStatusBar">false</item>
     <item name="android:windowLightNavigationBar">false</item>
   </style>
+  <style name="Theme.Lik.Viewer" parent="Theme.Lik">
+    <item name="android:windowBackground">@color/lik_viewer_background</item>
+    <item name="android:windowLightStatusBar">false</item>
+    <item name="android:windowLightNavigationBar">false</item>
+  </style>
+  <style name="LikTimelineTab">
+    <item name="android:layout_width">0dp</item><item name="android:layout_weight">1</item><item name="android:layout_height">wrap_content</item>
+    <item name="android:background">@drawable/lik_timeline_tab</item><item name="android:clickable">true</item><item name="android:focusable">true</item>
+    <item name="android:fontFamily">sans-serif-medium</item><item name="android:gravity">center</item><item name="android:minHeight">38dp</item>
+    <item name="android:paddingLeft">2dp</item><item name="android:paddingRight">2dp</item>
+    <item name="android:textColor">@color/lik_tab_text</item><item name="android:textSize">13sp</item><item name="android:singleLine">true</item>
+  </style>
+  <style name="LikBottomNav" parent="LikTimelineTab">
+    <item name="android:layout_width">0dp</item><item name="android:layout_weight">1</item><item name="android:minHeight">48dp</item>
+    <item name="android:fontFamily">sans</item><item name="android:paddingLeft">2dp</item><item name="android:paddingRight">2dp</item><item name="android:textSize">12sp</item>
+  </style>
 </resources>

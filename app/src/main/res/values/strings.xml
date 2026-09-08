@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="app_name">Lik</string>
-  <string name="app_description">AI photo gallery</string>
-  <string name="gallery_placeholder">Your photos will find a home here.</string>
+  <string name="gallery_placeholder">No photos are available.</string>
   <string name="settings_title">Settings</string>
   <string name="back">Back</string>
   <string name="app_icon_title">App icon</string>
@@ -18,4 +17,58 @@
   <string name="icon_ice">Ice</string>
   <string name="icon_aurora">Aurora</string>
   <string name="icon_amber">Amber</string>
+  <string name="import_photos">Open Google Photos</string>
+  <string name="share_to_lik">Import into Lik</string>
+  <string name="allow_photo_access">Allow access to photos on this device</string>
+  <string name="import_progress_text">Saving %1$d of %2$d…</string>
+  <string name="import_result">Added: %1$d · Already saved: %2$d · Failed: %3$d</string>
+  <string name="photo_count">Photos: %1$d</string>
+  <string name="imported_photo">Photo %1$d</string>
+  <string name="google_photos_unavailable">Google Photos is unavailable on this device.</string>
+  <string name="device_photo_kept_in_system_gallery">This photo stays in the system gallery. Lik does not create or delete a copy.</string>
+  <string name="import_invalid">Choose 1–50 photos and wait for the current import to finish.</string>
+  <string name="import_source_failure">Some selected photos are unavailable. Check Google Photos or your connection, then select them again.</string>
+  <string name="import_invalid_image_failure">Some selected files are not supported images.</string>
+  <string name="import_too_large_failure">Some photos exceed the 200 MiB limit.</string>
+  <string name="import_storage_failure">Lik could not save some photos. Check free storage, then try again.</string>
+  <string name="cancel">Cancel</string>
+  <string name="delete">Delete</string>
+  <string name="selected_count">Selected: %1$d</string>
+  <plurals name="delete_photos_title">
+    <item quantity="one">Delete %1$d photo?</item>
+    <item quantity="other">Delete %1$d photos?</item>
+  </plurals>
+  <string name="delete_photos_message">Delete the copies from Lik? The originals in Google Photos will remain.</string>
+  <string name="delete_progress_text">Deleting %1$d of %2$d…</string>
+  <string name="delete_result">Deleted: %1$d · Failed: %2$d</string>
+  <string name="viewer_back">Back</string>
+  <string name="viewer_previous">Previous</string>
+  <string name="viewer_next">Next</string>
+  <string name="viewer_unavailable">This photo is unavailable.</string>
+  <string name="viewer_photo">Displayed photo</string>
+  <string name="viewer_info">Info</string>
+  <string name="selection_mark" translatable="false">✓</string>
+  <string name="viewer_unknown">Unknown</string>
+  <string name="photo_details_format">%1$s · %2$d × %3$d · %4$s\nAdded %5$s</string>
+  <string name="photo_size_bytes">%1$.1f MB</string>
+  <string name="gallery_title">Photos</string>
+  <string name="timeline_photo">Photos</string>
+  <string name="timeline_days">Days</string>
+  <string name="timeline_weeks">Weeks</string>
+  <string name="timeline_months">Months</string>
+  <string name="timeline_years">Years</string>
+  <string name="nav_feed">Feed</string>
+  <string name="nav_albums">Albums</string>
+  <string name="nav_places">Places</string>
+  <string name="nav_people">People</string>
+  <string name="nav_more">More</string>
+  <string name="section_unavailable">This section is not available yet.</string>
+  <string name="import_sheet_title">Import from Google Photos</string>
+  <string name="import_sheet_message">Select photos in Google Photos, then tap Share → Lik. Lik will save a private copy of only those photos.</string>
+  <string name="open_google_photos">Open Google Photos</string>
+  <plurals name="timeline_photo_count">
+    <item quantity="one">%1$d photo</item>
+    <item quantity="other">%1$d photos</item>
+  </plurals>
+  <string name="local_photo_not_selectable">Device photos stay in the system gallery and cannot be selected for deletion here.</string>
 </resources>

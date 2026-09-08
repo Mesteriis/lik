@@ -1,0 +1,343 @@
+package io.github.mesteriis.lik
+
+import android.Manifest
+import android.content.ContentValues
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.media.ExifInterface
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.TextView
+import android.view.View
+import android.provider.MediaStore
+import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import androidx.test.core.app.ActivityScenario
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import io.github.mesteriis.lik.imports.ImportViewModel
+import io.github.mesteriis.lik.imports.PhotoLibrary
+import io.github.mesteriis.lik.ui.MainActivity
+import io.github.mesteriis.lik.ui.TimelineAdapter
+import java.io.ByteArrayOutputStream
+import java.io.File
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import io.github.mesteriis.lik.gallery.GalleryPhoto
+import io.github.mesteriis.lik.gallery.PhotoSource
+
+@RunWith(AndroidJUnit4::class)
+class GalleryTest {
+    private val instrumentation = InstrumentationRegistry.getInstrumentation()
+    private val context = instrumentation.targetContext
+    private val library = File(context.filesDir, "imported_photos")
+    private val mediaUris = mutableListOf<android.net.Uri>()
+
+    @Before fun clearLibrary() {
+        library.deleteRecursively()
+        context.getSharedPreferences("gallery_ui", 0).edit().clear().commit()
+    }
+    @After fun cleanLibrary() {
+        library.deleteRecursively()
+        mediaUris.forEach { context.contentResolver.delete(it, null, null) }
+    }
+
+    private fun addPhoto(color: Int): String {
+        val bitmap = Bitmap.createBitmap(24, 16, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
+        val bytes = ByteArrayOutputStream().use { output ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+            output.toByteArray()
+        }
+        bitmap.recycle()
+        return PhotoLibrary.store(context).importPhoto(bytes.inputStream()).photo.id
+    }
+
+    private fun png(color: Int): ByteArray {
+        val bitmap = Bitmap.createBitmap(24, 16, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
+        return ByteArrayOutputStream().use { output ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+            bitmap.recycle()
+            output.toByteArray()
+        }
+    }
+
+    @Test fun mediaStorePhotoAppearsWithoutCreatingPrivateCopy() {
+        instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_IMAGES)
+        val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val uri = requireNotNull(context.contentResolver.insert(collection, ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, "lik-${System.nanoTime()}.png")
+            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/LikTest")
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        })).also(mediaUris::add)
+        context.contentResolver.openOutputStream(uri)!!.use { it.write(png(Color.MAGENTA)) }
+        context.contentResolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+
+        ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+            val deadline = System.nanoTime() + 5_000_000_000
+            var found = false
+            while (!found && System.nanoTime() < deadline) {
+                scenario.onActivity { activity ->
+                    val expectedId = android.content.ContentUris.parseId(uri)
+                    found = ViewModelProvider(activity)[ImportViewModel::class.java].state.value?.photos.orEmpty()
+                        .any { it.uri?.lastPathSegment?.toLongOrNull() == expectedId && it.source == PhotoSource.DEVICE }
+                }
+                if (!found) Thread.sleep(50)
+            }
+            assertTrue("Expected MediaStore id ${android.content.ContentUris.parseId(uri)} in the gallery", found)
+            assertTrue(library.listFiles().orEmpty().isEmpty())
+        }
+    }
+
+    @Test fun galleryStartsOnDaysAndCanSwitchToYears() {
+        instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_IMAGES)
+        ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertTrue(activity.findViewById<View>(R.id.timeline_level_days).isSelected)
+                assertTrue(activity.findViewById<View>(R.id.timeline_level_years).performClick())
+                assertTrue(activity.findViewById<View>(R.id.timeline_level_years).isSelected)
+                assertFalse(activity.findViewById<View>(R.id.timeline_level_days).isSelected)
+            }
+            scenario.recreate()
+            scenario.onActivity { activity ->
+                assertTrue(activity.findViewById<View>(R.id.timeline_level_years).isSelected)
+            }
+        }
+    }
+
+    @Test fun mediaStoreCaptureDateIsKeptSeparateFromAddedDate() {
+        instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_IMAGES)
+        val capturedAt = 1_577_934_245_000L
+        val fixture = File(context.cacheDir, "lik-capture-date.jpg")
+        Bitmap.createBitmap(24, 16, Bitmap.Config.ARGB_8888).also { bitmap ->
+            fixture.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it) }
+            bitmap.recycle()
+        }
+        ExifInterface(fixture.path).apply {
+            setAttribute(ExifInterface.TAG_DATETIME_ORIGINAL, "2020:01:02 03:04:05")
+            setAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL, "+00:00")
+            saveAttributes()
+        }
+        val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val uri = requireNotNull(context.contentResolver.insert(collection, ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, "lik-date-${System.nanoTime()}.jpg")
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/LikTest")
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        })).also(mediaUris::add)
+        context.contentResolver.openOutputStream(uri)!!.use { output -> fixture.inputStream().use { it.copyTo(output) } }
+        context.contentResolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+
+        val expectedId = android.content.ContentUris.parseId(uri)
+        val loaded = io.github.mesteriis.lik.gallery.GalleryCatalog.load(context, includeDevicePhotos = true)
+            .single { it.uri?.lastPathSegment?.toLongOrNull() == expectedId }
+
+        assertEquals(capturedAt, loaded.takenAt)
+        assertTrue(loaded.addedAt > capturedAt)
+    }
+
+    @Test fun longPressSelectsByIdAndShowsSelectionActions() {
+        instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_IMAGES)
+        val id = addPhoto(Color.GREEN)
+        ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                val position = (list.adapter as TimelineAdapter).positionForPhoto(id)
+                assertTrue(requireNotNull(list.findViewHolderForAdapterPosition(position)).itemView.performLongClick())
+                assertTrue(activity.findViewById<TextView>(R.id.selection_count).isShown)
+                assertTrue(activity.findViewById<Button>(R.id.delete_selected).isEnabled)
+            }
+            scenario.recreate()
+            scenario.onActivity { activity ->
+                assertTrue(activity.findViewById<TextView>(R.id.selection_count).isShown)
+            }
+        }
+    }
+
+    @Test fun viewModelDeletesSelectedCopiesOffTheUiContract() {
+        val first = addPhoto(Color.GREEN)
+        val second = addPhoto(Color.BLUE)
+        ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+            scenario.onActivity { activity ->
+                assertTrue(ViewModelProvider(activity)[ImportViewModel::class.java].deletePhotos(setOf(first, second)))
+            }
+            val deadline = System.nanoTime() + 5_000_000_000
+            while (System.nanoTime() < deadline && library.listFiles().orEmpty().any { it.extension == "image" }) {
+                Thread.sleep(50)
+            }
+            scenario.onActivity { activity ->
+                val state = ViewModelProvider(activity)[ImportViewModel::class.java].state.value!!
+                assertFalse(state.busy)
+                assertEquals(2, state.deleted)
+                assertEquals(0, state.deleteFailed)
+            }
+            assertTrue(library.listFiles().orEmpty().none { it.extension == "image" })
+        }
+    }
+
+    @Test fun devicePhotoCannotJoinPrivateCopyDeletionSelection() {
+        instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_IMAGES)
+        val importedId = addPhoto(Color.GREEN)
+        val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val uri = requireNotNull(context.contentResolver.insert(collection, ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, "lik-local-${System.nanoTime()}.png")
+            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/LikTest")
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        })).also(mediaUris::add)
+        context.contentResolver.openOutputStream(uri)!!.use { it.write(png(Color.BLUE)) }
+        context.contentResolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+        val mediaId = android.content.ContentUris.parseId(uri)
+
+        ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+            val deadline = System.nanoTime() + 5_000_000_000
+            var localId: String? = null
+            while (localId == null && System.nanoTime() < deadline) {
+                scenario.onActivity { activity ->
+                    localId = ViewModelProvider(activity)[ImportViewModel::class.java].state.value?.photos
+                        ?.firstOrNull { it.source == PhotoSource.DEVICE && it.uri?.lastPathSegment?.toLongOrNull() == mediaId }?.id
+                }
+                if (localId == null) Thread.sleep(50)
+            }
+            scenario.onActivity { activity ->
+                val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                val adapter = list.adapter as TimelineAdapter
+                assertTrue(requireNotNull(list.findViewHolderForAdapterPosition(adapter.positionForPhoto(importedId))).itemView.performLongClick())
+                list.scrollToPosition(adapter.positionForPhoto(requireNotNull(localId)))
+            }
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                val adapter = list.adapter as TimelineAdapter
+                val position = adapter.positionForPhoto(requireNotNull(localId))
+                assertTrue(requireNotNull(list.findViewHolderForAdapterPosition(position)).itemView.performClick())
+                assertEquals(context.getString(R.string.selected_count, 1), activity.findViewById<TextView>(R.id.selection_count).text)
+            }
+        }
+    }
+
+    @Test fun futureSectionShowsPlaceholderAndFeedReturnsToTimeline() {
+        instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_IMAGES)
+        ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+            scenario.onActivity { activity ->
+                assertTrue(activity.findViewById<View>(R.id.nav_albums).performClick())
+                assertTrue(activity.findViewById<View>(R.id.section_placeholder).isShown)
+                assertFalse(activity.findViewById<RecyclerView>(R.id.photo_timeline).isShown)
+                assertTrue(activity.findViewById<View>(R.id.nav_feed).performClick())
+                assertTrue(activity.findViewById<RecyclerView>(R.id.photo_timeline).isShown)
+            }
+        }
+    }
+
+    @Test fun failedThumbnailCanBeRetriedAfterFileBecomesReadable() {
+        val id = "a".repeat(64)
+        library.mkdirs()
+        val file = File(library, "$id.image").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+        ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+            instrumentation.waitForIdleSync()
+            Thread.sleep(250)
+            file.writeBytes(png(Color.YELLOW))
+            scenario.onActivity { activity ->
+                val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                val position = (list.adapter as TimelineAdapter).positionForPhoto(id)
+                val thumbnail = requireNotNull(list.findViewHolderForAdapterPosition(position)).itemView
+                    .findViewById<ImageView>(R.id.photo_thumbnail)
+                assertTrue(thumbnail.performClick())
+            }
+            val deadline = System.nanoTime() + 5_000_000_000
+            var decoded = false
+            while (!decoded && System.nanoTime() < deadline) {
+                scenario.onActivity { activity ->
+                    val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                    val position = (list.adapter as TimelineAdapter).positionForPhoto(id)
+                    val image = requireNotNull(list.findViewHolderForAdapterPosition(position)).itemView.findViewById<ImageView>(R.id.photo_thumbnail)
+                    decoded = image.drawable?.intrinsicWidth == 24 && image.drawable?.intrinsicHeight == 16
+                }
+                if (!decoded) Thread.sleep(50)
+            }
+            assertTrue(decoded)
+            scenario.onActivity { activity ->
+                val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                val position = (list.adapter as TimelineAdapter).positionForPhoto(id)
+                val image = requireNotNull(list.findViewHolderForAdapterPosition(position)).itemView.findViewById<ImageView>(R.id.photo_thumbnail)
+                assertFalse(image.isClickable)
+            }
+        }
+    }
+
+    @Test fun largeLibraryKeepsUsableCellSizeAndOnlyInflatesVisibleRows() {
+        instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_IMAGES)
+        library.mkdirs()
+        val bytes = png(Color.CYAN)
+        repeat(120) { index ->
+            File(library, "${index.toString(16).padStart(64, '0')}.image").writeBytes(bytes)
+        }
+        ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+            instrumentation.waitForIdleSync()
+            val deadline = System.nanoTime() + 5_000_000_000
+            var loaded = false
+            while (!loaded && System.nanoTime() < deadline) {
+                scenario.onActivity { activity ->
+                    loaded = ViewModelProvider(activity)[ImportViewModel::class.java].state.value?.photos
+                        ?.count { it.source == PhotoSource.GOOGLE_IMPORT } == 120
+                }
+                if (!loaded) Thread.sleep(50)
+            }
+            scenario.onActivity { activity ->
+                val grid = activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                val minimumCellHeight = (100 * activity.resources.displayMetrics.density).toInt()
+                val firstId = requireNotNull(ViewModelProvider(activity)[ImportViewModel::class.java].state.value)
+                    .photos.first { it.source == PhotoSource.GOOGLE_IMPORT }.id
+                val position = (grid.adapter as TimelineAdapter).positionForPhoto(firstId)
+                assertTrue(requireNotNull(grid.findViewHolderForAdapterPosition(position)).itemView.height >= minimumCellHeight)
+                assertTrue(grid.childCount < requireNotNull(grid.adapter).itemCount)
+                grid.scrollToPosition(60)
+            }
+            val scrollDeadline = System.nanoTime() + 5_000_000_000
+            var scrolled = false
+            while (!scrolled && System.nanoTime() < scrollDeadline) {
+                instrumentation.waitForIdleSync()
+                scenario.onActivity { activity ->
+                    val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                    scrolled = (list.layoutManager as GridLayoutManager).findFirstVisibleItemPosition() >= 20
+                }
+                if (!scrolled) Thread.sleep(50)
+            }
+            assertTrue(scrolled)
+            Thread.sleep(1_000)
+            instrumentation.waitForIdleSync()
+            var anchorId = ""
+            scenario.onActivity { activity ->
+                val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                val position = (list.layoutManager as GridLayoutManager).findFirstVisibleItemPosition()
+                anchorId = (list.adapter as TimelineAdapter).anchorId(position).orEmpty()
+            }
+            instrumentation.waitForIdleSync()
+            scenario.recreate()
+            val restoreDeadline = System.nanoTime() + 5_000_000_000
+            var restored = false
+            while (!restored && System.nanoTime() < restoreDeadline) {
+                instrumentation.waitForIdleSync()
+                scenario.onActivity { activity ->
+                    val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                    if (requireNotNull(list.adapter).itemCount > 0) {
+                        val position = (list.layoutManager as GridLayoutManager).findFirstVisibleItemPosition()
+                        val restoredId = (list.adapter as TimelineAdapter).anchorId(position)
+                        restored = anchorId == restoredId
+                    }
+                }
+                if (!restored) Thread.sleep(50)
+            }
+            assertTrue(restored)
+        }
+    }
+}

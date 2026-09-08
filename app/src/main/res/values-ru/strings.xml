@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="app_name">Лик</string>
-  <string name="app_description">Галерея с искусственным интеллектом</string>
-  <string name="gallery_placeholder">Здесь будут ваши фотографии.</string>
+  <string name="gallery_placeholder">Нет доступных фотографий.</string>
   <string name="settings_title">Настройки</string>
   <string name="back">Назад</string>
   <string name="app_icon_title">Иконка приложения</string>
@@ -18,4 +17,61 @@
   <string name="icon_ice">Лёд</string>
   <string name="icon_aurora">Северное сияние</string>
   <string name="icon_amber">Янтарь</string>
+  <string name="import_photos">Открыть Google Фото</string>
+  <string name="share_to_lik">Импорт в Лик</string>
+  <string name="allow_photo_access">Разрешить доступ к фото на устройстве</string>
+  <string name="import_progress_text">Сохраняем %1$d из %2$d…</string>
+  <string name="import_result">Добавлено: %1$d · Уже есть: %2$d · Ошибок: %3$d</string>
+  <string name="photo_count">Фото: %1$d</string>
+  <string name="imported_photo">Фото %1$d</string>
+  <string name="google_photos_unavailable">Google Фото недоступны на этом устройстве.</string>
+  <string name="device_photo_kept_in_system_gallery">Фото остаётся в системной галерее. Лик не создаёт и не удаляет его копию.</string>
+  <string name="import_invalid">Выберите от 1 до 50 фото и дождитесь завершения текущего импорта.</string>
+  <string name="import_source_failure">Некоторые выбранные фото недоступны. Проверьте Google Фото или подключение и выберите их снова.</string>
+  <string name="import_invalid_image_failure">Некоторые выбранные файлы не являются поддерживаемыми изображениями.</string>
+  <string name="import_too_large_failure">Некоторые фотографии превышают лимит 200 МиБ.</string>
+  <string name="import_storage_failure">Лик не смог сохранить часть фотографий. Проверьте свободное место и попробуйте снова.</string>
+  <string name="cancel">Отмена</string>
+  <string name="delete">Удалить</string>
+  <string name="selected_count">Выбрано: %1$d</string>
+  <plurals name="delete_photos_title">
+    <item quantity="one">Удалить %1$d фото?</item>
+    <item quantity="few">Удалить %1$d фото?</item>
+    <item quantity="many">Удалить %1$d фото?</item>
+    <item quantity="other">Удалить %1$d фото?</item>
+  </plurals>
+  <string name="delete_photos_message">Удалить копии из Лика? Оригиналы в Google Фото сохранятся.</string>
+  <string name="delete_progress_text">Удаляем %1$d из %2$d…</string>
+  <string name="delete_result">Удалено: %1$d · Ошибок: %2$d</string>
+  <string name="viewer_back">Назад</string>
+  <string name="viewer_previous">Предыдущее</string>
+  <string name="viewer_next">Следующее</string>
+  <string name="viewer_unavailable">Фотография недоступна.</string>
+  <string name="viewer_photo">Открытая фотография</string>
+  <string name="viewer_info">Сведения</string>
+  <string name="viewer_unknown">Неизвестно</string>
+  <string name="photo_details_format">%1$s · %2$d × %3$d · %4$s\nДобавлено %5$s</string>
+  <string name="photo_size_bytes">%1$.1f МБ</string>
+  <string name="gallery_title">Фотографии</string>
+  <string name="timeline_photo">Фото</string>
+  <string name="timeline_days">Дни</string>
+  <string name="timeline_weeks">Недели</string>
+  <string name="timeline_months">Месяцы</string>
+  <string name="timeline_years">Годы</string>
+  <string name="nav_feed">Лента</string>
+  <string name="nav_albums">Альбомы</string>
+  <string name="nav_places">Места</string>
+  <string name="nav_people">Люди</string>
+  <string name="nav_more">Ещё</string>
+  <string name="section_unavailable">Раздел пока недоступен.</string>
+  <string name="import_sheet_title">Импорт из Google Фото</string>
+  <string name="import_sheet_message">Выберите фотографии в Google Фото, затем нажмите «Поделиться → Лик». Лик сохранит приватные копии только этих фотографий.</string>
+  <string name="open_google_photos">Открыть Google Фото</string>
+  <plurals name="timeline_photo_count">
+    <item quantity="one">%1$d фото</item>
+    <item quantity="few">%1$d фото</item>
+    <item quantity="many">%1$d фото</item>
+    <item quantity="other">%1$d фото</item>
+  </plurals>
+  <string name="local_photo_not_selectable">Фото устройства остаются в системной галерее, их нельзя выбрать здесь для удаления.</string>
 </resources>

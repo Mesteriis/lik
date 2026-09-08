@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+  <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+  <queries>
+    <package android:name="com.google.android.apps.photos" />
+  </queries>
   <application
       android:allowBackup="false"
       android:dataExtractionRules="@xml/data_extraction_rules"
@@ -14,6 +19,22 @@
     <activity
         android:name=".settings.SettingsActivity"
         android:exported="false" />
+    <activity
+        android:name=".gallery.PhotoViewerActivity"
+        android:exported="false"
+        android:theme="@style/Theme.Lik.Viewer" />
+    <activity android:name=".imports.ShareImportActivity" android:exported="true" android:label="@string/share_to_lik">
+      <intent-filter>
+        <action android:name="android.intent.action.SEND" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="image/*" />
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.SEND_MULTIPLE" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="image/*" />
+      </intent-filter>
+    </activity>
     <activity-alias
         android:name=".launcher.Classic"
         android:enabled="true"
