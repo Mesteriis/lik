@@ -11,3 +11,4 @@ keystore.properties
 *.keystore
 captures/
 .DS_Store
+.worktrees/
