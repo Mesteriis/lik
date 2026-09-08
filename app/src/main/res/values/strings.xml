@@ -20,9 +20,6 @@
   <string name="import_photos">Open Google Photos</string>
   <string name="share_to_lik">Import into Lik</string>
   <string name="allow_photo_access">Allow access to photos on this device</string>
-  <string name="import_progress_text">Saving %1$d of %2$d…</string>
-  <string name="import_result">Added: %1$d · Already saved: %2$d · Failed: %3$d</string>
-  <string name="photo_count">Photos: %1$d</string>
   <string name="imported_photo">Photo %1$d</string>
   <string name="google_photos_unavailable">Google Photos is unavailable on this device.</string>
   <string name="device_photo_kept_in_system_gallery">This photo stays in the system gallery. Lik does not create or delete a copy.</string>
@@ -39,8 +36,6 @@
     <item quantity="other">Delete %1$d photos?</item>
   </plurals>
   <string name="delete_photos_message">Delete the copies from Lik? The originals in Google Photos will remain.</string>
-  <string name="delete_progress_text">Deleting %1$d of %2$d…</string>
-  <string name="delete_result">Deleted: %1$d · Failed: %2$d</string>
   <string name="viewer_back">Back</string>
   <string name="viewer_previous">Previous</string>
   <string name="viewer_next">Next</string>
@@ -51,7 +46,6 @@
   <string name="viewer_unknown">Unknown</string>
   <string name="photo_details_format">%1$s · %2$d × %3$d · %4$s\nAdded %5$s</string>
   <string name="photo_size_bytes">%1$.1f MB</string>
-  <string name="gallery_title">Photos</string>
   <string name="timeline_photo">Photos</string>
   <string name="timeline_days">Days</string>
   <string name="timeline_weeks">Weeks</string>

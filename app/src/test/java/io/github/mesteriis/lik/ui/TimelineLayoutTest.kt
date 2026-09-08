@@ -4,6 +4,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class TimelineLayoutTest {
+    @Test fun photoModeUsesThreeEqualSquareColumnsAtEveryWidth() {
+        assertEquals(2, photoSpanSize(6))
+        assertEquals(4, photoSpanSize(12))
+        assertEquals(360, photoTileSize(1080))
+        assertEquals(656, photoTileSize(1968))
+    }
+
     @Test fun asymmetricDayPatternFillsEveryNarrowRow() {
         assertEquals(listOf(2, 1, 1, 1, 1, 1, 2), (0..6).map { daySpanUnits(it, 3) })
         assertEquals(listOf(3), filledRows((0..20).map { daySpanUnits(it, 3) }, 3).distinct())

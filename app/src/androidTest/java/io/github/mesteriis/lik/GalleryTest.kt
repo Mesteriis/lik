@@ -113,6 +113,17 @@ class GalleryTest {
         }
     }
 
+    @Test fun feedStartsWithScaleControlWithoutPhotoCountRow() {
+        instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_IMAGES)
+        ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                assertEquals(0, activity.resources.getIdentifier("feed_header", "id", activity.packageName))
+                assertTrue(activity.findViewById<View>(R.id.timeline_level_scroll).isShown)
+            }
+        }
+    }
+
     @Test fun mediaStoreCaptureDateIsKeptSeparateFromAddedDate() {
         instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_IMAGES)
         val capturedAt = 1_577_934_245_000L

@@ -28,7 +28,6 @@ import io.github.mesteriis.lik.gallery.TimelineLevel
 import io.github.mesteriis.lik.imports.ImportFailureKind
 import io.github.mesteriis.lik.imports.ImportInput
 import io.github.mesteriis.lik.imports.ImportViewModel
-import io.github.mesteriis.lik.imports.LibraryOperation
 import io.github.mesteriis.lik.imports.ShareImportActivity
 import io.github.mesteriis.lik.settings.AppIconManager
 import io.github.mesteriis.lik.settings.SettingsActivity
@@ -181,13 +180,6 @@ open class MainActivity : ComponentActivity() {
             max = state.total
             progress = state.processed
         }
-        findViewById<TextView>(R.id.import_status).text = when {
-            state.busy && state.operation == LibraryOperation.DELETE -> getString(R.string.delete_progress_text, state.processed, state.total)
-            state.busy -> getString(R.string.import_progress_text, state.processed, state.total)
-            state.deleted + state.deleteFailed > 0 -> getString(R.string.delete_result, state.deleted, state.deleteFailed)
-            state.total > 0 -> getString(R.string.import_result, state.added, state.duplicates, state.failed)
-            else -> getString(R.string.photo_count, state.photos.size)
-        }
         renderTimeline()
     }
 
@@ -228,7 +220,6 @@ open class MainActivity : ComponentActivity() {
 
     private fun renderSection() {
         val feed = ui.section == GallerySection.FEED
-        findViewById<View>(R.id.feed_header).visibility = if (feed) View.VISIBLE else View.GONE
         findViewById<View>(R.id.timeline_level_scroll).visibility = if (feed) View.VISIBLE else View.GONE
         recycler.visibility = if (feed) View.VISIBLE else View.GONE
         findViewById<View>(R.id.section_placeholder).visibility = if (feed) View.GONE else View.VISIBLE

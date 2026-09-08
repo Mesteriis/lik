@@ -90,7 +90,7 @@ class TimelineAdapter(
 
     fun spanSize(position: Int, spanCount: Int): Int = when (val entry = entries[position]) {
         is TimelineEntry.Header -> spanCount
-        is TimelineEntry.Photo -> if (level == TimelineLevel.PHOTO) spanCount else {
+        is TimelineEntry.Photo -> if (level == TimelineLevel.PHOTO) photoSpanSize(spanCount) else {
             val columns = if (spanCount >= 12) 4 else 3
             val unit = spanCount / columns
             (unit * daySpanUnits(entry.indexInGroup, columns, entry.groupSize)).coerceAtMost(spanCount)
@@ -168,17 +168,16 @@ class TimelineAdapter(
         fun bind(entry: TimelineEntry.Photo) {
             val photo = entry.photo
             val height = if (level == TimelineLevel.PHOTO) {
-                val ratio = if (photo.width > 0 && photo.height > 0) photo.height.toFloat() / photo.width else 0.75f
-                (availableWidth * ratio).toInt().coerceAtLeast(dp(220)).coerceAtMost(dp(1100))
+                photoTileSize(availableWidth.takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels)
             } else dp(158)
             itemView.layoutParams = itemView.layoutParams.apply { this.height = height }
-            image.scaleType = if (level == TimelineLevel.PHOTO) ImageView.ScaleType.FIT_CENTER else ImageView.ScaleType.CENTER_CROP
+            image.scaleType = ImageView.ScaleType.CENTER_CROP
             itemView.isActivated = photo.id in selected
             marker.visibility = if (itemView.isActivated) View.VISIBLE else View.GONE
             itemView.contentDescription = context.getString(R.string.imported_photo, bindingAdapterPosition + 1)
             itemView.setOnClickListener { onPhotoClick(photo) }
             itemView.setOnLongClickListener { onPhotoLongClick(photo); true }
-            load(photo, image, if (level == TimelineLevel.PHOTO) 1440 else 640)
+            load(photo, image, 640)
         }
     }
 
@@ -240,3 +239,7 @@ class TimelineAdapter(
 
     companion object { private const val TYPE_HEADER = 0; private const val TYPE_PHOTO = 1; private const val TYPE_PERIOD = 2 }
 }
+
+internal fun photoSpanSize(spanCount: Int): Int = (spanCount / 3).coerceAtLeast(1)
+
+internal fun photoTileSize(availableWidth: Int): Int = (availableWidth / 3).coerceAtLeast(1)

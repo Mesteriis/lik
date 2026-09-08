@@ -11,12 +11,6 @@
     <ImageButton android:id="@+id/open_settings" android:layout_width="48dp" android:layout_height="48dp"
         android:background="?android:attr/selectableItemBackgroundBorderless" android:contentDescription="@string/settings_title" android:padding="12dp" android:src="@drawable/ic_settings" />
   </LinearLayout>
-  <LinearLayout android:id="@+id/feed_header" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingHorizontal="16dp">
-    <TextView android:id="@+id/gallery_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/gallery_title"
-        android:textColor="@color/lik_text_primary" android:textSize="24sp" android:textStyle="bold" />
-    <TextView android:id="@+id/import_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:accessibilityLiveRegion="polite"
-        android:paddingTop="2dp" android:paddingBottom="8dp" android:textColor="@color/lik_text_secondary" android:textSize="14sp" />
-  </LinearLayout>
   <HorizontalScrollView android:id="@+id/timeline_level_scroll" android:layout_width="match_parent" android:layout_height="wrap_content" android:fillViewport="true" android:scrollbars="none">
     <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginHorizontal="16dp"
         android:layout_marginBottom="9dp" android:background="@drawable/lik_scale_track" android:gravity="center"
