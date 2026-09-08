@@ -5,6 +5,8 @@ import android.content.ClipData
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.view.View
+import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -76,6 +78,14 @@ class PhotoImportTest {
         fail("Import did not finish")
     }
 
+    private fun assertSummary(scenario: ActivityScenario<Activity>, visible: Boolean, added: Int = 0) {
+        scenario.onActivity { activity ->
+            val summary = activity.findViewById<TextView>(R.id.import_summary)
+            assertEquals(if (visible) View.VISIBLE else View.GONE, summary.visibility)
+            if (visible) assertEquals(activity.getString(R.string.import_summary, added, 0, 0), summary.text)
+        }
+    }
+
     @Test fun shareSavesImageAndSurvivesActivityRecreationWithoutDuplicate() {
         launchShare("green").use { scenario ->
             awaitCompleted(scenario, 1)
@@ -125,6 +135,30 @@ class PhotoImportTest {
                 assertEquals(0, state.failed)
                 assertEquals(0, state.duplicates)
             }
+        }
+    }
+
+    @Test fun completedShareRendersSummaryOnlyOnceAcrossRecreation() {
+        launchShare("green").use { scenario ->
+            awaitCompleted(scenario, 1)
+            assertSummary(scenario, visible = true, added = 1)
+
+            scenario.recreate()
+            instrumentation.waitForIdleSync()
+            assertSummary(scenario, visible = false)
+        }
+    }
+
+    @Test fun importRotatedWhileBusyRendersSummaryWhenItCompletes() {
+        launchShare("slow").use { scenario ->
+            scenario.onActivity {
+                assertTrue(ViewModelProvider(it as MainActivity)[ImportViewModel::class.java].state.value!!.busy)
+            }
+            assertSummary(scenario, visible = false)
+
+            scenario.recreate()
+            awaitCompleted(scenario, 1)
+            assertSummary(scenario, visible = true, added = 1)
         }
     }
 

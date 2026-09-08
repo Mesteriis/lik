@@ -162,11 +162,10 @@ open class MainActivity : ComponentActivity() {
 
     private fun render(state: io.github.mesteriis.lik.imports.ImportState) {
         importSummaryEvents.next(state.summary)?.let { summary ->
-            Toast.makeText(
-                this,
-                getString(R.string.import_summary, summary.added, summary.duplicates, summary.failed),
-                Toast.LENGTH_LONG,
-            ).show()
+            findViewById<TextView>(R.id.import_summary).apply {
+                text = getString(R.string.import_summary, summary.added, summary.duplicates, summary.failed)
+                visibility = View.VISIBLE
+            }
         }
         photos = state.photos
         selection = selection.retainAvailable(state.photos.filter { it.canDeleteCopy }.mapTo(mutableSetOf()) { it.id })
