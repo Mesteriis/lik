@@ -43,9 +43,8 @@ class AiSettingsActivity : Activity() {
         super.onCreate(savedInstanceState)
         catalog = ModelCatalog.get(this)
         // OCR and People are intentionally visible but unavailable until Task 11 supplies real generations.
-        listOf(AiFeature.OCR, AiFeature.PEOPLE).forEach { feature ->
-            if (feature in catalog.snapshot().enabledFeatures) catalog.setFeature(feature, false)
-        }
+        FeatureAvailability.unavailableRequested(catalog.snapshot(), setOf(AiFeature.OCR, AiFeature.PEOPLE))
+            .forEach { feature -> catalog.setFeature(feature, false) }
         content = LinearLayout(this).apply {
             id = R.id.ai_settings_content
             orientation = LinearLayout.VERTICAL
@@ -141,7 +140,8 @@ class AiSettingsActivity : Activity() {
         )
         val marker = markers.joinToString(" · ")
         views.heading.text = if (marker.isEmpty()) name else getString(R.string.ai_profile_heading_status, name, marker)
-        views.components.text = getString(R.string.ai_profile_components, spec.componentIds.joinToString(", "))
+        views.components.text = getString(R.string.ai_profile_components, spec.componentIds
+            .joinToString(", ") { catalog.trusted.components.getValue(it).displayName })
         views.size.text = getString(R.string.ai_profile_size, formatBytes(spec.uniqueBytes))
         val displayedPhase = if (snapshot.pending?.profile == profile && value.phase == ProfilePhase.ACTIVE) ProfilePhase.PREPARING else value.phase
         views.state.text = getString(R.string.ai_profile_state, phaseLabel(displayedPhase))
@@ -174,13 +174,17 @@ class AiSettingsActivity : Activity() {
 
     private fun performProfileAction(profile: ProfileId, action: ProfileAction) {
         when (action) {
-            ProfileAction.DOWNLOAD -> { catalog.select(profile); ProfileDownloadWorker.enqueue(this, profile) }
+            ProfileAction.DOWNLOAD -> {
+                cancelReplacedPending(profile)
+                catalog.select(profile); ProfileDownloadWorker.enqueue(this, profile)
+            }
             ProfileAction.PAUSE -> ProfileDownloadControls.pause(this, profile)
             ProfileAction.CANCEL -> if (catalog.snapshot().profile(profile).phase == ProfilePhase.PREPARING) {
                 io.execute { AiIndexWorker.discardPreparation(this, profile) }
             } else ProfileDownloadControls.cancel(this, profile)
             ProfileAction.RESUME -> ProfileDownloadControls.resume(this, profile)
             ProfileAction.USE -> {
+                cancelReplacedPending(profile)
                 val next = catalog.select(profile)
                 val requested = next.pending?.enabled ?: next.enabledFeatures
                 if (next.pending != null && AiFeature.SEARCH in requested) AiIndexWorker.enqueue(this, profile, manual = true)
@@ -191,6 +195,13 @@ class AiSettingsActivity : Activity() {
             }
             ProfileAction.PROCESS -> AiIndexWorker.enqueue(this, profile, manual = true)
         }
+    }
+
+    private fun cancelReplacedPending(target: ProfileId) {
+        val previous = catalog.snapshot().pending?.profile?.takeIf { it != target } ?: return
+        if (catalog.snapshot().profile(previous).phase == ProfilePhase.PREPARING) {
+            io.execute { AiIndexWorker.discardPreparation(this, previous) }
+        } else ProfileDownloadControls.cancel(this, previous)
     }
 
     private fun featureSwitch(feature: AiFeature, title: Int, id: Int, available: Boolean) {
@@ -249,11 +260,7 @@ class AiSettingsActivity : Activity() {
                     require(health.running) { "AIGATE_NOT_RUNNING" }
                     client.models()
                     endpoint to health
-                }.getOrNull() ?: AiGateClient.discover()?.also { pair ->
-                    val client = AiGateClient(pair.first)
-                    aiGateClient = client
-                    runCatching { client.models() }.getOrNull() ?: return@execute
-                }
+                }.getOrNull() ?: AiGateClient.discover { aiGateClient = it }
                 runOnUiThread {
                     aiGateClient = null
                     if (result == null) Toast.makeText(this, R.string.aigate_unavailable, Toast.LENGTH_LONG).show()

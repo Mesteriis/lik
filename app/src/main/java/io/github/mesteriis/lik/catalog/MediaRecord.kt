@@ -48,6 +48,8 @@ data class MediaRecord(
     val contentRevision: Long = 0,
     val availability: MediaAvailability = MediaAvailability.AVAILABLE,
     val lastSeenAt: Long,
+    /** Stable permission generation. Scans do not change it; an inaccessible→available grant does. */
+    @ColumnInfo(defaultValue = "1") val accessGrantEpoch: Long = 1,
     @ColumnInfo(defaultValue = "-9223372036854775808") val sortAt: Long = takenAt ?: addedAt ?: Long.MIN_VALUE,
     @ColumnInfo(defaultValue = "'undated'") val dayKey: String = "undated",
     @ColumnInfo(defaultValue = "'undated'") val weekKey: String = "undated",

@@ -6,6 +6,7 @@ import android.os.OperationCanceledException
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import io.github.mesteriis.lik.catalog.*
+import io.github.mesteriis.lik.ai.*
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -39,6 +40,31 @@ class IncrementalCatalogTest {
         val before = System.currentTimeMillis()
         scanner.scan(source, true, CancellationSignal())
         assertTrue(db.media().get(row(1).mediaId)!!.lastSeenAt in before..System.currentTimeMillis())
+    }
+
+    @Test fun noOpScanKeepsEmbeddingAccessEpochWhileRegrantAdvancesIt() {
+        source.rows = listOf(row(1))
+        scanner.scan(source, true, CancellationSignal())
+        val media = db.media().get(row(1).mediaId)!!
+        val generation = AiIndexGenerationRecord("stable", "compact-v1", "SEARCH", "pipeline",
+            GenerationStatus.PREPARING, 1, 1, media.mediaId, null, 1)
+        db.aiIndexes().saveGeneration(generation)
+        db.aiIndexes().saveEmbedding(AiEmbeddingRecord("stable", media.mediaId, 1,
+            media.contentRevision, media.accessGrantEpoch, floatArrayOf(1f).toBytes()))
+
+        scanner.scan(source, true, CancellationSignal())
+        val unchanged = db.media().get(media.mediaId)!!
+        assertEquals(media.accessGrantEpoch, unchanged.accessGrantEpoch)
+        assertEquals(1, db.aiIndexes().currentEmbeddingCount("stable"))
+
+        source.rows = emptyList()
+        scanner.scan(source, false, CancellationSignal())
+        assertEquals(MediaAvailability.INACCESSIBLE, db.media().get(media.mediaId)!!.availability)
+        source.rows = listOf(row(1))
+        scanner.scan(source, false, CancellationSignal())
+        val regranted = db.media().get(media.mediaId)!!
+        assertEquals(media.accessGrantEpoch + 1, regranted.accessGrantEpoch)
+        assertEquals(0, db.aiIndexes().currentEmbeddingCount("stable"))
     }
 
     @Test fun limitedSelectionAndRevocationNeverBecomeDeletion() {

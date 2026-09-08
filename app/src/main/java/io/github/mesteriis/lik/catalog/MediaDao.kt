@@ -33,7 +33,7 @@ interface MediaDao {
     @Query("UPDATE media SET availability = :availability WHERE source = :source AND availability NOT IN ('TRASHED', 'PURGING')")
     fun markSource(source: MediaSource, availability: MediaAvailability)
 
-    @Query("UPDATE media SET availability = 'AVAILABLE', lastSeenAt = :now WHERE mediaId = :id AND availability NOT IN ('TRASHED', 'PURGING')")
+    @Query("UPDATE media SET accessGrantEpoch = CASE WHEN availability != 'AVAILABLE' THEN accessGrantEpoch + 1 ELSE accessGrantEpoch END, availability = 'AVAILABLE', lastSeenAt = :now WHERE mediaId = :id AND availability NOT IN ('TRASHED', 'PURGING')")
     fun markSeen(id: String, now: Long)
 
     @Query("SELECT * FROM media WHERE source = 'GOOGLE_IMPORT' AND availability = 'TRASHED' ORDER BY trashedAt DESC, mediaId LIMIT :limit OFFSET :offset")
@@ -65,7 +65,7 @@ interface MediaDao {
     @Query("UPDATE media SET availability = CASE WHEN volumeVersion = :version THEN :absent ELSE 'INACCESSIBLE' END WHERE source = 'DEVICE' AND volumeName = :volume AND scanMarker != :stamp")
     fun reconcileVolume(volume: String, version: String, stamp: String, absent: MediaAvailability)
 
-    @Query("UPDATE media SET availability = 'AVAILABLE', lastSeenAt = :now, scanMarker = :stamp WHERE mediaId = :id")
+    @Query("UPDATE media SET accessGrantEpoch = CASE WHEN availability != 'AVAILABLE' THEN accessGrantEpoch + 1 ELSE accessGrantEpoch END, availability = 'AVAILABLE', lastSeenAt = :now, scanMarker = :stamp WHERE mediaId = :id")
     fun markScanSeen(id: String, stamp: String, now: Long)
 
     @Query("UPDATE media SET availability = 'INACCESSIBLE' WHERE source = 'DEVICE' AND volumeName NOT IN (:volumes)")

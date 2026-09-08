@@ -5,9 +5,13 @@ import org.json.JSONObject
 import java.net.URI
 
 data class PipelineSpec(val feature: AiFeature, val fingerprint: String, val dimension: Int?)
-data class GraphSmokeSpec(val artifactPath: String, val inputName: String, val shape: IntArray, val outputName: String?)
+data class SmokeReferenceSpec(val comparison: String, val minimumCosine: Float, val atol: Float, val rtol: Float)
+data class GraphSmokeSpec(val artifactPath: String, val inputName: String, val shape: IntArray,
+                          val outputName: String, val outputShape: IntArray,
+                          val reference: SmokeReferenceSpec)
 data class ComponentSpec(
     val id: String,
+    val displayName: String,
     val fingerprint: String,
     val roles: Set<String>,
     val artifacts: List<ArtifactSpec>,
@@ -46,7 +50,8 @@ class TrustedModelCatalog private constructor(
                 repeat(values.length()) { index ->
                     val value = values.getJSONObject(index)
                     val id = value.getString("id")
-                    val roles = value.getJSONObject("contract").getJSONArray("roles").strings().toSet()
+                    val contract = value.getJSONObject("contract")
+                    val roles = contract.getJSONArray("roles").strings().toSet()
                     val artifacts = value.getJSONArray("artifacts").objects().map { file ->
                         ArtifactSpec(file.getString("path"), file.getLong("size"), file.getString("sha256"), URI(file.getString("url")))
                     }
@@ -57,9 +62,14 @@ class TrustedModelCatalog private constructor(
                         val shape = input.getJSONArray("smokeShape").let { values -> IntArray(values.length()) { values.getInt(it) } }
                         val output = graph.optString("primaryOutput").takeIf(String::isNotBlank)
                             ?: graph.getJSONArray("outputs").getJSONObject(0).getString("name")
-                        GraphSmokeSpec(file.getString("path"), input.getString("name"), shape, output)
+                        val outputDescriptor = graph.getJSONArray("outputs").objects().single { it.getString("name") == output }
+                        val outputShape = outputDescriptor.getJSONArray("smokeShape").let { values -> IntArray(values.length()) { values.getInt(it) } }
+                        val reference = graph.getJSONObject("smokeReference")
+                        GraphSmokeSpec(file.getString("path"), input.getString("name"), shape, output, outputShape,
+                            SmokeReferenceSpec(reference.getString("comparison"), reference.getDouble("minimumCosine").toFloat(),
+                                reference.getDouble("atol").toFloat(), reference.getDouble("rtol").toFloat()))
                     }
-                    check(put(id, ComponentSpec(id, value.getString("fingerprint"), roles, artifacts, smoke)) == null)
+                    check(put(id, ComponentSpec(id, contract.getString("sourceRepo"), value.getString("fingerprint"), roles, artifacts, smoke)) == null)
                 }
             }
             val profiles = buildMap {

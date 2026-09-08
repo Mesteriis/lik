@@ -44,6 +44,9 @@ class SemanticSearchRepository(
             val bridge = USearchBridge(); val handle = bridge.create(dimension)
             try {
                 bridge.load(handle, nativeFile.absolutePath)
+                val membership = NativeMembership.read(nativeDirectory)
+                require(membership.generationId == generationId && membership.count == indexed &&
+                    bridge.size(handle) == indexed.toLong()) { "NATIVE_MEMBERSHIP_MISMATCH" }
                 val keys = bridge.search(handle, query, minOf(indexed, maxOf(64, limit * 8).coerceAtMost(MAX_CANDIDATES)))
                 rows = if (keys.isEmpty()) emptyList() else dao.currentByKeys(generationId, keys)
                 nativeUsed = true
@@ -141,9 +144,9 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
             if (batch.isEmpty()) break
             for (row in batch) {
                 if (isStopped) throw InterruptedException("INDEX_CANCELLED")
-                val item = IndexItem(row.mediaId, row.contentRevision, row.lastSeenAt, pipeline.fingerprint)
+                val item = IndexItem(row.mediaId, row.contentRevision, row.accessGrantEpoch, pipeline.fingerprint)
                 val priorEmbedding = dao.embedding(generation.generationId, row.mediaId)
-                if (priorEmbedding?.let { it.contentRevision == row.contentRevision && it.accessEpoch == row.lastSeenAt } == true) {
+                if (priorEmbedding?.let { it.contentRevision == row.contentRevision && it.accessEpoch == row.accessGrantEpoch } == true) {
                     checkpoint = row.mediaId
                     dao.saveGeneration(generation.copy(completed = completed, total = dao.availableCount(), checkpointMediaId = checkpoint, error = null))
                     continue
@@ -173,14 +176,14 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
                     dao.saveGeneration(generation.copy(completed = completed, total = dao.availableCount(), checkpointMediaId = checkpoint))
                     continue
                 }
-                if (!item.canPublish(fresh.mediaId, fresh.contentRevision, fresh.lastSeenAt, true))
+                if (!item.canPublish(fresh.mediaId, fresh.contentRevision, fresh.accessGrantEpoch, true))
                     throw RetryableIndexException("MEDIA_CHANGED").also {
                         dao.saveGeneration(generation.copy(completed = completed, checkpointMediaId = checkpoint, error = "MEDIA_CHANGED"))
                     }
                 val nextGeneration = generation.copy(completed = completed + 1, total = dao.availableCount(),
                     checkpointMediaId = row.mediaId, error = null)
                 val published = dao.publishEmbeddingIfCurrent(AiEmbeddingRecord(generation.generationId, row.mediaId, nativeKey,
-                    row.contentRevision, row.lastSeenAt, embedded.getOrThrow().toBytes()), nextGeneration)
+                    row.contentRevision, row.accessGrantEpoch, embedded.getOrThrow().toBytes()), nextGeneration)
                 if (!published) throw RetryableIndexException("MEDIA_CHANGED")
                 nativeKey++
                 completed++
@@ -190,10 +193,9 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
                 setProgressAsync(workDataOf(COMPLETED to completed, TOTAL to updated.total))
             }
         }
-        val rows = dao.embeddings(generation.generationId)
-        persistIndexes(generation.generationId, pipeline.dimension!!, rows)
+        val indexed = persistIndexes(generation.generationId, pipeline.dimension!!, dao)
         if (isStopped) throw InterruptedException("INDEX_CANCELLED")
-        val done = dao.completeIfCurrent(generation.copy(completed = rows.size,
+        val done = dao.completeIfCurrent(generation.copy(completed = indexed,
             total = dao.availableCount(), checkpointMediaId = checkpoint, error = null)) ?: run {
             dao.saveGeneration(generation.copy(completed = dao.currentEmbeddingCount(generation.generationId),
                 total = dao.availableCount(), checkpointMediaId = checkpoint, error = "INDEX_COVERAGE_CHANGED"))
@@ -206,47 +208,123 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
     private fun generationCurrent(record: AiIndexGenerationRecord, dao: AiIndexDao): Boolean {
         val available = dao.availableCount()
         val directory = NativeIndexFiles.generation(applicationContext, record.generationId)
-        return dao.currentEmbeddingCount(record.generationId) == available &&
-            ((directory.resolve("index.usearch").isFile && directory.resolve("verified").isFile) ||
-                (available == 0 && directory.resolve("empty").isFile)) && dao.embeddingCount(record.generationId) == available
+        if (dao.currentEmbeddingCount(record.generationId) != available || dao.embeddingCount(record.generationId) != available)
+            return false
+        val membership = runCatching { NativeMembership.read(directory) }.getOrNull() ?: return false
+        if (membership.generationId != record.generationId || membership.count != available ||
+            membership.digest != membershipDigest(dao, record.generationId)) return false
+        if (available == 0) return directory.resolve("empty").isFile
+        val native = directory.resolve("index.usearch")
+        if (!native.isFile || !directory.resolve("verified").isFile || !USearchBridge.available) return false
+        return runCatching {
+            val bridge = USearchBridge(); val handle = bridge.create(
+                catalogDimension(record.profileId, record.feature))
+            try {
+                bridge.load(handle, native.absolutePath)
+                if (bridge.size(handle) != available.toLong()) return@runCatching false
+                membership.probeKeys.indices.all { at ->
+                    val probe = dao.embedding(record.generationId, requireNotNull(
+                        dao.mediaIdForKey(record.generationId, membership.probeKeys[at]))) ?: return@all false
+                    val expectedKeys = membership.expectedTopKeys[at]
+                    val byExpectedKey = dao.byKeys(record.generationId, expectedKeys).associateBy { it.nativeKey }
+                    val expectedIds = expectedKeys.map { key -> byExpectedKey[key]?.mediaId ?: return@all false }
+                    val candidates = dao.currentByKeys(record.generationId, bridge.search(handle, probe.vector.toFloats(),
+                        minOf(available, PARITY_CANDIDATES))).map {
+                        NativeCandidate(it.nativeKey, it.mediaId, it.vector.toFloats())
+                    }
+                    CandidateReranker.rank(probe.vector.toFloats(), candidates, expectedIds.size)
+                        .map { it.mediaId } == expectedIds
+                }
+            }
+            finally { bridge.close(handle) }
+        }.getOrDefault(false)
     }
 
-    private fun persistIndexes(id: String, dimension: Int, rows: List<AiEmbeddingRecord>) {
+    private fun catalogDimension(profile: String, feature: String): Int = ModelCatalog.get(applicationContext).trusted
+        .profiles.getValue(ProfileId.fromWire(profile)).pipelines.getValue(AiFeature.valueOf(feature)).dimension!!
+
+    private fun persistIndexes(id: String, dimension: Int, dao: AiIndexDao): Int {
         val root = NativeIndexFiles.root(applicationContext)
         val directory = File(root, ".$id-${System.nanoTime()}.building").also { check(it.mkdirs()) }
-        val exact = ExactVectorIndex(dimension)
-        rows.forEach { exact.upsert(it.mediaId, it.vector.toFloats()) }
-        exact.save(File(directory, "index.exact"))
-        if (rows.isEmpty()) {
+        val total = dao.embeddingCount(id)
+        if (total == 0) {
+            NativeMembership(id, 0, NativeMembership.digest(emptySequence()), longArrayOf(), emptyList()).write(directory)
             DurableAiFiles.atomicWrite(File(directory, "empty"), byteArrayOf())
             val target = NativeIndexFiles.generation(applicationContext, id)
             DurableAiFiles.replaceDirectory(directory, target)
-            return
+            return 0
         }
         check(USearchBridge.available) { "USEARCH_UNAVAILABLE" }
         val bridge = USearchBridge(); val handle = bridge.create(dimension)
         val native = File(directory, "index.usearch")
         try {
-            bridge.reserve(handle, rows.size.toLong())
-            rows.forEach { bridge.upsert(handle, it.nativeKey, it.vector.toFloats()) }
+            bridge.reserve(handle, total.toLong())
+            val probes = mutableListOf<AiEmbeddingRecord>()
+            forEachEmbedding(dao, id) { row ->
+                val vector = row.vector.toFloats()
+                require(vector.size == dimension)
+                bridge.upsert(handle, row.nativeKey, vector)
+                if (probes.size < PARITY_PROBES) probes += row
+            }
+            require(bridge.size(handle) == total.toLong()) { "USEARCH_MEMBERSHIP_COUNT" }
             bridge.save(handle, native.absolutePath)
             FileOutputStream(native, true).use { it.fd.sync() }
-            val byKey = rows.associateBy { it.nativeKey }
-            val probes = rows.filterIndexed { index, _ -> index % maxOf(1, rows.size / 8) == 0 }.take(8)
-            probes.forEach { probe ->
-                val query = probe.vector.toFloats()
-                val probeLimit = minOf(10, rows.size)
-                val candidateKeys = bridge.search(handle, query, minOf(rows.size, PARITY_CANDIDATES))
-                val candidates = candidateKeys.map { byKey[it] }.filterNotNull().map {
+            val exact = probes.associate { it.nativeKey to StreamingExactTop(it.vector.toFloats(), minOf(10, total)) }
+            forEachEmbedding(dao, id) { row -> exact.values.forEach { it.offer(row) } }
+            val expected = probes.map { exact.getValue(it.nativeKey).keys() }
+            probes.forEachIndexed { index, probe ->
+                val query = probe.vector.toFloats(); val probeLimit = minOf(10, total)
+                val candidateKeys = bridge.search(handle, query, minOf(total, PARITY_CANDIDATES))
+                val candidates = dao.currentByKeys(id, candidateKeys).map {
                     NativeCandidate(it.nativeKey, it.mediaId, it.vector.toFloats())
                 }
-                require(SearchParity.accept(exact.search(query, probeLimit),
-                    CandidateReranker.rank(query, candidates, probeLimit), probeLimit)) { "USEARCH_PARITY_FAILED" }
+                val approximate = CandidateReranker.rank(query, candidates, probeLimit)
+                val byKey = dao.byKeys(id, expected[index]).associateBy { it.nativeKey }
+                val expectedIds = expected[index].map { key -> requireNotNull(byKey[key]).mediaId }
+                require(expectedIds == approximate.map { it.mediaId }) { "USEARCH_PARITY_FAILED" }
             }
+            NativeMembership(id, total, membershipDigest(dao, id), probes.map { it.nativeKey }.toLongArray(), expected).write(directory)
             DurableAiFiles.atomicWrite(File(directory, "verified"), byteArrayOf())
             val target = NativeIndexFiles.generation(applicationContext, id)
             DurableAiFiles.replaceDirectory(directory, target)
+            return total
         } finally { bridge.close(handle); directory.deleteRecursively() }
+    }
+
+    private fun membershipDigest(dao: AiIndexDao, generation: String): String {
+        val rows = sequence {
+            var after: Long? = null
+            while (true) {
+                val batch = dao.embeddingBatch(generation, after, INDEX_BUILD_BATCH)
+                if (batch.isEmpty()) break
+                yieldAll(batch); after = batch.last().nativeKey
+            }
+        }
+        return NativeMembership.digest(rows)
+    }
+
+    private inline fun forEachEmbedding(dao: AiIndexDao, generation: String, block: (AiEmbeddingRecord) -> Unit) {
+        var after: Long? = null
+        while (true) {
+            val batch = dao.embeddingBatch(generation, after, INDEX_BUILD_BATCH)
+            if (batch.isEmpty()) return
+            batch.forEach(block); after = batch.last().nativeKey
+        }
+    }
+
+    private class StreamingExactTop(private val query: FloatArray, private val limit: Int) {
+        private data class Value(val key: Long, val mediaId: String, val score: Float)
+        private val values = ArrayList<Value>(limit + 1)
+        fun offer(row: AiEmbeddingRecord) {
+            val vector = row.vector.toFloats(); require(vector.size == query.size)
+            var dot = 0f; var qn = 0f; var vn = 0f
+            for (i in query.indices) { dot += query[i] * vector[i]; qn += query[i] * query[i]; vn += vector[i] * vector[i] }
+            require(qn > 0f && vn > 0f)
+            values += Value(row.nativeKey, row.mediaId, dot / kotlin.math.sqrt(qn * vn))
+            values.sortWith(compareByDescending<Value> { it.score }.thenBy { it.mediaId })
+            if (values.size > limit) values.removeAt(values.lastIndex)
+        }
+        fun keys() = values.map { it.key }.toLongArray()
     }
 
     private fun publishCatalog(catalog: ModelCatalog, profile: ProfileId, record: AiIndexGenerationRecord) {
@@ -265,6 +343,8 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
         private const val TOTAL = "total"
         private const val BATCH_SIZE = 16
         private const val PARITY_CANDIDATES = 512
+        private const val PARITY_PROBES = 8
+        private const val INDEX_BUILD_BATCH = 128
 
         fun enqueue(context: Context, profile: ProfileId, manual: Boolean) {
             val constraints = Constraints.Builder().setRequiresStorageNotLow(true).setRequiresBatteryNotLow(true).apply {

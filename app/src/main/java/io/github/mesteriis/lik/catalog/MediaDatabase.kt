@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(entities = [MediaRecord::class, VolumeCheckpoint::class, Album::class, AlbumMedia::class, Favorite::class, MediaTag::class,
     io.github.mesteriis.lik.ai.AiIndexGenerationRecord::class, io.github.mesteriis.lik.ai.AiEmbeddingRecord::class,
-    io.github.mesteriis.lik.ai.AiSensitiveRunRecord::class], version = 5, exportSchema = true)
+    io.github.mesteriis.lik.ai.AiSensitiveRunRecord::class], version = 6, exportSchema = true)
 abstract class MediaDatabase : RoomDatabase() {
     abstract fun media(): MediaDao
     abstract fun organization(): OrganizationDao
@@ -20,7 +20,7 @@ abstract class MediaDatabase : RoomDatabase() {
 
         fun get(context: Context): MediaDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MediaDatabase::class.java, "media.db")
-                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build().also { instance = it }
         }
 
@@ -32,6 +32,13 @@ abstract class MediaDatabase : RoomDatabase() {
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_ai_embedding_generationId_nativeKey ON ai_embedding(generationId, nativeKey)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_embedding_mediaId ON ai_embedding(mediaId)")
                 db.execSQL("CREATE TABLE IF NOT EXISTS ai_sensitive_run (mediaId TEXT NOT NULL, contentRevision INTEGER NOT NULL, pipelineFingerprint TEXT NOT NULL, status TEXT NOT NULL, rawOutput BLOB, error TEXT, evaluatedAt INTEGER NOT NULL, PRIMARY KEY(mediaId, contentRevision,pipelineFingerprint))")
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE media ADD COLUMN accessGrantEpoch INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("UPDATE ai_embedding SET accessEpoch = COALESCE((SELECT accessGrantEpoch FROM media WHERE media.mediaId = ai_embedding.mediaId), 1)")
             }
         }
 

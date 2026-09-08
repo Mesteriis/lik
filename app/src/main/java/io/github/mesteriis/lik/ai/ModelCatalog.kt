@@ -76,16 +76,33 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
 
     private fun initialize(): CatalogSnapshot {
         val persisted = readOrFresh()
+        val store = ArtifactStore(root)
+        val corruptDigests = trusted.allArtifacts.values.mapNotNull { spec ->
+            if (store.file(spec.sha256).exists() && !store.installed(spec.sha256, spec.size) && store.repair(spec)) spec.sha256 else null
+        }.toSet()
+        val corrupted = ProfileId.entries.filterTo(mutableSetOf()) { profile ->
+            trusted.artifacts(profile).any { it.sha256 in corruptDigests }
+        }
+        val installed = ProfileId.entries.associateWith { profile -> trusted.artifacts(profile)
+            .map { store.installed(it.sha256, it.size) }.all { it } }
         val versioned = if (persisted.catalogVersion == trusted.version) persisted
-            else CatalogMigrations.toVersion(persisted, trusted.version)
-        val repaired = CatalogStorageRepair.repair(versioned, ::generationUsable)
+            else CatalogMigrations.toVersion(persisted, trusted.version,
+                { installed.getValue(it) }, ::generationCompatible)
+        val artifactRepaired = CatalogArtifactRepair.repair(versioned, installed, corrupted)
+        val repaired = CatalogStorageRepair.repair(artifactRepaired, ::generationUsable)
         if (repaired != persisted) write(repaired)
         return repaired
     }
 
+    private fun generationCompatible(profile: ProfileId, generation: IndexGeneration): Boolean =
+        trusted.profiles.getValue(profile).pipelines[generation.feature]?.fingerprint == generation.pipelineFingerprint &&
+            generationUsable(generation)
+
     private fun generationUsable(generation: IndexGeneration): Boolean {
         if (!generation.complete) return false
         val directory = File(root, "indexes/${generation.id}.ready")
+        val membership = runCatching { NativeMembership.read(directory) }.getOrNull() ?: return false
+        if (membership.generationId != generation.id || membership.count != generation.total) return false
         return if (generation.total == 0) File(directory, "empty").isFile
         else File(directory, "index.usearch").isFile && File(directory, "verified").isFile
     }

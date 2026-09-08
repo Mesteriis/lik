@@ -56,8 +56,15 @@ class MediaRepository(private val database: MediaDatabase) {
     fun reconcileDevice(visible: List<MediaRecord>) {
         require(visible.all { it.source == MediaSource.DEVICE })
         database.runInTransaction {
+            val previous = visible.associate { it.mediaId to dao.get(it.mediaId) }
             dao.markSource(MediaSource.DEVICE, MediaAvailability.INACCESSIBLE)
-            visible.forEach { dao.upsert(it.copy(availability = MediaAvailability.AVAILABLE)) }
+            visible.forEach {
+                val epoch = previous[it.mediaId]?.let { record ->
+                    if (record.availability != MediaAvailability.AVAILABLE) Math.addExact(record.accessGrantEpoch, 1)
+                    else record.accessGrantEpoch
+                } ?: it.accessGrantEpoch
+                dao.upsert(it.copy(availability = MediaAvailability.AVAILABLE, accessGrantEpoch = epoch))
+            }
         }
     }
 

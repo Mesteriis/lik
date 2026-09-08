@@ -37,6 +37,7 @@ class ModelDownloader(
         var missing = emptyList<ArtifactSpec>()
         var already = 0L
         var completed = 0L
+        var releaseReservation = false
         catalog.operationPhase(profile, ProfilePhase.DOWNLOADING, 0, total)
         try {
             specs.forEach { store.repair(it, ::checkControl) }
@@ -57,6 +58,7 @@ class ModelDownloader(
                 }
                 if (part.length() != spec.size) {
                     download(spec, part, journal) { fileBytes ->
+                        ledger.update(operationId, spec.sha256, (spec.size - fileBytes).coerceAtLeast(0))
                         val current = completed + fileBytes
                         catalog.operationPhase(profile, ProfilePhase.DOWNLOADING, current, total)
                         progress(DownloadProgress(profile, current, total, spec.path))
@@ -64,13 +66,14 @@ class ModelDownloader(
                 }
                 if (cancelled.get()) throw DownloadCancelled()
                 writeJournal(journal, spec, DownloadJournalStage.VERIFYING, part.length())
-                if (part.length() != spec.size || ArtifactStore.sha256(part, ::checkControl) != spec.sha256) {
+                val verified = runCatching { store.verifyStaging(part, spec, ::checkControl) }.getOrElse {
                     part.delete()
                     journal.delete()
-                    error("HASH_MISMATCH")
+                    throw it
                 }
                 writeJournal(journal, spec, DownloadJournalStage.VERIFIED, part.length())
-                store.publish(part, spec, ::checkControl)
+                store.publish(verified, spec)
+                ledger.update(operationId, spec.sha256, 0)
                 check(journal.delete())
                 completed += spec.size
             }
@@ -88,11 +91,13 @@ class ModelDownloader(
             if (AiFeature.SEARCH in requested) AiIndexWorker.enqueue(context, profile, manual = false)
             operation.deleteRecursively()
             operation.parentFile?.let(DurableAiFiles::syncDirectory)
+            releaseReservation = true
         } catch (pause: DownloadPaused) {
             catalog.operationPhase(profile, ProfilePhase.PAUSED,
                 already + missing.sumOf { store.sharedPart(it.sha256).length() }, total)
             return
         } catch (cancel: DownloadCancelled) {
+            releaseReservation = true
             store.abandonShared(specs.map { it.sha256 }.toSet(), operationId)
             val current = catalog.snapshot()
             catalog.update { state ->
@@ -105,7 +110,10 @@ class ModelDownloader(
             val code = (error.message ?: error.javaClass.simpleName).take(120)
             catalog.operationPhase(profile, ProfilePhase.ERROR, completed, total, code)
             throw error
-        } finally { ledger.release(operationId); activeOperation = null; activeConnection = null }
+        } finally {
+            if (releaseReservation) ledger.release(operationId)
+            activeOperation = null; activeConnection = null
+        }
     }
 
     fun abandon(profile: ProfileId) = DownloadCoordinator.run(store.root) {
@@ -249,9 +257,60 @@ class ModelSelfTest(private val store: ArtifactStore, private val runtime: Isola
         trusted.smokeGraphs(profile).filter { it.artifactPath !in searchPaths }.forEach { graph ->
             checkControl()
             val count = graph.shape.fold(1) { product, value -> Math.multiplyExact(product, value) }
-            val result = runtime.runFloat(file(graph.artifactPath), graph.inputName, graph.shape, FloatArray(count), graph.outputName).getOrThrow()
-            require(result.isNotEmpty() && result.all(Float::isFinite)) { "COMPONENT_SELF_TEST_FAILED:${graph.artifactPath}" }
+            val input = representativeInput(graph.artifactPath, graph.shape, count)
+            val result = runtime.runFloat(file(graph.artifactPath), graph.inputName, graph.shape, input, graph.outputName).getOrThrow()
+            checkControl()
+            val repeated = runtime.runFloat(file(graph.artifactPath), graph.inputName, graph.shape, input, graph.outputName).getOrThrow()
+            val outputCount = graph.outputShape.fold(1) { product, value -> Math.multiplyExact(product, value) }
+            require(result.size == outputCount && result.all(Float::isFinite) &&
+                smokeMatches(result, repeated, graph.reference) && semanticOutput(graph.artifactPath, result)) {
+                "COMPONENT_SELF_TEST_FAILED:${graph.artifactPath}"
+            }
         }
+    }
+
+    private fun representativeInput(path: String, shape: IntArray, count: Int): FloatArray {
+        require(shape.size == 4 && shape[0] == 1 && shape[1] == 3)
+        val plane = shape[2] * shape[3]
+        return FloatArray(count) { at ->
+            val channel = at / plane
+            val pixel = ((at % plane * 37 + channel * 71) % 256).toFloat()
+            when {
+                path.startsWith("ocr-mobile-det") || path.startsWith("ocr-server-det") -> {
+                    val mean = floatArrayOf(.485f, .456f, .406f); val std = floatArrayOf(.229f, .224f, .225f)
+                    (pixel / 255f - mean[channel]) / std[channel]
+                }
+                path.startsWith("ocr-cyrillic") || path.startsWith("sensitive") -> pixel / 127.5f - 1f
+                else -> pixel // YuNet/SFace contracts consume BGR/RGB byte-range tensors.
+            }
+        }
+    }
+
+    private fun smokeMatches(actual: FloatArray, repeated: FloatArray, reference: SmokeReferenceSpec): Boolean {
+        if (actual.size != repeated.size) return false
+        return when (reference.comparison) {
+            "allclose" -> actual.indices.all { kotlin.math.abs(actual[it] - repeated[it]) <=
+                reference.atol + reference.rtol * kotlin.math.abs(repeated[it]) }
+            "cosine" -> {
+                var dot = 0.0; var left = 0.0; var right = 0.0
+                actual.indices.forEach { dot += actual[it] * repeated[it]; left += actual[it] * actual[it]; right += repeated[it] * repeated[it] }
+                left > 0 && right > 0 && dot / kotlin.math.sqrt(left * right) >= reference.minimumCosine
+            }
+            else -> false
+        }
+    }
+
+    private fun semanticOutput(path: String, output: FloatArray): Boolean = when {
+        path.startsWith("ocr-mobile-det") || path.startsWith("ocr-server-det") || path.startsWith("yunet") ->
+            output.all { it in 0f..1f }
+        path.startsWith("ocr-cyrillic") -> output.size % 852 == 0 && output.all { it in 0f..1f } &&
+            output.asList().chunked(852).all { step -> kotlin.math.abs(step.sum() - 1f) < .02f }
+        path.startsWith("sface") -> kotlin.math.sqrt(output.sumOf { (it * it).toDouble() }) > 1e-6
+        path.startsWith("sensitive") -> output.size == 2 &&
+            output.map { kotlin.math.exp((it - output.max()).toDouble()) }.let { probabilities ->
+                val sum = probabilities.sum(); sum.isFinite() && sum > 0 && probabilities.all { it / sum in 0.0..1.0 }
+            }
+        else -> false
     }
 
     private fun file(path: String): File {

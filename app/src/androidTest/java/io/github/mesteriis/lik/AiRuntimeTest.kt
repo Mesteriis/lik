@@ -41,6 +41,7 @@ class AiRuntimeTest {
             bridge.save(handle, file.absolutePath)
             bridge.close(handle); handle = 0
             handle = bridge.create(3); bridge.load(handle, file.absolutePath)
+            assertEquals(2L, bridge.size(handle))
             val ids = bridge.search(handle, floatArrayOf(0f, 0f, 1f), 2).toList()
             assertEquals(setOf(1L, 3L), ids.toSet())
             val exact = ExactVectorIndex(3).apply {
@@ -63,17 +64,33 @@ class AiRuntimeTest {
             assertTrue(store.repair(spec))
             assertFalse(store.file(digest).exists())
             assertEquals(1, File(root, "quarantine").listFiles().orEmpty().size)
+            val verifiedPart = File(root, "verified.part").apply { writeBytes(expected) }
+            store.publish(store.verifyStaging(verifiedPart, spec), spec)
+            assertTrue(store.installed(digest, expected.size.toLong()))
+            assertTrue(File(root, "verification/$digest.json").isFile)
+            store.file(digest).writeBytes(ByteArray(expected.size) { 9 })
+            assertFalse(store.installed(digest, expected.size.toLong()))
+            assertTrue(store.repair(spec))
 
             val part = store.sharedPart(digest).apply { writeBytes(expected.copyOf(5)) }
             val ledger = DownloadReservationLedger(root)
             val first = ledger.acquire("compact", listOf(spec to part.length()), 1_000, 10)
             assertEquals(expected.size - 5L + 10L, first.requiredBytes)
+            assertEquals(first.requiredBytes, ledger.reservedBytes("compact"))
             assertEquals("compact", ledger.owner(digest))
+            ledger.update("compact", digest, 3)
+            assertEquals(13L, ledger.reservedBytes("compact"))
+            assertEquals(13L, DownloadReservationLedger(root).reservedBytes("compact"))
+            assertThrows(IllegalArgumentException::class.java) {
+                ledger.acquire("no-space", listOf(spec to 0), 0, 10)
+            }
             ledger.acquire("balanced", listOf(spec to part.length()), 1_000, 10)
             assertEquals("balanced", ledger.owner(digest))
+            assertEquals(10L, ledger.reservedBytes("compact"))
             ledger.release("compact")
             assertEquals("balanced", ledger.owner(digest))
             ledger.release("balanced")
+            assertEquals(0L, ledger.reservedBytes("balanced"))
             store.abandonShared(setOf(digest), "balanced")
             assertFalse(part.exists())
             val removals = GenerationRemovalJournal(root)
@@ -82,6 +99,26 @@ class AiRuntimeTest {
             removals.finish(ProfileId.COMPACT)
             assertTrue(removals.ids().isEmpty())
         } finally { root.deleteRecursively() }
+    }
+
+    @Test fun downloadCoordinatorSerializesConcurrentProfileWriters() {
+        val root = File(context.cacheDir, "download-lock-${System.nanoTime()}")
+        val active = java.util.concurrent.atomic.AtomicInteger(); val maximum = java.util.concurrent.atomic.AtomicInteger()
+        val entered = java.util.concurrent.CountDownLatch(1); val release = java.util.concurrent.CountDownLatch(1)
+        val done = java.util.concurrent.CountDownLatch(2)
+        fun launch(first: Boolean) = thread {
+            DownloadCoordinator.run(root) {
+                maximum.updateAndGet { maxOf(it, active.incrementAndGet()) }
+                if (first) { entered.countDown(); release.await() }
+                active.decrementAndGet()
+            }
+            done.countDown()
+        }
+        try {
+            launch(true); assertTrue(entered.await(2, TimeUnit.SECONDS)); launch(false)
+            Thread.sleep(100); assertEquals(1, maximum.get()); release.countDown()
+            assertTrue(done.await(2, TimeUnit.SECONDS)); assertEquals(1, maximum.get())
+        } finally { release.countDown(); root.deleteRecursively() }
     }
 
     @Test fun roomPublicationRejectsSameGenerationRevisionRaceWithoutAdvancingCheckpoint() {
@@ -98,7 +135,7 @@ class AiRuntimeTest {
         try {
             database.media().upsert(media)
             dao.saveGeneration(generation)
-            val stale = AiEmbeddingRecord(generationId, mediaId, 1, media.contentRevision + 1, media.lastSeenAt,
+            val stale = AiEmbeddingRecord(generationId, mediaId, 1, media.contentRevision + 1, media.accessGrantEpoch,
                 floatArrayOf(1f, 0f).toBytes())
             assertFalse(dao.publishEmbeddingIfCurrent(stale, generation.copy(completed = 1, checkpointMediaId = mediaId)))
             assertNull(dao.embedding(generationId, mediaId))
@@ -116,6 +153,10 @@ class AiRuntimeTest {
             scenario.onActivity { activity ->
                 val heading = activity.findViewById<android.view.View>(R.id.ai_profile_compact)
                 assertNotNull(heading)
+                val card = (heading.parent as android.view.ViewGroup)
+                val visibleText = (0 until card.childCount).mapNotNull { (card.getChildAt(it) as? android.widget.TextView)?.text?.toString() }
+                    .joinToString(" ")
+                assertFalse(visibleText.contains("clip-image-v1"))
                 assertNotNull(activity.findViewById<android.view.View>(R.id.ai_profile_balanced))
                 assertNotNull(activity.findViewById<android.view.View>(R.id.ai_profile_extended))
                 assertNotNull(activity.findViewById<android.view.View>(R.id.ai_feature_search))
@@ -132,6 +173,34 @@ class AiRuntimeTest {
                 assertNotNull(it.findViewById<android.view.View>(R.id.ai_profile_balanced))
                 assertEquals("4567", it.findViewById<android.widget.EditText>(R.id.aigate_port).text.toString())
             }
+        }
+    }
+
+    @Test fun aiSettingsRemovesTask11FeaturesFromPendingRequest() {
+        val catalog = ModelCatalog.get(context)
+        val before = catalog.snapshot()
+        catalog.update { state -> state.copy(
+            revision = state.revision + 1,
+            selected = ProfileId.COMPACT,
+            active = ProfileId.COMPACT,
+            profiles = state.profiles + (ProfileId.COMPACT to ProfileState(ProfilePhase.ACTIVE)),
+            enabledFeatures = emptySet(),
+            pending = PendingProfile(ProfileId.COMPACT, setOf(AiFeature.OCR, AiFeature.PEOPLE)),
+            activeGenerations = emptyMap(),
+        ) }
+        try {
+            ActivityScenario.launch(AiSettingsActivity::class.java).use { scenario ->
+                scenario.onActivity {
+                    val state = catalog.snapshot()
+                    assertNull(state.pending)
+                    assertFalse(AiFeature.OCR in state.enabledFeatures)
+                    assertFalse(AiFeature.PEOPLE in state.enabledFeatures)
+                    assertFalse(it.findViewById<android.widget.Switch>(R.id.ai_feature_ocr).isChecked)
+                    assertFalse(it.findViewById<android.widget.Switch>(R.id.ai_feature_people).isChecked)
+                }
+            }
+        } finally {
+            catalog.update { before.copy(revision = it.revision + 1) }
         }
     }
 
@@ -172,7 +241,7 @@ class AiRuntimeTest {
     }
 
     @Test fun aiGateHealthAndModelsKeepCapabilityUnknown() {
-        FakeAiGate("{\"service\":\"aigate\",\"running\":true,\"port\":8899,\"version\":\"1\",\"model_count\":1}").use { server ->
+        FakeAiGate("{\"service\":\"aigate\",\"running\":true,\"port\":8899,\"version\":\"1\",\"models_count\":1}").use { server ->
             val health = AiGateClient(AiGateEndpoint(server.port)).health()
             assertTrue(health.running)
             assertEquals(1, health.modelCount)
@@ -215,6 +284,13 @@ class AiRuntimeTest {
                 client.cancel()
                 assertNotNull(result.get(2, TimeUnit.SECONDS))
             } finally { executor.shutdownNow() }
+        }
+        FakeAiGate("{}", requestReadDelayMillis = 2_000).use { server ->
+            val consent = PhotoSendConsent(); val token = consent.grant("large", 1)
+            assertThrows(java.net.SocketTimeoutException::class.java) {
+                AiGateClient(AiGateEndpoint(server.port), readTimeoutMs = 5_000, overallTimeoutMs = 100)
+                    .chat(token, consent, "large", 1, 1, "describe", ByteArray(AiGateClient.MAX_IMAGE_BYTES) { 1 })
+            }
         }
     }
 
@@ -364,12 +440,14 @@ class AiRuntimeTest {
         private val status: String = "200 OK",
         private val extraHeaders: String = "",
         private val responseDelayMillis: Long = 0,
+        private val requestReadDelayMillis: Long = 0,
     ) : AutoCloseable {
         private val socket = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))
         val port get() = socket.localPort
         @Volatile var request = ""
         private val worker = thread(start = true, isDaemon = true) { runCatching {
             socket.accept().use { client ->
+                if (requestReadDelayMillis > 0) Thread.sleep(requestReadDelayMillis)
                 val input = client.getInputStream().bufferedReader()
                 val lines = mutableListOf<String>(); var length = 0
                 while (true) { val line = input.readLine() ?: break; if (line.isEmpty()) break

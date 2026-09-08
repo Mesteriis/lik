@@ -46,8 +46,9 @@ class AiGateClient(
     fun health(): AiGateHealth {
         val json = request("GET", "/health")
         require(json.optString("service") == "aigate") { "Unexpected loopback service" }
+        val countKey = when { json.has("models_count") -> "models_count"; json.has("model_count") -> "model_count"; else -> null }
         return AiGateHealth(json.optBoolean("running"), json.optInt("port", endpoint.port),
-            json.optString("version").takeIf(String::isNotBlank), json.optInt("model_count").takeIf { json.has("model_count") })
+            json.optString("version").takeIf(String::isNotBlank), countKey?.let(json::getInt))
     }
 
     fun models(): List<AiGateModel> {
@@ -96,8 +97,19 @@ class AiGateClient(
             if (body != null) { doOutput = true; setFixedLengthStreamingMode(body.size); setRequestProperty("Content-Type", "application/json") }
         }
         connection = current
+        val timedOut = AtomicBoolean()
+        val watchdog = deadlines.schedule({ timedOut.set(true); current.disconnect() }, overallTimeoutMs.toLong(),
+            java.util.concurrent.TimeUnit.MILLISECONDS)
         return try {
-            if (body != null) current.outputStream.use { it.write(body) }
+            if (body != null) current.outputStream.use { output ->
+                var offset = 0
+                while (offset < body.size) {
+                    remaining()
+                    val count = minOf(WRITE_CHUNK_BYTES, body.size - offset)
+                    output.write(body, offset, count); offset += count
+                }
+                output.flush(); remaining()
+            }
             current.readTimeout = minOf(readTimeoutMs, remaining())
             if (cancelled.get()) throw java.util.concurrent.CancellationException()
             val code = current.responseCode
@@ -111,7 +123,10 @@ class AiGateClient(
             } ?: byteArrayOf()
             require(code in 200..299) { "AiGate HTTP $code: ${bytes.toString(Charsets.UTF_8).take(200)}" }
             JSONObject(bytes.toString(Charsets.UTF_8))
-        } finally { connection = null; current.disconnect() }
+        } catch (error: Throwable) {
+            if (timedOut.get()) throw java.net.SocketTimeoutException("AiGate overall deadline exceeded").apply { initCause(error) }
+            throw error
+        } finally { watchdog.cancel(false); connection = null; current.disconnect() }
     }
 
     companion object {
@@ -120,11 +135,19 @@ class AiGateClient(
         private const val OVERALL_TIMEOUT_MS = 50_000
         private const val MAX_RESPONSE_BYTES = 1024 * 1024
         private const val MAX_RESPONSE_CHARS = 200_000
+        private const val WRITE_CHUNK_BYTES = 64 * 1024
         const val MAX_IMAGE_BYTES = 4 * 1024 * 1024
-
-        fun discover(): Pair<AiGateEndpoint, AiGateHealth>? = AiGateEndpoint.discoveryPorts().firstNotNullOfOrNull { port ->
-            runCatching { AiGateEndpoint(port).let { it to AiGateClient(it).health() } }.getOrNull()?.takeIf { it.second.running }
+        private val deadlines = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { task ->
+            Thread(task, "lik-aigate-deadlines").apply { isDaemon = true }
         }
+
+        fun discover(onClient: (AiGateClient?) -> Unit = {}): Pair<AiGateEndpoint, AiGateHealth>? =
+            AiGateEndpoint.discoveryPorts().firstNotNullOfOrNull { port ->
+                val endpoint = AiGateEndpoint(port); val client = AiGateClient(endpoint); onClient(client)
+                try { runCatching { endpoint to client.health().also { health ->
+                    require(health.running) { "AIGATE_NOT_RUNNING" }; client.models()
+                } }.getOrNull() } finally { onClient(null) }
+            }
     }
 }
 

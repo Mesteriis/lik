@@ -3,6 +3,9 @@ package io.github.mesteriis.lik.ai
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.File
+import java.security.MessageDigest
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.math.sqrt
 
 data class VectorHit(val mediaId: String, val score: Float)
@@ -92,9 +95,45 @@ class USearchBridge {
     external fun search(handle: Long, vector: FloatArray, limit: Int): LongArray
     external fun save(handle: Long, path: String)
     external fun load(handle: Long, path: String)
+    external fun size(handle: Long): Long
     external fun close(handle: Long)
 
     companion object {
         val available: Boolean by lazy { runCatching { System.loadLibrary("lik_usearch"); true }.getOrDefault(false) }
+    }
+}
+
+data class NativeMembership(val generationId: String, val count: Int, val digest: String,
+                            val probeKeys: LongArray, val expectedTopKeys: List<LongArray>) {
+    fun write(directory: File) {
+        val value = JSONObject().put("schema", 1).put("generation", generationId).put("count", count)
+            .put("digest", digest).put("probes", JSONArray().apply {
+                probeKeys.forEachIndexed { index, key -> put(JSONObject().put("key", key)
+                    .put("expectedTop", JSONArray(expectedTopKeys[index].toList()))) }
+            })
+        DurableAiFiles.atomicWrite(File(directory, FILE), value.toString().toByteArray())
+    }
+
+    companion object {
+        const val FILE = "membership.json"
+        fun read(directory: File): NativeMembership = JSONObject(File(directory, FILE).readText()).let { value ->
+            require(value.getInt("schema") == 1)
+            val probes = value.getJSONArray("probes")
+            NativeMembership(value.getString("generation"), value.getInt("count"), value.getString("digest"),
+                LongArray(probes.length()) { probes.getJSONObject(it).getLong("key") },
+                List(probes.length()) { at -> probes.getJSONObject(at).getJSONArray("expectedTop").let { a ->
+                    LongArray(a.length()) { a.getLong(it) }
+                } })
+        }
+
+        fun digest(rows: Sequence<AiEmbeddingRecord>): String {
+            val hash = MessageDigest.getInstance("SHA-256")
+            rows.forEach { row ->
+                hash.update(java.nio.ByteBuffer.allocate(8).putLong(row.nativeKey).array())
+                hash.update(row.mediaId.toByteArray(Charsets.UTF_8)); hash.update(0.toByte())
+                hash.update(java.nio.ByteBuffer.allocate(16).putLong(row.contentRevision).putLong(row.accessEpoch).array())
+            }
+            return hash.digest().joinToString("") { "%02x".format(it) }
+        }
     }
 }

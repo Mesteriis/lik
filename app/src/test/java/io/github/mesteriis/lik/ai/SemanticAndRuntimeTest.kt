@@ -65,6 +65,15 @@ class SemanticAndRuntimeTest {
         assertEquals(listOf("a", "b"), CandidateReranker.rank(floatArrayOf(1f, 0f), candidates, 2).map { it.mediaId })
     }
 
+    @Test fun membershipDigestCoversNativeKeyIdentityRevisionAndGrantEpoch() {
+        fun row(key: Long = 1, revision: Long = 2, epoch: Long = 3) =
+            AiEmbeddingRecord("g", "media", key, revision, epoch, floatArrayOf(1f).toBytes())
+        val original = NativeMembership.digest(sequenceOf(row()))
+        assertNotEquals(original, NativeMembership.digest(sequenceOf(row(key = 2))))
+        assertNotEquals(original, NativeMembership.digest(sequenceOf(row(revision = 4))))
+        assertNotEquals(original, NativeMembership.digest(sequenceOf(row(epoch = 4))))
+    }
+
     @Test fun samePipelineIndexRunsNeverOverlap() {
         val entered = java.util.concurrent.CountDownLatch(1)
         val release = java.util.concurrent.CountDownLatch(1)

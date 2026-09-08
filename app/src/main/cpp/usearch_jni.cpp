@@ -25,6 +25,7 @@ std::size_t usearch_search(usearch_index_t, void const*, usearch_scalar_kind_t, 
                            usearch_key_t*, usearch_distance_t*, usearch_error_t*);
 void usearch_save(usearch_index_t, char const*, usearch_error_t*);
 void usearch_load(usearch_index_t, char const*, usearch_error_t*);
+std::size_t usearch_size(usearch_index_t, usearch_error_t*);
 }
 
 static void fail(JNIEnv* env, char const* message) {
@@ -87,6 +88,13 @@ extern "C" JNIEXPORT void JNICALL Java_io_github_mesteriis_lik_ai_USearchBridge_
 extern "C" JNIEXPORT void JNICALL Java_io_github_mesteriis_lik_ai_USearchBridge_load(JNIEnv* env, jobject, jlong raw, jstring path) {
     char const* value = env->GetStringUTFChars(path, nullptr); usearch_error_t error = nullptr;
     usearch_load(handle(raw), value, &error); env->ReleaseStringUTFChars(path, value); if (error) fail(env, error);
+}
+
+extern "C" JNIEXPORT jlong JNICALL Java_io_github_mesteriis_lik_ai_USearchBridge_size(JNIEnv* env, jobject, jlong raw) {
+    usearch_error_t error = nullptr;
+    auto result = usearch_size(handle(raw), &error);
+    if (error) { fail(env, error); return 0; }
+    return static_cast<jlong>(result);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_io_github_mesteriis_lik_ai_USearchBridge_close(JNIEnv* env, jobject, jlong raw) {

@@ -61,6 +61,11 @@ data class CatalogSnapshot(
     }
 }
 
+object FeatureAvailability {
+    fun unavailableRequested(state: CatalogSnapshot, unavailable: Set<AiFeature>): Set<AiFeature> =
+        (state.pending?.enabled ?: state.enabledFeatures).intersect(unavailable)
+}
+
 object ProfileTransitions {
     fun select(
         current: CatalogSnapshot,
@@ -76,7 +81,17 @@ object ProfileTransitions {
             }?.let { feature to it.id }
         }.toMap()
         val canActivate = targetInstalled && reused.keys.containsAll(enabled)
-        val profiles = current.profiles + (target to current.profile(target).copy(
+        val previousPending = current.pending?.profile?.takeIf { it != target && it != current.active }
+        val demoted = previousPending?.let { previous ->
+            val state = current.profile(previous)
+            previous to state.copy(phase = when (state.phase) {
+                ProfilePhase.PREPARING, ProfilePhase.SELF_TESTING, ProfilePhase.VERIFYING -> ProfilePhase.INSTALLED
+                ProfilePhase.DOWNLOADING, ProfilePhase.PAUSED, ProfilePhase.ERROR -> ProfilePhase.NOT_INSTALLED
+                else -> state.phase
+            }, completedBytes = if (state.phase == ProfilePhase.INSTALLED) state.completedBytes else 0,
+                totalBytes = if (state.phase == ProfilePhase.INSTALLED) state.totalBytes else 0, error = null)
+        }
+        val profiles = current.profiles + listOfNotNull(demoted) + (target to current.profile(target).copy(
             phase = when {
                 canActivate || target == current.active -> ProfilePhase.ACTIVE
                 targetInstalled -> ProfilePhase.PREPARING
@@ -109,6 +124,9 @@ object ProfileTransitions {
         enabled: Set<AiFeature>,
         pipelineFingerprints: Map<AiFeature, String>,
     ): CatalogSnapshot {
+        if (current.active == null && current.pending == null) return current.copy(
+            revision = current.revision + 1, enabledFeatures = enabled,
+        )
         val target = current.pending?.profile ?: current.active ?: current.selected
         return select(current, target, enabled, pipelineFingerprints)
     }
@@ -195,17 +213,47 @@ object CatalogGenerationCleanup {
 }
 
 object CatalogMigrations {
-    fun toVersion(state: CatalogSnapshot, version: String): CatalogSnapshot {
+    fun toVersion(state: CatalogSnapshot, version: String,
+                  profileInstalled: (ProfileId) -> Boolean = { false },
+                  generationCompatible: (ProfileId, IndexGeneration) -> Boolean = { _, _ -> false }): CatalogSnapshot {
         if (state.catalogVersion == version) return state
-        val profiles = state.profiles.mapValues { (_, value) ->
-            when (value.phase) {
-                ProfilePhase.ACTIVE, ProfilePhase.PREPARING, ProfilePhase.SELF_TESTING -> value.copy(phase = ProfilePhase.INSTALLED, error = null)
-                ProfilePhase.DOWNLOADING, ProfilePhase.VERIFYING, ProfilePhase.PAUSED, ProfilePhase.ERROR -> ProfileState()
-                else -> value
+        val generations = state.generations.filterValues { generation -> generation.complete &&
+            ProfileId.entries.any { generationCompatible(it, generation) } }
+        val reusableActive = state.activeGenerations.filter { (feature, id) ->
+            generations[id]?.let { it.feature == feature && state.active?.let { profile -> generationCompatible(profile, it) } == true } == true
+        }
+        val requested = state.pending?.enabled ?: state.enabledFeatures
+        val oldActive = state.active?.takeIf(profileInstalled)
+        val compatibleServing = oldActive?.let { reusableActive.filterKeys { it in state.enabledFeatures } }.orEmpty()
+        val activeFullyCompatible = oldActive != null && compatibleServing.keys.containsAll(state.enabledFeatures)
+        val preservedTarget = state.pending?.profile?.takeIf(profileInstalled)
+        val profiles = ProfileId.entries.associateWith { id ->
+            when {
+                id == oldActive && activeFullyCompatible -> state.profile(id).copy(phase = ProfilePhase.ACTIVE, error = null)
+                profileInstalled(id) -> state.profile(id).copy(phase = ProfilePhase.INSTALLED, error = null)
+                else -> ProfileState()
             }
         }
-        return state.copy(catalogVersion = version, revision = state.revision + 1, active = null,
-            profiles = profiles, pending = null, generations = emptyMap(), activeGenerations = emptyMap())
+        val selectedInstalled = profileInstalled(state.selected)
+        val pending = when {
+            preservedTarget != null -> PendingProfile(preservedTarget, requested,
+                generations.values.filter { it.feature in requested && generationCompatible(preservedTarget, it) }
+                    .associate { it.feature to it.id })
+            activeFullyCompatible -> null
+            oldActive != null -> PendingProfile(oldActive, requested, compatibleServing.filterKeys { it in requested })
+            selectedInstalled && requested.isNotEmpty() -> PendingProfile(state.selected, requested,
+                generations.values.filter { it.feature in requested && generationCompatible(state.selected, it) }
+                    .associate { it.feature to it.id })
+            else -> null
+        }
+        val withPreparing = pending?.profile?.let { id -> profiles + (id to profiles.getValue(id).copy(phase = ProfilePhase.PREPARING)) } ?: profiles
+        return state.copy(catalogVersion = version, revision = state.revision + 1, active = oldActive,
+            profiles = withPreparing, enabledFeatures = when {
+                activeFullyCompatible -> state.enabledFeatures
+                oldActive != null -> compatibleServing.keys
+                else -> requested
+            },
+            pending = pending, generations = generations, activeGenerations = compatibleServing)
     }
 }
 
@@ -216,7 +264,7 @@ object CatalogStorageRepair {
         val pending = state.pending?.let { value ->
             value.copy(readyGenerations = value.readyGenerations.filterValues { id -> generations[id]?.complete == true })
         }
-        val missingServingFeatures = state.enabledFeatures - activeGenerations.keys
+        val missingServingFeatures = if (state.active == null) emptySet() else state.enabledFeatures - activeGenerations.keys
         if (generations == state.generations && activeGenerations == state.activeGenerations &&
             pending == state.pending && missingServingFeatures.isEmpty()) return state
         val activePending = if (missingServingFeatures.isNotEmpty() && state.active != null) {
@@ -230,9 +278,29 @@ object CatalogStorageRepair {
     }
 }
 
+object CatalogArtifactRepair {
+    fun repair(state: CatalogSnapshot, installed: Map<ProfileId, Boolean>, corrupted: Set<ProfileId>): CatalogSnapshot {
+        val invalid = ProfileId.entries.filter { id ->
+            state.profile(id).phase != ProfilePhase.NOT_INSTALLED && installed[id] != true
+        }.toSet()
+        if (invalid.isEmpty()) return state
+        val brokenActive = state.active?.takeIf { it in invalid }
+        val profiles = state.profiles.mapValues { (id, value) -> if (id !in invalid) value else
+            ProfileState(if (id in corrupted) ProfilePhase.ERROR else ProfilePhase.NOT_INSTALLED,
+                error = if (id in corrupted) "ARTIFACT_REPAIR_REQUIRED" else null) }
+        return state.copy(revision = state.revision + 1,
+            active = state.active?.takeUnless { it in invalid }, profiles = profiles,
+            enabledFeatures = if (brokenActive == null) state.enabledFeatures else state.pending?.enabled ?: state.enabledFeatures,
+            pending = state.pending?.takeUnless { it.profile in invalid },
+            activeGenerations = if (brokenActive == null) state.activeGenerations else emptyMap())
+    }
+}
+
 object IndexCompletion {
-    fun canPublish(available: Int, currentEmbeddings: Int, failures: Int, cancelled: Boolean) =
-        available >= 0 && currentEmbeddings == available && failures == 0 && !cancelled
+    fun canPublish(available: Int, currentEmbeddings: Int, failures: Int, cancelled: Boolean,
+                   storedEmbeddings: Int = currentEmbeddings) =
+        available >= 0 && currentEmbeddings == available && storedEmbeddings == available &&
+            failures == 0 && !cancelled
 }
 
 data class ArtifactSpec(val path: String, val size: Long, val sha256: String, val url: URI) {

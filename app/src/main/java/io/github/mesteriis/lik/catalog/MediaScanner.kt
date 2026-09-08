@@ -47,13 +47,17 @@ class MediaScanner(private val database: MediaDatabase, private val zone: ZoneId
                     signal.throwIfCanceled()
                     batch.forEach { incoming ->
                         val old = dao.get(incoming.mediaId)
+                        val accessEpoch = old?.let {
+                            if (it.availability != MediaAvailability.AVAILABLE) Math.addExact(it.accessGrantEpoch, 1)
+                            else it.accessGrantEpoch
+                        } ?: incoming.accessGrantEpoch
                         val record = if (old?.contentRevision == incoming.contentRevision) incoming.copy(
                             exifRevision = old.exifRevision, exifOrientation = old.exifOrientation,
                             takenAt = if (old.dateSource == MediaDateSource.EXIF) old.takenAt else incoming.takenAt,
                             dateSource = if (old.dateSource == MediaDateSource.EXIF) old.dateSource else incoming.dateSource,
                             dateOffsetSeconds = old.dateOffsetSeconds,
                         ) else incoming
-                        dao.upsert(record.copy(lastSeenAt = observedAt, scanMarker = stamp).withPeriods(zone))
+                        dao.upsert(record.copy(lastSeenAt = observedAt, accessGrantEpoch = accessEpoch, scanMarker = stamp).withPeriods(zone))
                     }
                 }
                 source.visibleIds(volume, start, signal) { ids ->

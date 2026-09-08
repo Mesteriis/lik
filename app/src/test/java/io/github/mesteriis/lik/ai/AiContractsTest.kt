@@ -4,6 +4,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AiContractsTest {
+    @Test fun unavailableFeaturesAreDetectedFromPendingRequest() {
+        val state = CatalogSnapshot.readyForTest(ProfileId.COMPACT).copy(
+            pending = PendingProfile(ProfileId.COMPACT, setOf(AiFeature.OCR, AiFeature.PEOPLE)),
+        )
+
+        assertEquals(setOf(AiFeature.OCR, AiFeature.PEOPLE),
+            FeatureAvailability.unavailableRequested(state, setOf(AiFeature.OCR, AiFeature.PEOPLE)))
+    }
+
     @Test fun balancedIsTheOnlyFreshInstallSelectionAndIsNotReady() {
         val state = CatalogSnapshot.fresh("catalog-v1")
         assertEquals(ProfileId.BALANCED, state.selected)
@@ -118,6 +127,24 @@ class AiContractsTest {
         assertNull(state.pending)
     }
 
+    @Test fun freshFeatureOptInRemainsSelectedAndUninstalledUntilExplicitDownload() {
+        val state = ProfileTransitions.featuresChanged(CatalogSnapshot.fresh("v"), setOf(AiFeature.SEARCH),
+            mapOf(AiFeature.SEARCH to "search"))
+        assertEquals(ProfileId.BALANCED, state.selected)
+        assertEquals(ProfilePhase.NOT_INSTALLED, state.profile(ProfileId.BALANCED).phase)
+        assertEquals(setOf(AiFeature.SEARCH), state.enabledFeatures)
+        assertNull(state.pending)
+    }
+
+    @Test fun replacingPendingProfileDemotesPreviousTarget() {
+        val active = CatalogSnapshot.readyForTest(ProfileId.COMPACT)
+        val first = ProfileTransitions.select(active, ProfileId.BALANCED, setOf(AiFeature.SEARCH))
+        val second = ProfileTransitions.select(first, ProfileId.EXTENDED, setOf(AiFeature.SEARCH))
+        assertEquals(ProfileId.EXTENDED, second.pending?.profile)
+        assertEquals(ProfilePhase.NOT_INSTALLED, second.profile(ProfileId.BALANCED).phase)
+        assertEquals(ProfileId.COMPACT, second.active)
+    }
+
     @Test fun cancellingOrFailingNewFeaturePreparationKeepsActiveProfileServing() {
         val active = CatalogSnapshot.readyForTest(ProfileId.COMPACT)
         val pending = ProfileTransitions.featuresChanged(active, setOf(AiFeature.SEARCH),
@@ -132,17 +159,43 @@ class AiContractsTest {
     }
 
     @Test fun catalogVersionMigrationPreservesUserChoiceFeatureAndInstallKnowledge() {
+        val generation = IndexGeneration("search", AiFeature.SEARCH, "search-current", true, 9, 9)
         val old = CatalogSnapshot.readyForTest(ProfileId.EXTENDED).copy(
             catalogVersion = "old", enabledFeatures = setOf(AiFeature.SEARCH),
             profiles = ProfileId.entries.associateWith { if (it == ProfileId.EXTENDED) ProfileState(ProfilePhase.ACTIVE, 9, 9) else ProfileState() },
+            generations = mapOf(generation.id to generation),
+            activeGenerations = mapOf(AiFeature.SEARCH to generation.id),
         )
-        val migrated = CatalogMigrations.toVersion(old, "new")
+        val migrated = CatalogMigrations.toVersion(old, "new", { it == ProfileId.EXTENDED },
+            { _, generation -> generation.pipelineFingerprint == "search-current" })
         assertEquals("new", migrated.catalogVersion)
         assertEquals(ProfileId.EXTENDED, migrated.selected)
         assertEquals(setOf(AiFeature.SEARCH), migrated.enabledFeatures)
-        assertEquals(ProfilePhase.INSTALLED, migrated.profile(ProfileId.EXTENDED).phase)
+        assertEquals(ProfilePhase.ACTIVE, migrated.profile(ProfileId.EXTENDED).phase)
+        assertEquals(ProfileId.EXTENDED, migrated.active)
+        assertEquals(setOf("search"), migrated.generations.keys)
+    }
+
+    @Test fun catalogMigrationNeverMarksMissingArtifactsInstalled() {
+        val old = CatalogSnapshot.readyForTest(ProfileId.EXTENDED).copy(catalogVersion = "old",
+            enabledFeatures = setOf(AiFeature.SEARCH))
+        val migrated = CatalogMigrations.toVersion(old, "new", { false }, { _, _ -> false })
+        assertEquals(ProfilePhase.NOT_INSTALLED, migrated.profile(ProfileId.EXTENDED).phase)
         assertNull(migrated.active)
-        assertTrue(migrated.generations.isEmpty())
+        assertNull(migrated.pending)
+        assertEquals(setOf(AiFeature.SEARCH), migrated.enabledFeatures)
+    }
+
+    @Test fun catalogMigrationPreservesCompatiblePendingTarget() {
+        val old = CatalogSnapshot.readyForTest(ProfileId.COMPACT).copy(catalogVersion = "old",
+            selected = ProfileId.EXTENDED, pending = PendingProfile(ProfileId.EXTENDED, setOf(AiFeature.SEARCH)),
+            profiles = CatalogSnapshot.readyForTest(ProfileId.COMPACT).profiles +
+                (ProfileId.EXTENDED to ProfileState(ProfilePhase.PREPARING)))
+        val migrated = CatalogMigrations.toVersion(old, "new", { true }, { _, _ -> false })
+        assertEquals(ProfileId.COMPACT, migrated.active)
+        assertEquals(ProfileId.EXTENDED, migrated.selected)
+        assertEquals(ProfileId.EXTENDED, migrated.pending?.profile)
+        assertEquals(ProfilePhase.PREPARING, migrated.profile(ProfileId.EXTENDED).phase)
     }
 
     @Test fun removingGenerationsClearsEveryCatalogPointer() {
@@ -171,10 +224,25 @@ class AiContractsTest {
         assertEquals(ProfileId.COMPACT, repaired.pending.profile)
     }
 
+    @Test fun corruptActiveArtifactsRequireRepairWithoutLosingRequestedFeatures() {
+        val active = CatalogSnapshot.readyForTest(ProfileId.BALANCED).copy(
+            enabledFeatures = setOf(AiFeature.SEARCH),
+            activeGenerations = mapOf(AiFeature.SEARCH to "generation"),
+        )
+        val repaired = CatalogArtifactRepair.repair(active,
+            ProfileId.entries.associateWith { it != ProfileId.BALANCED }, setOf(ProfileId.BALANCED))
+        assertNull(repaired.active)
+        assertEquals(ProfilePhase.ERROR, repaired.profile(ProfileId.BALANCED).phase)
+        assertEquals("ARTIFACT_REPAIR_REQUIRED", repaired.profile(ProfileId.BALANCED).error)
+        assertEquals(setOf(AiFeature.SEARCH), repaired.enabledFeatures)
+        assertTrue(repaired.activeGenerations.isEmpty())
+    }
+
     @Test fun indexCannotCompleteWithFailureRaceOrMissingCurrentRows() {
         assertTrue(IndexCompletion.canPublish(3, 3, 0, cancelled = false))
         assertFalse(IndexCompletion.canPublish(3, 2, 0, cancelled = false))
         assertFalse(IndexCompletion.canPublish(3, 3, 1, cancelled = false))
         assertFalse(IndexCompletion.canPublish(3, 3, 0, cancelled = true))
+        assertFalse(IndexCompletion.canPublish(3, 3, 0, cancelled = false, storedEmbeddings = 4))
     }
 }

@@ -63,10 +63,10 @@ object DownloadCoordinator {
 /** Durable reservation and shared-digest ownership. Existing partial bytes are already charged by StatFs. */
 class DownloadReservationLedger(private val root: File) {
     private val file = File(root, "download-reservations-v1.json")
+    private val reservationDirectory = File(root, "staging/reservations")
 
     fun acquire(operation: String, files: List<Pair<ArtifactSpec, Long>>, availableBytes: Long, safetyMargin: Long): DownloadReservationPlan {
         val plan = DownloadReservationPlan.create(operation, files, safetyMargin)
-        require(availableBytes >= plan.requiredBytes) { "LOW_SPACE" }
         val state = read()
         val owners = state.first.toMutableMap()
         val reservations = state.second.toMutableMap()
@@ -77,9 +77,22 @@ class DownloadReservationLedger(private val root: File) {
                 reservations[previous] = reservations[previous].orEmpty() - digest
             }
         }
-        reservations[operation] = plan.remainingByDigest
+        reservations[operation] = plan.remainingByDigest + (MARGIN to safetyMargin)
+        val currentReservation = reservationFile(operation).takeIf(File::isFile)?.length() ?: 0L
+        require(availableBytes >= (plan.requiredBytes - currentReservation).coerceAtLeast(0)) { "LOW_SPACE" }
         write(owners, reservations.filterValues { it.isNotEmpty() })
+        reservations.keys.forEach { resizeReservation(it, reservations.getValue(it).values.sum()) }
         return plan
+    }
+
+    fun update(operation: String, digest: String, remaining: Long) {
+        require(remaining >= 0)
+        val state = read(); val reservations = state.second.toMutableMap()
+        val files = reservations[operation].orEmpty().toMutableMap()
+        if (remaining == 0L) files.remove(digest) else files[digest] = remaining
+        reservations[operation] = files
+        write(state.first, reservations.filterValues { it.isNotEmpty() })
+        resizeReservation(operation, files.values.sum())
     }
 
     fun release(operation: String) {
@@ -87,9 +100,32 @@ class DownloadReservationLedger(private val root: File) {
         val owners = state.first.filterValues { it != operation }
         val reservations = state.second - operation
         write(owners, reservations)
+        reservationFile(operation).delete()
+        DurableAiFiles.syncDirectory(reservationDirectory)
     }
 
     fun owner(digest: String): String? = read().first[digest]
+
+    fun reservedBytes(operation: String): Long = reservationFile(operation).takeIf(File::isFile)?.length() ?: 0
+
+    private fun reservationFile(operation: String): File {
+        require(operation.matches(Regex("[A-Za-z0-9._-]+")))
+        return File(reservationDirectory, "$operation.reserve")
+    }
+
+    private fun resizeReservation(operation: String, bytes: Long) {
+        reservationDirectory.mkdirs()
+        val target = reservationFile(operation)
+        if (bytes == 0L) { target.delete(); DurableAiFiles.syncDirectory(reservationDirectory); return }
+        RandomAccessFile(target, "rw").use { reservation ->
+            if (reservation.length() < bytes) Os.posix_fallocate(reservation.fd, 0, bytes)
+            reservation.setLength(bytes)
+            reservation.fd.sync()
+        }
+        val stat = Os.stat(target.absolutePath)
+        require(stat.st_size == bytes && stat.st_blocks * 512 >= bytes) { "SPACE_RESERVATION_NOT_ALLOCATED" }
+        DurableAiFiles.syncDirectory(reservationDirectory)
+    }
 
     private fun read(): Pair<Map<String, String>, Map<String, Map<String, Long>>> = runCatching {
         if (!file.isFile) return@runCatching emptyMap<String, String>() to emptyMap()
@@ -119,6 +155,8 @@ class DownloadReservationLedger(private val root: File) {
             } })
         DurableAiFiles.atomicWrite(file, value.toString().toByteArray())
     }
+
+    companion object { private const val MARGIN = "@safety-margin" }
 }
 
 class GenerationRemovalJournal(private val root: File) {
