@@ -24,7 +24,7 @@ The [reviewed signing policy](../scripts/models/apk-signing-policy-v1.json) appl
 
 Exact size/SHA-256 scans cover **every offset of the complete signing block**, including certificate extensions, names, SPKI, signatures and field boundaries, against every fitting immutable HF artifact receipt. This uses the checked-in catalog, never the model cache. Blocks are bounded to 64 KiB; larger artifacts cannot fit. Other APK content remains covered by full entry/compiler receipts and the strict physical ZIP boundary, so no arbitrary whole-APK substring heuristic replaces those checks. Certificate structure alone and `apksigner` alone are insufficient: both accepted the real tokenizer bytes in an otherwise valid custom X.509 extension before this fix.
 
-Ordinary AGP debug/test certificates, a standard self-signed RSA-4096 PKCS12 release keystore, and an EC P-256 release certificate were accepted in regression checks. Production signing can use the existing external `keystore.properties` Gradle configuration with a supported certificate, or explicitly sign the unsigned release while retaining its reviewed ZIP alignment:
+Ordinary AGP debug/test certificates, standard RSA-2048/RSA-3072 signed releases, a self-signed RSA-4096 PKCS12 release keystore, and an EC P-256 release certificate were accepted in regression checks. RSA-3072 uses a 384-byte signature and is explicitly included in the reviewed key/signature sizes. Production signing can use the existing external `keystore.properties` Gradle configuration with a supported certificate, or explicitly sign the unsigned release while retaining its reviewed ZIP alignment:
 
 ```sh
 keytool -genkeypair -alias lik-release -keystore /external/lik-release.p12 -storetype PKCS12 \

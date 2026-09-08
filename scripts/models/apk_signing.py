@@ -125,7 +125,7 @@ def v2_signature(data):
     require(digest_algorithm == signature_algorithm and len(digest) == DIGEST_LENGTHS[digest_algorithm],
             "APK digest/signature algorithm mismatch")
     if signature_algorithm < 0x0200:
-        require(len(signature) in {128, 256, 512, 1024, 2048}, "Invalid RSA signature length")
+        require(len(signature) in {128, 256, 384, 512, 1024, 2048}, "Invalid RSA signature length")
     else:
         der_sequence(signature, [0x02, 0x02])
     der_sequence(certificate, [0x30, 0x30, 0x03])

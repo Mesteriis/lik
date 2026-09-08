@@ -19,7 +19,7 @@ class CertificatePayloadTest(ApkFixture):
         result = subprocess.run([str(a) for a in args], capture_output=True, timeout=60)
         self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
 
-    def sign(self, source, payload=None, ec=False):
+    def sign(self, source, payload=None, ec=False, rsa_bits=2048):
         directory = Path(self.temp.name)
         configuration = directory / "fixture.cnf"
         extensions = ("basicConstraints=critical,CA:false\nkeyUsage=critical,digitalSignature\n"
@@ -32,7 +32,7 @@ class CertificatePayloadTest(ApkFixture):
         if not openssl:
             self.skipTest("Certificate regression requires openssl")
         key, certificate = directory / "fixture-key.pem", directory / "fixture-cert.pem"
-        key_options = ("-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1") if ec else ("-newkey", "rsa:2048")
+        key_options = ("-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1") if ec else ("-newkey", f"rsa:{rsa_bits}")
         self.run_command(openssl, "req", "-x509", *key_options, "-nodes", "-sha256", "-days", "2",
                          "-config", configuration, "-keyout", key, "-out", certificate)
         private_der = directory / "fixture-key.pk8"
@@ -84,6 +84,15 @@ class CertificatePayloadTest(ApkFixture):
     def test_normal_ec_release_certificate_is_accepted(self):
         source = next(path for path, _, variant in self.apk_variants() if variant == "release")
         self.assertTrue(inspect_apk(self.sign(source, ec=True), CATALOG, "app", "release")["signatureVerified"])
+
+    def test_normal_rsa_3072_release_certificate_is_accepted(self):
+        source = next(path for path, _, variant in self.apk_variants() if variant == "release")
+        try:
+            report = inspect_apk(self.sign(source, rsa_bits=3072), CATALOG, "app", "release")
+        except ValueError as error:
+            self.fail("Standard RSA-3072 release signing must pass: " + str(error))
+        self.assertTrue(report["metadataOnly"])
+        self.assertTrue(report["signatureVerified"])
 
     def test_fingerprint_scan_covers_all_offsets_without_model_cache_reads(self):
         payload = self.runtime_file("multilingual-text-v1/tokenizer_config.json")
