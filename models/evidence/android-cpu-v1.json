@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-08",
+  "scope": "synthetic Android CPU graph acceptance; not Fold performance, warm benchmark or end-to-end gallery quality",
+  "catalogSha256": "e44db6256469fdf6ce8087cee6ae3b500c2d90191e028c7ad95cdb4fb32af131",
+  "probeSourceSha256": "3d4daccab6e8f2b1133f837a348d3eebce81be8f1365a337a22a3bc1afeaf140",
+  "runtime": "com.microsoft.onnxruntime:onnxruntime-android:1.29.0",
+  "provider": "CPUExecutionProvider",
+  "intraOpThreads": 2,
+  "interOpThreads": 1,
+  "pssSamplePeriodMs": 100,
+  "device": {
+    "ro.product.model": "sdk_gphone16k_arm64",
+    "ro.product.cpu.abi": "arm64-v8a",
+    "ro.build.version.sdk": "37",
+    "ro.build.fingerprint": "google/sdk_gphone16k_arm64/emu64a16k:17/CE2A.260420.019/15611780:userdebug/dev-keys",
+    "ro.kernel.qemu": "1",
+    "memTotalKiB": 4062880,
+    "pageSize": 16384
+  },
+  "instrumentationResult": "OK (2 tests); all 12 required graphs executed",
+  "models": {
+    "clip-image-v1/image.onnx": {
+      "outputs": [
+        {
+          "name": "image_embeds",
+          "cosine": 0.999991567346808,
+          "maximumAbsoluteError": 0.020112991333007812,
+          "allclose": false
+        }
+      ],
+      "loadAndInferenceMs": 737,
+      "sampledPeakProcessPssKiB": 464750
+    },
+    "multilingual-text-v1/model.onnx": {
+      "outputs": [
+        {
+          "name": "last_hidden_state",
+          "cosine": 0.999731457451191,
+          "maximumAbsoluteError": 0.027088116854429245,
+          "allclose": false
+        }
+      ],
+      "loadAndInferenceMs": 429,
+      "sampledPeakProcessPssKiB": 260427
+    },
+    "siglip2-base-v1/image.onnx": {
+      "outputs": [
+        {
+          "name": "last_hidden_state",
+          "cosine": 0.9967876813907671,
+          "maximumAbsoluteError": 1.9375,
+          "allclose": false
+        },
+        {
+          "name": "pooler_output",
+          "cosine": 0.9998277314566039,
+          "maximumAbsoluteError": 0.0859375,
+          "allclose": false
+        }
+      ],
+      "loadAndInferenceMs": 1153,
+      "sampledPeakProcessPssKiB": 311931
+    },
+    "siglip2-base-v1/text.onnx": {
+      "outputs": [
+        {
+          "name": "last_hidden_state",
+          "cosine": 0.9995821801470388,
+          "maximumAbsoluteError": 0.40747642517089844,
+          "allclose": false
+        },
+        {
+          "name": "pooler_output",
+          "cosine": 0.9999563529786707,
+          "maximumAbsoluteError": 0.0524139404296875,
+          "allclose": false
+        }
+      ],
+      "loadAndInferenceMs": 844,
+      "sampledPeakProcessPssKiB": 652591
+    },
+    "siglip2-large-v1/image.onnx": {
+      "outputs": [
+        {
+          "name": "last_hidden_state",
+          "cosine": 0.999999999952134,
+          "maximumAbsoluteError": 0.0004406571388244629,
+          "allclose": false
+        },
+        {
+          "name": "pooler_output",
+          "cosine": 0.9999999999992948,
+          "maximumAbsoluteError": 3.1888484954833984e-06,
+          "allclose": true
+        }
+      ],
+      "loadAndInferenceMs": 4144,
+      "sampledPeakProcessPssKiB": 1366070
+    },
+    "siglip2-large-v1/text.onnx": {
+      "outputs": [
+        {
+          "name": "last_hidden_state",
+          "cosine": 0.9993238719247066,
+          "maximumAbsoluteError": 0.4038078784942627,
+          "allclose": false
+        },
+        {
+          "name": "pooler_output",
+          "cosine": 0.9999360263275602,
+          "maximumAbsoluteError": 0.26371002197265625,
+          "allclose": false
+        }
+      ],
+      "loadAndInferenceMs": 2513,
+      "sampledPeakProcessPssKiB": 1704590
+    },
+    "ocr-mobile-det-v1/model.onnx": {
+      "outputs": [
+        {
+          "name": "fetch_name_0",
+          "cosine": 0.9998604404364205,
+          "maximumAbsoluteError": 1.4901161193847656e-07,
+          "allclose": true
+        }
+      ],
+      "loadAndInferenceMs": 107,
+      "sampledPeakProcessPssKiB": 93276
+    },
+    "ocr-server-det-v1/model.onnx": {
+      "outputs": [
+        {
+          "name": "fetch_name_0",
+          "cosine": 0.9999999953785905,
+          "maximumAbsoluteError": 1.043081283569336e-07,
+          "allclose": true
+        }
+      ],
+      "loadAndInferenceMs": 423,
+      "sampledPeakProcessPssKiB": 260046
+    },
+    "ocr-cyrillic-rec-v1/model.onnx": {
+      "outputs": [
+        {
+          "name": "fetch_name_0",
+          "cosine": 0.9999999999999989,
+          "maximumAbsoluteError": 2.384185791015625e-07,
+          "allclose": true
+        }
+      ],
+      "loadAndInferenceMs": 211,
+      "sampledPeakProcessPssKiB": 119118
+    },
+    "yunet-v1/model.onnx": {
+      "outputs": [
+        {
+          "name": "cls_8",
+          "cosine": 1.0,
+          "maximumAbsoluteError": 0.0,
+          "allclose": true
+        },
+        {
+          "name": "cls_16",
+          "cosine": 1.0,
+          "maximumAbsoluteError": 0.0,
+          "allclose": true
+        },
+        {
+          "name": "cls_32",
+          "cosine": 1.0,
+          "maximumAbsoluteError": 0.0,
+          "allclose": true
+        },
+        {
+          "name": "obj_8",
+          "cosine": 0.9808132524468728,
+          "maximumAbsoluteError": 5.960464477539063e-08,
+          "allclose": true
+        },
+        {
+          "name": "obj_16",
+          "cosine": 0.9999998261749271,
+          "maximumAbsoluteError": 5.960464477539063e-08,
+          "allclose": true
+        },
+        {
+          "name": "obj_32",
+          "cosine": 1.0,
+          "maximumAbsoluteError": 0.0,
+          "allclose": true
+        },
+        {
+          "name": "bbox_8",
+          "cosine": 1.0,
+          "maximumAbsoluteError": 0.0,
+          "allclose": true
+        },
+        {
+          "name": "bbox_16",
+          "cosine": 1.0,
+          "maximumAbsoluteError": 0.0,
+          "allclose": true
+        },
+        {
+          "name": "bbox_32",
+          "cosine": 1.0,
+          "maximumAbsoluteError": 0.0,
+          "allclose": true
+        },
+        {
+          "name": "kps_8",
+          "cosine": 1.0,
+          "maximumAbsoluteError": 0.0,
+          "allclose": true
+        },
+        {
+          "name": "kps_16",
+          "cosine": 1.0,
+          "maximumAbsoluteError": 0.0,
+          "allclose": true
+        },
+        {
+          "name": "kps_32",
+          "cosine": 1.0,
+          "maximumAbsoluteError": 0.0,
+          "allclose": true
+        }
+      ],
+      "loadAndInferenceMs": 210,
+      "sampledPeakProcessPssKiB": 131438
+    },
+    "sface-v1/model.onnx": {
+      "outputs": [
+        {
+          "name": "fc1",
+          "cosine": 0.9999999999998921,
+          "maximumAbsoluteError": 4.172325134277344e-07,
+          "allclose": true
+        }
+      ],
+      "loadAndInferenceMs": 107,
+      "sampledPeakProcessPssKiB": 118220
+    },
+    "sensitive-v1/model.onnx": {
+      "outputs": [
+        {
+          "name": "logits",
+          "cosine": 0.9999999999999972,
+          "maximumAbsoluteError": 1.430511474609375e-06,
+          "allclose": true
+        }
+      ],
+      "loadAndInferenceMs": 313,
+      "sampledPeakProcessPssKiB": 138670
+    }
+  },
+  "notMeasured": [
+    "physical Fold performance",
+    "warm latency distributions",
+    "thermal behavior",
+    "end-to-end Android preprocessing/tokenization/postprocessing parity",
+    "retrieval/OCR/face/sensitive quality",
+    "sensitive calibration",
+    "NNAPI/NPU partitions"
+  ],
+  "rejectedCandidate": {
+    "path": "siglip2-large-v1/image.onnx",
+    "url": "https://huggingface.co/onnx-community/siglip2-large-patch16-256-ONNX/resolve/c03fb63ddd5fe363212cbd08110f92a35250db6a/onnx/vision_model_fp16.onnx",
+    "size": 632433061,
+    "sha256": "f7f719385d406bde52e638069d04fc82453deff9df6aad69426375a78450fd1a",
+    "androidLastHiddenStateCosine": 0.9401959606020026,
+    "androidPoolerOutputCosine": 0.9974879621297164,
+    "minimumRequiredAllOutputCosine": 0.98,
+    "disableOptimizationsChangedResult": false,
+    "resolution": "Published FP32 vision_model.onnx; retain independently passing FP16 text tower"
+  },
+  "runtimeLibraries": [
+    {
+      "abi": "arm64-v8a",
+      "file": "libonnxruntime.so",
+      "size": 32120992,
+      "sha256": "3a602b463d434d20fbf69cd1b8bdfd2f86a2cb67d08de97aec8f62476fa4ab87"
+    },
+    {
+      "abi": "arm64-v8a",
+      "file": "libonnxruntime4j_jni.so",
+      "size": 111648,
+      "sha256": "45673d7fba377fe0555892460766051b5993d65c9f65e528dc9d515c07c9f683"
+    }
+  ]
+}

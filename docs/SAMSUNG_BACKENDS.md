@@ -1,0 +1,17 @@
+# Samsung on-device inference research (2026-09-08)
+
+The three Lik profiles keep their own pinned model artifacts. CPU is the required reference and fallback. An accelerator is an optional execution backend for those same pipelines; Samsung branding, a Galaxy AI feature, or successfully registering an execution provider does not prove NPU use or grant access to a system foundation model.
+
+Samsung's official [Neural SDK page](https://developer.samsung.com/neural/overview.html) says the SDK is no longer provided to third-party developers. Its documented purpose is accelerating developer-supplied pretrained networks. This research has not established a public Samsung API exposing Galaxy AI's underlying foundation models to Lik; no such access, private API invocation or model extraction is implemented or claimed.
+
+Android does offer Google's [AICore/ML Kit GenAI APIs](https://developer.android.com/ai/gemini-nano), which run Gemini Nano for supported tasks/devices. That is a separate API, availability, model-update and terms contract; it does not make the exact CLIP/SigLIP/OCR/face profiles replaceable. Nothing in Task 9 installs or enables it.
+
+[NNAPI was deprecated in Android 15/API 35](https://developer.android.com/ndk/guides/neuralnetworks). Android's [migration guidance](https://developer.android.com/ndk/guides/neuralnetworks/migration-guide) describes alternatives. Lik targets API 36/37, so NNAPI is an experimental compatibility/performance probe, not a promised long-term acceleration path.
+
+ONNX Runtime still documents its [Android NNAPI execution provider](https://onnxruntime.ai/docs/execution-providers/NNAPI-ExecutionProvider.html). It must be registered explicitly and can partition a graph, leaving unsupported operations on ORT CPU. `NNAPI_FLAG_CPU_DISABLED` prevents NNAPI's own reference CPU device; it does not guarantee every node runs on a hardware accelerator. Dynamic integer MatMul/Gather transformer graphs in particular must not be assumed fully supported. Record actual node/partition provider assignments and unsupported operators, including a zero-accelerated-node result.
+
+ORT's [mobile guidance](https://onnxruntime.ai/docs/tutorials/mobile/) starts quantized models on CPU and warns that provider-specific partitioning can reduce performance. Its [Android build instructions](https://onnxruntime.ai/docs/build/android.html) also describe QNN for supported Qualcomm SoCs, requiring the vendor SDK and a custom backend build. The target Fold's SoC/driver must be identified before considering that path. No QNN or Samsung SDK is included here.
+
+[The machine-readable backend policy](../models/backend-policy-v1.json) requires the exact device/firmware/driver/runtime/catalog/fixture fingerprints, complete pipeline self-tests, paired CPU/accelerator output checks, actual fallback accounting, cold/warm latency, memory and sustained thermal measurements. Start without FP16 relaxation. Pipeline-specific tolerances must be fixed before measurement; a failed check cannot silently change them. Driver, OS, model or runtime changes invalidate accelerator acceptance. On failure the runtime must recover to the same profile's CPU path.
+
+Task 9 host/export tests and the Android CPU smoke test do not qualify a physical Fold accelerator. No NPU speedup, lower RAM, thermal benefit or Galaxy AI model availability has been measured. Later device experiments may enable a backend only after the evidence gate passes; CPU-only profile delivery does not depend on that experiment.

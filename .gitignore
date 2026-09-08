@@ -12,3 +12,9 @@ keystore.properties
 captures/
 .DS_Store
 .worktrees/
+*.onnx
+*.onnx.data
+*.onnx_data
+*.safetensors
+*.pdiparams
+__pycache__/

@@ -6,9 +6,9 @@
 
 Строки вынесены в EN/RU-ресурсы; цвета и системные панели следуют светлой/тёмной теме. `RecyclerView` использует автоматическое количество колонок под ширину окна. Ориентация и размер окна не зафиксированы.
 
-Как в Rune Keyboard, используются системные Activity/Views и встроенный в AGP Kotlin. AndroidX Activity и LiveData/ViewModel отвечают за разрешение на фото и состояние при пересоздании экрана. PhotoLibrary держит один синхронизированный PhotoStore на процесс. Room v4 хранит метаданные и организацию, Paging обслуживает ленту. Импорт, операции корзины, экспорт, превью и полноэкранное декодирование выполняются вне UI-потока. WorkManager используется только для очистки корзины и временных экспортов; сетевого клиента и model runtime нет.
+Как в Rune Keyboard, используются системные Activity/Views и встроенный в AGP Kotlin. AndroidX Activity и LiveData/ViewModel отвечают за разрешение на фото и состояние при пересоздании экрана. PhotoLibrary держит один синхронизированный PhotoStore на процесс. Room v4 хранит метаданные и организацию, Paging обслуживает ленту. Импорт, операции корзины, экспорт, превью и полноэкранное декодирование выполняются вне UI-потока. WorkManager используется только для очистки корзины и временных экспортов; сетевого клиента и галерейного ML ещё нет; библиотека ONNX Runtime присутствует для отдельной CPU-проверки.
 
-ML runtime и артефакты отсутствуют в текущем APK. Будущая модельная поставка следует [архитектуре моделей](MODEL_ARCHITECTURE.md): Compact, Balanced (default) и Extended — immutable versioned sets для semantic search, OCR и people. Их артефакты должны попадать в обычные debug/release APK только из внешнего проверенного cache; это контракт будущей сборки, а не утверждение о наличии, размере или измерении моделей сейчас.
+Галерейный ML runtime пока не подключён. Task 9 фиксирует проверяемые HF download manifests и отдельный Android CPU acceptance test с внешними QA-файлами. Модельная поставка следует [архитектуре моделей](MODEL_ARCHITECTURE.md): Compact, Balanced (default) и Extended — immutable versioned sets для semantic search, OCR и people. Модели скачиваются через Settings из immutable Hugging Face URLs в Task 10; веса и токенизаторы запрещены в любом APK. Distribution gate проверяет отсутствие payloads независимо от cache. Balanced выбран по умолчанию, но становится runtime-ready только после download/проверки/self-test и индексации. Предыдущий active profile работает до атомарного переключения. Точные hashes, размеры и выполненные проверки описаны в [provenance](MODEL_PROVENANCE.md).
 
 Manifest приложения не запрашивает доступ к сети или аккаунтам. Он запрашивает Android-доступ ко всем или выбранным локальным изображениям; MediaStore возвращает разрешённые `content://` URI. AndroidX добавляет собственное signature permission для внутренних receivers. ИИ ещё не реализован. Резервное копирование и cleartext отключены; телеметрии нет.
 
@@ -48,3 +48,10 @@ Manifest приложения не запрашивает доступ к сет
 ## Проверка изменений
 
 Для каркаса достаточно сборки, lint и instrumentation smoke-теста запуска/пересоздания Activity. Для новой логики добавляйте тесты её поведения; для изменений интерфейса проверяйте светлую/тёмную тему, API 36 и 37, маленькое окно и большой шрифт.
+## Optional AI execution boundaries selected during Task 9
+
+Built-in profile artifacts follow [the immutable model contract](MODEL_ARCHITECTURE.md); CPU is the required reference and fallback. [Samsung/NNAPI/NPU backends](SAMSUNG_BACKENDS.md) are optional device experiments gated by per-pipeline parity and measured Fold performance, never a replacement for the selected weights or an assumed API into Galaxy AI system models.
+
+[AiGate integration](AIGATE_INTEGRATION.md) is separate planned Task 10 work. It requires opt-in, same-device loopback transport and an explicit per-photo action before a resized metadata-stripped image can leave Lik. Provider credentials remain in AiGate; router output cannot silently change local indexes. Task 9 implements no connector or photo transfer.
+
+[Local sensitive screening and biometric hiding](SENSITIVE_MEDIA.md) adds a shared classifier artifact in Task 9 and a future Task 13 visibility policy. Current artifact preparation does not hide media. Task 13 quarantines unclassified photos and enforces a BIOMETRIC_STRONG in-memory reveal across gallery, export and AI/router boundaries.

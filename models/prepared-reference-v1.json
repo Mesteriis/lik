@@ -1,0 +1,2500 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "lik-builtins-2026-09-08-v1",
+  "defaultProfile": "balanced-v1",
+  "components": [
+    {
+      "id": "clip-image-v1",
+      "contract": {
+        "roles": [
+          "search-image"
+        ],
+        "embeddingDimension": 512,
+        "metric": "cosine of L2-normalized embeddings",
+        "preprocessing": {
+          "orientation": "apply EXIF orientation before resize",
+          "color": "RGB",
+          "resize": "bicubic shortest side 224 then centered 224x224 crop",
+          "layout": "NCHW",
+          "scale": 0.00392156862745098,
+          "mean": [
+            0.48145466,
+            0.4578275,
+            0.40821073
+          ],
+          "std": [
+            0.26862954,
+            0.26130258,
+            0.27577711
+          ]
+        },
+        "outputNormalization": "L2 normalization inside ONNX wrapper",
+        "license": "MIT",
+        "sourceRepo": "openai/clip-vit-base-patch32"
+      },
+      "artifacts": [
+        {
+          "path": "clip-image-v1/model.onnx",
+          "size": 96005327,
+          "sha256": "6feab80d22099ea9823a4834b17a1fdd327b8cc32477213a6bf396e2266f4571",
+          "onnx": {
+            "irVersion": 8,
+            "opsets": {
+              "ai.onnx": 17
+            },
+            "inputs": [
+              {
+                "name": "pixel_values",
+                "type": "float32",
+                "shape": [
+                  1,
+                  3,
+                  224,
+                  224
+                ],
+                "smokeShape": [
+                  1,
+                  3,
+                  224,
+                  224
+                ],
+                "smokeFill": 0
+              }
+            ],
+            "outputs": [
+              {
+                "name": "embedding",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  512
+                ],
+                "smokeShape": [
+                  1,
+                  512
+                ]
+              }
+            ],
+            "operators": [
+              "Add",
+              "Cast",
+              "Clip",
+              "Concat",
+              "Constant",
+              "ConstantOfShape",
+              "Conv",
+              "DequantizeLinear",
+              "Div",
+              "DynamicQuantizeLinear",
+              "Equal",
+              "Expand",
+              "Gather",
+              "LayerNormalization",
+              "MatMul",
+              "MatMulInteger",
+              "Mul",
+              "ReduceL2",
+              "Reshape",
+              "Shape",
+              "Sigmoid",
+              "Slice",
+              "Softmax",
+              "Transpose",
+              "Where"
+            ],
+            "smokeReference": {
+              "file": "model.onnx.smoke.f32",
+              "size": 2048,
+              "sha256": "f7f23f4fddb48d2b226abcf1725029dc513cdeb6dff0f400c8f79ef9e97fae56",
+              "format": "little-endian-float32-output-order",
+              "comparison": "cosine",
+              "minimumCosine": 0.98,
+              "atol": 0.0001,
+              "rtol": 0.001
+            },
+            "hostValidation": {
+              "runtime": "onnxruntime==1.22.1",
+              "provider": "CPUExecutionProvider",
+              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "finiteOutputs": true
+            }
+          },
+          "conversionParity": {
+            "precision": "dynamic-QInt8-MatMul-Gather-per-channel",
+            "fp32OnnxMaxAbsoluteErrorToTorch": 8.046627044677734e-07,
+            "syntheticCosineToTorchFp32": 0.982624351978302,
+            "syntheticMaxAbsoluteError": 0.048183977603912354,
+            "acceptanceThreshold": 0.98,
+            "qualityBenchmark": false
+          }
+        },
+        {
+          "path": "clip-image-v1/model.onnx.smoke.f32",
+          "size": 2048,
+          "sha256": "f7f23f4fddb48d2b226abcf1725029dc513cdeb6dff0f400c8f79ef9e97fae56"
+        },
+        {
+          "path": "clip-image-v1/preprocessor_config.json",
+          "size": 316,
+          "sha256": "910e70b3956ac9879ebc90b22fb3bc8a75b6a0677814500101a4c072bd7857bd"
+        }
+      ],
+      "sources": [
+        {
+          "kind": "huggingface",
+          "repo": "openai/clip-vit-base-patch32",
+          "revision": "3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268",
+          "declaredLicense": "MIT (OpenAI CLIP LICENSE)",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 7942,
+              "url": "https://huggingface.co/openai/clip-vit-base-patch32/resolve/3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268/README.md",
+              "sha256": "8f0e8c678e0afe5f384f3bf8a6694c1cb53c41e52f86277967b6c5354cb0f9f4"
+            },
+            {
+              "path": "config.json",
+              "size": 4186,
+              "url": "https://huggingface.co/openai/clip-vit-base-patch32/resolve/3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268/config.json",
+              "sha256": "b575ef3c36f2a057fa19e221650105052d61cc9c1a972ec15019c6261ec98770"
+            },
+            {
+              "path": "preprocessor_config.json",
+              "size": 316,
+              "url": "https://huggingface.co/openai/clip-vit-base-patch32/resolve/3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268/preprocessor_config.json",
+              "sha256": "910e70b3956ac9879ebc90b22fb3bc8a75b6a0677814500101a4c072bd7857bd"
+            },
+            {
+              "path": "pytorch_model.bin",
+              "size": 605247071,
+              "url": "https://huggingface.co/openai/clip-vit-base-patch32/resolve/3d74acf9a28c67741b2f4f2ea7635f0aaf6f0268/pytorch_model.bin",
+              "sha256": "a63082132ba4f97a80bea76823f544493bffa8082296d62d71581a4feff1576f"
+            }
+          ]
+        }
+      ],
+      "preparation": {
+        "command": "python scripts/models/prepare.py prepare --component clip-image-v1",
+        "exportToolLockSha256": "d4f8c9d88093cb3267a723fffc9097438d177d7793b84c78d86fd109a5898956",
+        "paddleToolLockSha256": "cf235921583c9297905fe44fd8f3f1251c0ef87968f5db40280341c6b9bd71f2"
+      },
+      "fingerprint": "fd6b4b10d96f43e3950b69c9dd4191f5224ffbbf180713219abcaa947df7461d"
+    },
+    {
+      "id": "multilingual-text-v1",
+      "contract": {
+        "roles": [
+          "search-text",
+          "tokenizer"
+        ],
+        "embeddingDimension": 512,
+        "metric": "cosine of L2-normalized embeddings",
+        "preprocessing": {
+          "tokenizer": "BertTokenizerFast; publisher tokenizer.json; cased WordPiece",
+          "sequenceLength": 128,
+          "padding": "right, ID 0",
+          "specialTokens": "[CLS]=101, [SEP]=102",
+          "attentionMask": "1 for tokens, 0 for pad",
+          "textNormalization": "publisher BertNormalizer: clean_text=true, handle_chinese_chars=true, strip_accents=null, lowercase=false; see golden token IDs"
+        },
+        "outputNormalization": "attention-mask weighted mean of DistilBERT hidden states, Dense 768→512 without bias or activation from 2_Dense/model.safetensors, L2 normalization inside ONNX",
+        "license": "Apache-2.0",
+        "sourceRepo": "sentence-transformers/clip-ViT-B-32-multilingual-v1"
+      },
+      "artifacts": [
+        {
+          "path": "multilingual-text-v1/model.onnx",
+          "size": 135666364,
+          "sha256": "589917fc8edab5497770670b7aacb3b80cb1fd1464d32658c818c33ebb157337",
+          "onnx": {
+            "irVersion": 8,
+            "opsets": {
+              "ai.onnx": 17
+            },
+            "inputs": [
+              {
+                "name": "input_ids",
+                "type": "int64",
+                "shape": [
+                  1,
+                  128
+                ],
+                "smokeShape": [
+                  1,
+                  128
+                ],
+                "smokeFill": 0
+              },
+              {
+                "name": "attention_mask",
+                "type": "int64",
+                "shape": [
+                  1,
+                  128
+                ],
+                "smokeShape": [
+                  1,
+                  128
+                ],
+                "smokeFill": 1
+              }
+            ],
+            "outputs": [
+              {
+                "name": "embedding",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  512
+                ],
+                "smokeShape": [
+                  1,
+                  512
+                ]
+              }
+            ],
+            "operators": [
+              "Add",
+              "Cast",
+              "Clip",
+              "Constant",
+              "DequantizeLinear",
+              "Div",
+              "DynamicQuantizeLinear",
+              "Equal",
+              "Erf",
+              "Expand",
+              "Gather",
+              "LayerNormalization",
+              "MatMul",
+              "MatMulInteger",
+              "Mul",
+              "ReduceL2",
+              "ReduceSum",
+              "Reshape",
+              "Shape",
+              "Softmax",
+              "Transpose",
+              "Unsqueeze",
+              "Where"
+            ],
+            "smokeReference": {
+              "file": "model.onnx.smoke.f32",
+              "size": 2048,
+              "sha256": "ce6721dd7e3bec88880fa89042858be6964f9bb628fec951accc7c248e05f545",
+              "format": "little-endian-float32-output-order",
+              "comparison": "cosine",
+              "minimumCosine": 0.98,
+              "atol": 0.0001,
+              "rtol": 0.001
+            },
+            "hostValidation": {
+              "runtime": "onnxruntime==1.22.1",
+              "provider": "CPUExecutionProvider",
+              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "finiteOutputs": true
+            }
+          },
+          "conversionParity": {
+            "precision": "dynamic-QInt8-MatMul-Gather-per-channel",
+            "fp32OnnxMaxAbsoluteErrorToTorch": 1.1920928955078125e-07,
+            "syntheticCosineToTorchFp32": 0.9984573125839233,
+            "syntheticMaxAbsoluteError": 0.00832509994506836,
+            "acceptanceThreshold": 0.98,
+            "qualityBenchmark": false
+          }
+        },
+        {
+          "path": "multilingual-text-v1/model.onnx.smoke.f32",
+          "size": 2048,
+          "sha256": "ce6721dd7e3bec88880fa89042858be6964f9bb628fec951accc7c248e05f545"
+        },
+        {
+          "path": "multilingual-text-v1/special_tokens_map.json",
+          "size": 112,
+          "sha256": "303df45a03609e4ead04bc3dc1536d0ab19b5358db685b6f3da123d05ec200e3"
+        },
+        {
+          "path": "multilingual-text-v1/tokenizer.json",
+          "size": 1961847,
+          "sha256": "5b4e1a8171c81dfd666ae40265b9530c6e0b3d53923fe8ac493dcc84229adf81"
+        },
+        {
+          "path": "multilingual-text-v1/tokenizer_config.json",
+          "size": 371,
+          "sha256": "8f66d0ad85be46afc77e0bbf48312cff326ddb9e7290926df96a8228d69a814e"
+        },
+        {
+          "path": "multilingual-text-v1/vocab.txt",
+          "size": 995526,
+          "sha256": "fe0fda7c425b48c516fc8f160d594c8022a0808447475c1a7c6d6479763f310c"
+        }
+      ],
+      "sources": [
+        {
+          "kind": "huggingface",
+          "repo": "sentence-transformers/clip-ViT-B-32-multilingual-v1",
+          "revision": "58edf8cada9e398793dca955574a48cbb7f18be2",
+          "declaredLicense": "apache-2.0",
+          "files": [
+            {
+              "path": "1_Pooling/config.json",
+              "size": 190,
+              "url": "https://huggingface.co/sentence-transformers/clip-ViT-B-32-multilingual-v1/resolve/58edf8cada9e398793dca955574a48cbb7f18be2/1_Pooling/config.json",
+              "sha256": "a37f83ada23e7887be6b88f4998927dbeac0038af301553c7cd5461413bf1a56"
+            },
+            {
+              "path": "2_Dense/config.json",
+              "size": 115,
+              "url": "https://huggingface.co/sentence-transformers/clip-ViT-B-32-multilingual-v1/resolve/58edf8cada9e398793dca955574a48cbb7f18be2/2_Dense/config.json",
+              "sha256": "48f4dfaf605a6c2869cd200970e54911c6c15053781d2bdcf3e81e89e77662ed"
+            },
+            {
+              "path": "2_Dense/model.safetensors",
+              "size": 1572984,
+              "url": "https://huggingface.co/sentence-transformers/clip-ViT-B-32-multilingual-v1/resolve/58edf8cada9e398793dca955574a48cbb7f18be2/2_Dense/model.safetensors",
+              "sha256": "d12568dc7300970a4d3dbb49068ad16cd89b99840b74b026f8e48071e9414f74"
+            },
+            {
+              "path": "README.md",
+              "size": 5647,
+              "url": "https://huggingface.co/sentence-transformers/clip-ViT-B-32-multilingual-v1/resolve/58edf8cada9e398793dca955574a48cbb7f18be2/README.md",
+              "sha256": "023953714bc8541390994257494d21484994d84e45e01cd96304f0b5f9e770a2"
+            },
+            {
+              "path": "config.json",
+              "size": 572,
+              "url": "https://huggingface.co/sentence-transformers/clip-ViT-B-32-multilingual-v1/resolve/58edf8cada9e398793dca955574a48cbb7f18be2/config.json",
+              "sha256": "edc12f518bfc445dedfe8a7c58374ea659525e0b6e67814686bd6cd57f90f8b3"
+            },
+            {
+              "path": "config_sentence_transformers.json",
+              "size": 122,
+              "url": "https://huggingface.co/sentence-transformers/clip-ViT-B-32-multilingual-v1/resolve/58edf8cada9e398793dca955574a48cbb7f18be2/config_sentence_transformers.json",
+              "sha256": "b8c64b5cece00d8424b4896ea75b512b6008576088497609dfeb6bd63e6d36b8"
+            },
+            {
+              "path": "model.safetensors",
+              "size": 538947416,
+              "url": "https://huggingface.co/sentence-transformers/clip-ViT-B-32-multilingual-v1/resolve/58edf8cada9e398793dca955574a48cbb7f18be2/model.safetensors",
+              "sha256": "7b968c09938603158413ea2c91af82e82158ebb6db901a6cf97c28ce7d7ebc6d"
+            },
+            {
+              "path": "modules.json",
+              "size": 341,
+              "url": "https://huggingface.co/sentence-transformers/clip-ViT-B-32-multilingual-v1/resolve/58edf8cada9e398793dca955574a48cbb7f18be2/modules.json",
+              "sha256": "f83ea5d68ac85ec15f650b350f0dc37b03d63abd60442f518e14c06f479beee6"
+            },
+            {
+              "path": "sentence_bert_config.json",
+              "size": 53,
+              "url": "https://huggingface.co/sentence-transformers/clip-ViT-B-32-multilingual-v1/resolve/58edf8cada9e398793dca955574a48cbb7f18be2/sentence_bert_config.json",
+              "sha256": "70f4448f31320443fe3557cacea5abf2dcc4915dda8c80646bec9f3bb0aa5a1f"
+            },
+            {
+              "path": "special_tokens_map.json",
+              "size": 112,
+              "url": "https://huggingface.co/sentence-transformers/clip-ViT-B-32-multilingual-v1/resolve/58edf8cada9e398793dca955574a48cbb7f18be2/special_tokens_map.json",
+              "sha256": "303df45a03609e4ead04bc3dc1536d0ab19b5358db685b6f3da123d05ec200e3"
+            },
+            {
+              "path": "tokenizer.json",
+              "size": 1961847,
+              "url": "https://huggingface.co/sentence-transformers/clip-ViT-B-32-multilingual-v1/resolve/58edf8cada9e398793dca955574a48cbb7f18be2/tokenizer.json",
+              "sha256": "5b4e1a8171c81dfd666ae40265b9530c6e0b3d53923fe8ac493dcc84229adf81"
+            },
+            {
+              "path": "tokenizer_config.json",
+              "size": 371,
+              "url": "https://huggingface.co/sentence-transformers/clip-ViT-B-32-multilingual-v1/resolve/58edf8cada9e398793dca955574a48cbb7f18be2/tokenizer_config.json",
+              "sha256": "8f66d0ad85be46afc77e0bbf48312cff326ddb9e7290926df96a8228d69a814e"
+            },
+            {
+              "path": "vocab.txt",
+              "size": 995526,
+              "url": "https://huggingface.co/sentence-transformers/clip-ViT-B-32-multilingual-v1/resolve/58edf8cada9e398793dca955574a48cbb7f18be2/vocab.txt",
+              "sha256": "fe0fda7c425b48c516fc8f160d594c8022a0808447475c1a7c6d6479763f310c"
+            }
+          ]
+        }
+      ],
+      "preparation": {
+        "command": "python scripts/models/prepare.py prepare --component multilingual-text-v1",
+        "exportToolLockSha256": "d4f8c9d88093cb3267a723fffc9097438d177d7793b84c78d86fd109a5898956",
+        "paddleToolLockSha256": "cf235921583c9297905fe44fd8f3f1251c0ef87968f5db40280341c6b9bd71f2"
+      },
+      "fingerprint": "6c8a5c294f0595b2a07542ea64cf6d9cbe0619e2cafed696e22ce5862fc52341"
+    },
+    {
+      "id": "siglip2-base-v1",
+      "contract": {
+        "roles": [
+          "search-image",
+          "search-text"
+        ],
+        "embeddingDimension": 768,
+        "metric": "cosine of L2-normalized embeddings",
+        "preprocessing": {
+          "orientation": "apply EXIF orientation before resize",
+          "color": "RGB",
+          "resize": "bilinear resize to 224x224; no center crop",
+          "layout": "NCHW",
+          "scale": 0.00392156862745098,
+          "mean": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "std": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "text": "siglip2-tokenizer-v1, length 64, no attention mask"
+        },
+        "outputNormalization": "vision attention-pooling output and text projected pooled output; independent L2 normalization inside ONNX wrappers; no sigmoid/logit scale for cosine retrieval",
+        "license": "Apache-2.0",
+        "sourceRepo": "google/siglip2-base-patch16-224"
+      },
+      "artifacts": [
+        {
+          "path": "siglip2-base-v1/image.onnx",
+          "size": 185939556,
+          "sha256": "0815ace0336c2b5bfa480ddc651ad0a76ab27fc12a146f42a7e1d86b100bc357",
+          "onnx": {
+            "irVersion": 8,
+            "opsets": {
+              "ai.onnx": 17
+            },
+            "inputs": [
+              {
+                "name": "pixel_values",
+                "type": "float32",
+                "shape": [
+                  1,
+                  3,
+                  224,
+                  224
+                ],
+                "smokeShape": [
+                  1,
+                  3,
+                  224,
+                  224
+                ],
+                "smokeFill": 0
+              }
+            ],
+            "outputs": [
+              {
+                "name": "embedding",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  768
+                ],
+                "smokeShape": [
+                  1,
+                  768
+                ]
+              }
+            ],
+            "operators": [
+              "Add",
+              "Cast",
+              "Clip",
+              "Concat",
+              "Constant",
+              "ConstantOfShape",
+              "Conv",
+              "Div",
+              "Expand",
+              "Gather",
+              "Gemm",
+              "LayerNormalization",
+              "MatMul",
+              "Mod",
+              "Mul",
+              "ReduceL2",
+              "Reshape",
+              "Shape",
+              "Slice",
+              "Softmax",
+              "Squeeze",
+              "Tanh",
+              "Tile",
+              "Transpose",
+              "Unsqueeze"
+            ],
+            "smokeReference": {
+              "file": "image.onnx.smoke.f32",
+              "size": 3072,
+              "sha256": "5fd8a02110e84b6fb859a79c85331106b3ee9de42d87f9ff538806c8fdd798f5",
+              "format": "little-endian-float32-output-order",
+              "comparison": "cosine",
+              "minimumCosine": 0.98,
+              "atol": 0.0001,
+              "rtol": 0.001
+            },
+            "hostValidation": {
+              "runtime": "onnxruntime==1.22.1",
+              "provider": "CPUExecutionProvider",
+              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "finiteOutputs": true
+            }
+          },
+          "conversionParity": {
+            "precision": "FP16-weight-storage-FP32-computation",
+            "fp32OnnxMaxAbsoluteErrorToTorch": 6.556510925292969e-07,
+            "syntheticCosineToTorchFp32": 0.9999996423721313,
+            "syntheticMaxAbsoluteError": 0.00013637356460094452,
+            "acceptanceThreshold": 0.98,
+            "qualityBenchmark": false
+          }
+        },
+        {
+          "path": "siglip2-base-v1/image.onnx.smoke.f32",
+          "size": 3072,
+          "sha256": "5fd8a02110e84b6fb859a79c85331106b3ee9de42d87f9ff538806c8fdd798f5"
+        },
+        {
+          "path": "siglip2-base-v1/preprocessor_config.json",
+          "size": 394,
+          "sha256": "9b36b57ebaf20f09bf4c22100ccc21877ea6bfe5aead0c00c59f8af8ccefacfc"
+        },
+        {
+          "path": "siglip2-base-v1/text.onnx",
+          "size": 564762533,
+          "sha256": "820154ecc19c2c36b7a1e51fef4ca5a5fffb2d99124951ca021e0f043cd2c289",
+          "onnx": {
+            "irVersion": 8,
+            "opsets": {
+              "ai.onnx": 17
+            },
+            "inputs": [
+              {
+                "name": "input_ids",
+                "type": "int64",
+                "shape": [
+                  1,
+                  64
+                ],
+                "smokeShape": [
+                  1,
+                  64
+                ],
+                "smokeFill": 0
+              }
+            ],
+            "outputs": [
+              {
+                "name": "embedding",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  768
+                ],
+                "smokeShape": [
+                  1,
+                  768
+                ]
+              }
+            ],
+            "operators": [
+              "Add",
+              "Cast",
+              "Clip",
+              "Constant",
+              "Div",
+              "Expand",
+              "Gather",
+              "Gemm",
+              "LayerNormalization",
+              "MatMul",
+              "Mul",
+              "ReduceL2",
+              "Reshape",
+              "Shape",
+              "Softmax",
+              "Tanh",
+              "Transpose"
+            ],
+            "smokeReference": {
+              "file": "text.onnx.smoke.f32",
+              "size": 3072,
+              "sha256": "579ac2971998663f1b2989175287414be043a32183e49d20785d0263cd20792e",
+              "format": "little-endian-float32-output-order",
+              "comparison": "cosine",
+              "minimumCosine": 0.98,
+              "atol": 0.0001,
+              "rtol": 0.001
+            },
+            "hostValidation": {
+              "runtime": "onnxruntime==1.22.1",
+              "provider": "CPUExecutionProvider",
+              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "finiteOutputs": true
+            }
+          },
+          "conversionParity": {
+            "precision": "FP16-weight-storage-FP32-computation",
+            "fp32OnnxMaxAbsoluteErrorToTorch": 1.4528632164001465e-07,
+            "syntheticCosineToTorchFp32": 0.9999997019767761,
+            "syntheticMaxAbsoluteError": 8.058547973632812e-05,
+            "acceptanceThreshold": 0.98,
+            "qualityBenchmark": false
+          }
+        },
+        {
+          "path": "siglip2-base-v1/text.onnx.smoke.f32",
+          "size": 3072,
+          "sha256": "579ac2971998663f1b2989175287414be043a32183e49d20785d0263cd20792e"
+        }
+      ],
+      "sources": [
+        {
+          "kind": "huggingface",
+          "repo": "google/siglip2-base-patch16-224",
+          "revision": "75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2",
+          "declaredLicense": "apache-2.0",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 3375,
+              "url": "https://huggingface.co/google/siglip2-base-patch16-224/resolve/75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2/README.md",
+              "sha256": "39ac3705d62af9ffa1a14675b8ccb220a75f2d81acd530e564a3b1e3dfe418d8"
+            },
+            {
+              "path": "config.json",
+              "size": 253,
+              "url": "https://huggingface.co/google/siglip2-base-patch16-224/resolve/75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2/config.json",
+              "sha256": "fe8b5fe6d5734360678fd71c11c21e1ea3364bd8598d34295d9206335973ffd7"
+            },
+            {
+              "path": "model.safetensors",
+              "size": 1500800904,
+              "url": "https://huggingface.co/google/siglip2-base-patch16-224/resolve/75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2/model.safetensors",
+              "sha256": "612923381c76ec5a9bed335d1c48827e3f2e506ac31b044b63b2031fadee6a0b"
+            },
+            {
+              "path": "preprocessor_config.json",
+              "size": 394,
+              "url": "https://huggingface.co/google/siglip2-base-patch16-224/resolve/75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2/preprocessor_config.json",
+              "sha256": "9b36b57ebaf20f09bf4c22100ccc21877ea6bfe5aead0c00c59f8af8ccefacfc"
+            },
+            {
+              "path": "special_tokens_map.json",
+              "size": 636,
+              "url": "https://huggingface.co/google/siglip2-base-patch16-224/resolve/75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2/special_tokens_map.json",
+              "sha256": "baec30ea10906f16adb8c18af7a34023002c1746542612b8b41c9f09e1351351"
+            },
+            {
+              "path": "tokenizer.json",
+              "size": 34363039,
+              "url": "https://huggingface.co/google/siglip2-base-patch16-224/resolve/75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2/tokenizer.json",
+              "sha256": "cb9140fae3ac5122c972d37adf83e1248471a38147ad76f8215c8872c6fd8322"
+            },
+            {
+              "path": "tokenizer.model",
+              "size": 4241003,
+              "url": "https://huggingface.co/google/siglip2-base-patch16-224/resolve/75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2/tokenizer.model",
+              "sha256": "61a7b147390c64585d6c3543dd6fc636906c9af3865a5548f27f31aee1d4c8e2"
+            },
+            {
+              "path": "tokenizer_config.json",
+              "size": 47164,
+              "url": "https://huggingface.co/google/siglip2-base-patch16-224/resolve/75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2/tokenizer_config.json",
+              "sha256": "14afe629fe4959b9e0d51e1852b8d9f7ad074f90a1a7125a4fcdd17f06e78fc8"
+            }
+          ]
+        }
+      ],
+      "preparation": {
+        "command": "python scripts/models/prepare.py prepare --component siglip2-base-v1",
+        "exportToolLockSha256": "d4f8c9d88093cb3267a723fffc9097438d177d7793b84c78d86fd109a5898956",
+        "paddleToolLockSha256": "cf235921583c9297905fe44fd8f3f1251c0ef87968f5db40280341c6b9bd71f2"
+      },
+      "fingerprint": "9c919a334870bf4aaba906641e315e0f1287a2d80399b5e3a494f8bea4f895b7"
+    },
+    {
+      "id": "siglip2-large-v1",
+      "contract": {
+        "roles": [
+          "search-image",
+          "search-text"
+        ],
+        "embeddingDimension": 1024,
+        "metric": "cosine of L2-normalized embeddings",
+        "preprocessing": {
+          "orientation": "apply EXIF orientation before resize",
+          "color": "RGB",
+          "resize": "bilinear resize to 256x256; no center crop",
+          "layout": "NCHW",
+          "scale": 0.00392156862745098,
+          "mean": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "std": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "text": "siglip2-tokenizer-v1, length 64, no attention mask"
+        },
+        "outputNormalization": "vision attention-pooling output and text projected pooled output; independent L2 normalization inside ONNX wrappers; no sigmoid/logit scale for cosine retrieval",
+        "license": "Apache-2.0",
+        "sourceRepo": "google/siglip2-large-patch16-256"
+      },
+      "artifacts": [
+        {
+          "path": "siglip2-large-v1/image.onnx",
+          "size": 632237617,
+          "sha256": "f99aad2ad75a364f40479cdf8bfc995d12dae01d072d14d2d13f981e3419de14",
+          "onnx": {
+            "irVersion": 8,
+            "opsets": {
+              "ai.onnx": 17
+            },
+            "inputs": [
+              {
+                "name": "pixel_values",
+                "type": "float32",
+                "shape": [
+                  1,
+                  3,
+                  256,
+                  256
+                ],
+                "smokeShape": [
+                  1,
+                  3,
+                  256,
+                  256
+                ],
+                "smokeFill": 0
+              }
+            ],
+            "outputs": [
+              {
+                "name": "embedding",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  1024
+                ],
+                "smokeShape": [
+                  1,
+                  1024
+                ]
+              }
+            ],
+            "operators": [
+              "Add",
+              "Cast",
+              "Clip",
+              "Concat",
+              "Constant",
+              "ConstantOfShape",
+              "Conv",
+              "Div",
+              "Expand",
+              "Gather",
+              "Gemm",
+              "LayerNormalization",
+              "MatMul",
+              "Mod",
+              "Mul",
+              "ReduceL2",
+              "Reshape",
+              "Shape",
+              "Slice",
+              "Softmax",
+              "Squeeze",
+              "Tanh",
+              "Tile",
+              "Transpose",
+              "Unsqueeze"
+            ],
+            "smokeReference": {
+              "file": "image.onnx.smoke.f32",
+              "size": 4096,
+              "sha256": "d105aaaadc451f6db9f66cdda252231c0d104b8102307fa321394ee195bbc94d",
+              "format": "little-endian-float32-output-order",
+              "comparison": "cosine",
+              "minimumCosine": 0.98,
+              "atol": 0.0001,
+              "rtol": 0.001
+            },
+            "hostValidation": {
+              "runtime": "onnxruntime==1.22.1",
+              "provider": "CPUExecutionProvider",
+              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "finiteOutputs": true
+            }
+          },
+          "conversionParity": {
+            "precision": "FP16-weight-storage-FP32-computation",
+            "fp32OnnxMaxAbsoluteErrorToTorch": 3.925524652004242e-07,
+            "syntheticCosineToTorchFp32": 0.9999974370002747,
+            "syntheticMaxAbsoluteError": 0.00031176209449768066,
+            "acceptanceThreshold": 0.98,
+            "qualityBenchmark": false
+          }
+        },
+        {
+          "path": "siglip2-large-v1/image.onnx.smoke.f32",
+          "size": 4096,
+          "sha256": "d105aaaadc451f6db9f66cdda252231c0d104b8102307fa321394ee195bbc94d"
+        },
+        {
+          "path": "siglip2-large-v1/preprocessor_config.json",
+          "size": 394,
+          "sha256": "d14ba2ee3fd816f3de8abaddc31953565128eaf37c73ad4bed32101a98465aff"
+        },
+        {
+          "path": "siglip2-large-v1/text.onnx",
+          "size": 1131463631,
+          "sha256": "a225cdc4dcca9c4f59f1a8d79a8e43ade0578ff28c889a3cb2cc57cf4d52c8ae",
+          "onnx": {
+            "irVersion": 8,
+            "opsets": {
+              "ai.onnx": 17
+            },
+            "inputs": [
+              {
+                "name": "input_ids",
+                "type": "int64",
+                "shape": [
+                  1,
+                  64
+                ],
+                "smokeShape": [
+                  1,
+                  64
+                ],
+                "smokeFill": 0
+              }
+            ],
+            "outputs": [
+              {
+                "name": "embedding",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  1024
+                ],
+                "smokeShape": [
+                  1,
+                  1024
+                ]
+              }
+            ],
+            "operators": [
+              "Add",
+              "Cast",
+              "Clip",
+              "Constant",
+              "Div",
+              "Expand",
+              "Gather",
+              "Gemm",
+              "LayerNormalization",
+              "MatMul",
+              "Mul",
+              "ReduceL2",
+              "Reshape",
+              "Shape",
+              "Softmax",
+              "Tanh",
+              "Transpose"
+            ],
+            "smokeReference": {
+              "file": "text.onnx.smoke.f32",
+              "size": 4096,
+              "sha256": "c52125461f0a785ffa23a721d51b68e9c38c2c83ae54895cea13129b99e1aff7",
+              "format": "little-endian-float32-output-order",
+              "comparison": "cosine",
+              "minimumCosine": 0.98,
+              "atol": 0.0001,
+              "rtol": 0.001
+            },
+            "hostValidation": {
+              "runtime": "onnxruntime==1.22.1",
+              "provider": "CPUExecutionProvider",
+              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "finiteOutputs": true
+            }
+          },
+          "conversionParity": {
+            "precision": "FP16-weight-storage-FP32-computation",
+            "fp32OnnxMaxAbsoluteErrorToTorch": 1.6577541828155518e-07,
+            "syntheticCosineToTorchFp32": 0.9999998807907104,
+            "syntheticMaxAbsoluteError": 7.18806404620409e-05,
+            "acceptanceThreshold": 0.98,
+            "qualityBenchmark": false
+          }
+        },
+        {
+          "path": "siglip2-large-v1/text.onnx.smoke.f32",
+          "size": 4096,
+          "sha256": "c52125461f0a785ffa23a721d51b68e9c38c2c83ae54895cea13129b99e1aff7"
+        }
+      ],
+      "sources": [
+        {
+          "kind": "huggingface",
+          "repo": "google/siglip2-large-patch16-256",
+          "revision": "787800c8990e6f058423089178e718139608408c",
+          "declaredLicense": "apache-2.0",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 3378,
+              "url": "https://huggingface.co/google/siglip2-large-patch16-256/resolve/787800c8990e6f058423089178e718139608408c/README.md",
+              "sha256": "005588b9d15ae2fcf79107a0d1a83b675541a855c2b4fef6f03ece89d485905e"
+            },
+            {
+              "path": "config.json",
+              "size": 537,
+              "url": "https://huggingface.co/google/siglip2-large-patch16-256/resolve/787800c8990e6f058423089178e718139608408c/config.json",
+              "sha256": "172e39dbf0143b8fe22d2f08921730eb8c397967e58cb37d133161e28aa34104"
+            },
+            {
+              "path": "model.safetensors",
+              "size": 3526204360,
+              "url": "https://huggingface.co/google/siglip2-large-patch16-256/resolve/787800c8990e6f058423089178e718139608408c/model.safetensors",
+              "sha256": "fa34f822f016dbb167d8d0e3a8af99b5e199aa28573360d4295252b9ec418e2a"
+            },
+            {
+              "path": "preprocessor_config.json",
+              "size": 394,
+              "url": "https://huggingface.co/google/siglip2-large-patch16-256/resolve/787800c8990e6f058423089178e718139608408c/preprocessor_config.json",
+              "sha256": "d14ba2ee3fd816f3de8abaddc31953565128eaf37c73ad4bed32101a98465aff"
+            },
+            {
+              "path": "special_tokens_map.json",
+              "size": 636,
+              "url": "https://huggingface.co/google/siglip2-large-patch16-256/resolve/787800c8990e6f058423089178e718139608408c/special_tokens_map.json",
+              "sha256": "baec30ea10906f16adb8c18af7a34023002c1746542612b8b41c9f09e1351351"
+            },
+            {
+              "path": "tokenizer.json",
+              "size": 34363039,
+              "url": "https://huggingface.co/google/siglip2-large-patch16-256/resolve/787800c8990e6f058423089178e718139608408c/tokenizer.json",
+              "sha256": "cb9140fae3ac5122c972d37adf83e1248471a38147ad76f8215c8872c6fd8322"
+            },
+            {
+              "path": "tokenizer.model",
+              "size": 4241003,
+              "url": "https://huggingface.co/google/siglip2-large-patch16-256/resolve/787800c8990e6f058423089178e718139608408c/tokenizer.model",
+              "sha256": "61a7b147390c64585d6c3543dd6fc636906c9af3865a5548f27f31aee1d4c8e2"
+            },
+            {
+              "path": "tokenizer_config.json",
+              "size": 47164,
+              "url": "https://huggingface.co/google/siglip2-large-patch16-256/resolve/787800c8990e6f058423089178e718139608408c/tokenizer_config.json",
+              "sha256": "14afe629fe4959b9e0d51e1852b8d9f7ad074f90a1a7125a4fcdd17f06e78fc8"
+            }
+          ]
+        }
+      ],
+      "preparation": {
+        "command": "python scripts/models/prepare.py prepare --component siglip2-large-v1",
+        "exportToolLockSha256": "d4f8c9d88093cb3267a723fffc9097438d177d7793b84c78d86fd109a5898956",
+        "paddleToolLockSha256": "cf235921583c9297905fe44fd8f3f1251c0ef87968f5db40280341c6b9bd71f2"
+      },
+      "fingerprint": "744b3ac8eb361275e169970ba3573b9bce0aee911171c2a81b9497e616abef9f"
+    },
+    {
+      "id": "ocr-mobile-det-v1",
+      "contract": {
+        "roles": [
+          "ocr-detector"
+        ],
+        "preprocessing": {
+          "orientation": "apply EXIF orientation before detection",
+          "color": "BGR",
+          "layout": "NCHW",
+          "resize": "Exact publisher DetResizeForTest resize_long=960: ratio=960/max(h,w), truncate scaled h/w to integers, ceil each to multiple of 128, bilinear resize; preserve separate x/y ratios when mapping boxes. Tiny inputs with h+w<64 are padded before this transform. This is resize_type2, not the limit_side_len/32 variant.",
+          "scale": 0.00392156862745098,
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ]
+        },
+        "postprocessing": {
+          "algorithm": "DBPostProcess quadrilaterals; probability map threshold 0.3; box score >=0.6; max candidates 1000; unclip_ratio=1.5; map to original oriented size",
+          "contractFile": "inference.yml"
+        },
+        "license": "Apache-2.0",
+        "sourceRepo": "PaddlePaddle/PP-OCRv5_mobile_det"
+      },
+      "artifacts": [
+        {
+          "path": "ocr-mobile-det-v1/inference.yml",
+          "size": 903,
+          "sha256": "98069072e1b6b37d727fd9d9f11725faa46d6ea0de012f2ed26caea011c37699"
+        },
+        {
+          "path": "ocr-mobile-det-v1/model.onnx",
+          "size": 4766440,
+          "sha256": "ca9c23363b98bf1d65c7d4570e5509d5597a7176756762c9f54d9a11cfc612ba",
+          "onnx": {
+            "irVersion": 9,
+            "opsets": {
+              "ai.onnx": 19
+            },
+            "inputs": [
+              {
+                "name": "x",
+                "type": "float32",
+                "shape": [
+                  "DynamicDimension.0",
+                  3,
+                  "DynamicDimension.1",
+                  "DynamicDimension.2"
+                ],
+                "smokeShape": [
+                  1,
+                  3,
+                  736,
+                  736
+                ],
+                "smokeFill": 0
+              }
+            ],
+            "outputs": [
+              {
+                "name": "fetch_name_0",
+                "type": "tensor(float)",
+                "shape": [
+                  "DynamicDimension.3",
+                  1,
+                  "DynamicDimension.4",
+                  "DynamicDimension.5"
+                ],
+                "smokeShape": [
+                  1,
+                  1,
+                  736,
+                  736
+                ]
+              }
+            ],
+            "operators": [
+              "Add",
+              "BatchNormalization",
+              "Concat",
+              "Constant",
+              "Conv",
+              "ConvTranspose",
+              "GlobalAveragePool",
+              "HardSigmoid",
+              "HardSwish",
+              "Identity",
+              "Mul",
+              "Relu",
+              "Reshape",
+              "Resize",
+              "Sigmoid"
+            ],
+            "smokeReference": {
+              "file": "model.onnx.smoke.f32",
+              "size": 2166784,
+              "sha256": "e010012b2bf594e7a39ce826ece9f44cc035ad26fc2b953eff8451fe40f56dc7",
+              "format": "little-endian-float32-output-order",
+              "comparison": "allclose",
+              "minimumCosine": 0.98,
+              "atol": 0.0001,
+              "rtol": 0.001
+            },
+            "hostValidation": {
+              "runtime": "onnxruntime==1.22.1",
+              "provider": "CPUExecutionProvider",
+              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "finiteOutputs": true
+            }
+          },
+          "conversionParity": {
+            "component": "ocr-mobile-det-v1",
+            "paddle": "3.3.1",
+            "onnxruntime": "1.22.1",
+            "syntheticInputShape": [
+              1,
+              3,
+              96,
+              160
+            ],
+            "outputShape": [
+              1,
+              1,
+              96,
+              160
+            ],
+            "maxAbsoluteError": 1.1070103766996908e-07,
+            "allclose": true,
+            "atol": 0.0001,
+            "rtol": 0.001,
+            "qualityBenchmark": false
+          }
+        },
+        {
+          "path": "ocr-mobile-det-v1/model.onnx.smoke.f32",
+          "size": 2166784,
+          "sha256": "e010012b2bf594e7a39ce826ece9f44cc035ad26fc2b953eff8451fe40f56dc7"
+        }
+      ],
+      "sources": [
+        {
+          "kind": "huggingface",
+          "repo": "PaddlePaddle/PP-OCRv5_mobile_det",
+          "revision": "0d63e78e2b680928f6b1747d76a08db6e645efb7",
+          "declaredLicense": "apache-2.0",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 16243,
+              "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/0d63e78e2b680928f6b1747d76a08db6e645efb7/README.md",
+              "sha256": "4cc20ad6d41af86b3ce9885ffb0956e152574a2eb14179aeb07fd2d3956161ca"
+            },
+            {
+              "path": "config.json",
+              "size": 2871,
+              "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/0d63e78e2b680928f6b1747d76a08db6e645efb7/config.json",
+              "sha256": "7ac1c33f377ba58561f4b89d3180b6add2b7c5c60a4edac90fa4e0ceccdc6665"
+            },
+            {
+              "path": "inference.json",
+              "size": 229777,
+              "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/0d63e78e2b680928f6b1747d76a08db6e645efb7/inference.json",
+              "sha256": "05feef1acb00aa4cd7362b15f7f501fc4f99d7b1fa73c1c871e0c7b1504b0f5c"
+            },
+            {
+              "path": "inference.pdiparams",
+              "size": 4692937,
+              "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/0d63e78e2b680928f6b1747d76a08db6e645efb7/inference.pdiparams",
+              "sha256": "afa1820cb16c1fd0dad589d0f8b389139061c1ef6d68019685fd07be997dda5b"
+            },
+            {
+              "path": "inference.yml",
+              "size": 903,
+              "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det/resolve/0d63e78e2b680928f6b1747d76a08db6e645efb7/inference.yml",
+              "sha256": "98069072e1b6b37d727fd9d9f11725faa46d6ea0de012f2ed26caea011c37699"
+            }
+          ]
+        }
+      ],
+      "preparation": {
+        "command": "python scripts/models/prepare.py prepare --component ocr-mobile-det-v1",
+        "exportToolLockSha256": "d4f8c9d88093cb3267a723fffc9097438d177d7793b84c78d86fd109a5898956",
+        "paddleToolLockSha256": "cf235921583c9297905fe44fd8f3f1251c0ef87968f5db40280341c6b9bd71f2"
+      },
+      "fingerprint": "73a60276f0d18b36b3906abef1e6277f91a17e0c803dac8614b946c882e5a7c6"
+    },
+    {
+      "id": "ocr-server-det-v1",
+      "contract": {
+        "roles": [
+          "ocr-detector"
+        ],
+        "preprocessing": {
+          "orientation": "apply EXIF orientation before detection",
+          "color": "BGR",
+          "layout": "NCHW",
+          "resize": "Exact publisher DetResizeForTest resize_long=960: ratio=960/max(h,w), truncate scaled h/w to integers, ceil each to multiple of 128, bilinear resize; preserve separate x/y ratios when mapping boxes. Tiny inputs with h+w<64 are padded before this transform. This is resize_type2, not the limit_side_len/32 variant.",
+          "scale": 0.00392156862745098,
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ]
+        },
+        "postprocessing": {
+          "algorithm": "DBPostProcess quadrilaterals; probability map threshold 0.3; box score >=0.6; max candidates 1000; unclip_ratio=1.5; map to original oriented size",
+          "contractFile": "inference.yml"
+        },
+        "license": "Apache-2.0",
+        "sourceRepo": "PaddlePaddle/PP-OCRv5_server_det"
+      },
+      "artifacts": [
+        {
+          "path": "ocr-server-det-v1/inference.yml",
+          "size": 903,
+          "sha256": "28fb721efc3634fc8aa677e474b9602cb815a91cf569ef357a7a553d7b3ce685"
+        },
+        {
+          "path": "ocr-server-det-v1/model.onnx",
+          "size": 88047983,
+          "sha256": "95a5dbd94f6e47547b6e0b3618bdf725d82522282135c91aa07e3304363aa2c9",
+          "onnx": {
+            "irVersion": 9,
+            "opsets": {
+              "ai.onnx": 19
+            },
+            "inputs": [
+              {
+                "name": "x",
+                "type": "float32",
+                "shape": [
+                  "DynamicDimension.0",
+                  3,
+                  "DynamicDimension.1",
+                  "DynamicDimension.2"
+                ],
+                "smokeShape": [
+                  1,
+                  3,
+                  736,
+                  736
+                ],
+                "smokeFill": 0
+              }
+            ],
+            "outputs": [
+              {
+                "name": "fetch_name_0",
+                "type": "tensor(float)",
+                "shape": [
+                  "DynamicDimension.3",
+                  1,
+                  "DynamicDimension.4",
+                  "DynamicDimension.5"
+                ],
+                "smokeShape": [
+                  1,
+                  1,
+                  736,
+                  736
+                ]
+              }
+            ],
+            "operators": [
+              "Add",
+              "BatchNormalization",
+              "Concat",
+              "Constant",
+              "Conv",
+              "ConvTranspose",
+              "Identity",
+              "MaxPool",
+              "Mul",
+              "Relu",
+              "Reshape",
+              "Resize",
+              "Sigmoid"
+            ],
+            "smokeReference": {
+              "file": "model.onnx.smoke.f32",
+              "size": 2166784,
+              "sha256": "1e05afe82eef4c0571be085ac49a653a0bab56320a21b17d2f0463583d1a6312",
+              "format": "little-endian-float32-output-order",
+              "comparison": "allclose",
+              "minimumCosine": 0.98,
+              "atol": 0.0001,
+              "rtol": 0.001
+            },
+            "hostValidation": {
+              "runtime": "onnxruntime==1.22.1",
+              "provider": "CPUExecutionProvider",
+              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "finiteOutputs": true
+            }
+          },
+          "conversionParity": {
+            "component": "ocr-server-det-v1",
+            "paddle": "3.3.1",
+            "onnxruntime": "1.22.1",
+            "syntheticInputShape": [
+              1,
+              3,
+              96,
+              160
+            ],
+            "outputShape": [
+              1,
+              1,
+              96,
+              160
+            ],
+            "maxAbsoluteError": 8.546339813619852e-08,
+            "allclose": true,
+            "atol": 0.0001,
+            "rtol": 0.001,
+            "qualityBenchmark": false
+          }
+        },
+        {
+          "path": "ocr-server-det-v1/model.onnx.smoke.f32",
+          "size": 2166784,
+          "sha256": "1e05afe82eef4c0571be085ac49a653a0bab56320a21b17d2f0463583d1a6312"
+        }
+      ],
+      "sources": [
+        {
+          "kind": "huggingface",
+          "repo": "PaddlePaddle/PP-OCRv5_server_det",
+          "revision": "ca867c897ecbca8873081573a802ad70d499cb94",
+          "declaredLicense": "apache-2.0",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 15912,
+              "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_server_det/resolve/ca867c897ecbca8873081573a802ad70d499cb94/README.md",
+              "sha256": "4fd4cf7c6fc3239ede7274c3877e7a0c4424ffa7f56b2775e4e7961c24b1f107"
+            },
+            {
+              "path": "config.json",
+              "size": 2871,
+              "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_server_det/resolve/ca867c897ecbca8873081573a802ad70d499cb94/config.json",
+              "sha256": "436bf19010fe3879477e8599a870a0ec8ccd14ca39056805ec4ed20ab318ec04"
+            },
+            {
+              "path": "inference.json",
+              "size": 402480,
+              "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_server_det/resolve/ca867c897ecbca8873081573a802ad70d499cb94/inference.json",
+              "sha256": "af5876933d8806a1b50d895867e0781e135cd92ff37381992828fc8d1b842d28"
+            },
+            {
+              "path": "inference.pdiparams",
+              "size": 87932887,
+              "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_server_det/resolve/ca867c897ecbca8873081573a802ad70d499cb94/inference.pdiparams",
+              "sha256": "183146fe9d9910352f68482f623bcbbb9fa7b9e8fa1463b9ad288cef00524d2d"
+            },
+            {
+              "path": "inference.yml",
+              "size": 903,
+              "url": "https://huggingface.co/PaddlePaddle/PP-OCRv5_server_det/resolve/ca867c897ecbca8873081573a802ad70d499cb94/inference.yml",
+              "sha256": "28fb721efc3634fc8aa677e474b9602cb815a91cf569ef357a7a553d7b3ce685"
+            }
+          ]
+        }
+      ],
+      "preparation": {
+        "command": "python scripts/models/prepare.py prepare --component ocr-server-det-v1",
+        "exportToolLockSha256": "d4f8c9d88093cb3267a723fffc9097438d177d7793b84c78d86fd109a5898956",
+        "paddleToolLockSha256": "cf235921583c9297905fe44fd8f3f1251c0ef87968f5db40280341c6b9bd71f2"
+      },
+      "fingerprint": "ee7a16bed1f1693a5cbe5b5f73396b08c0313008687868e4c006251688b7b382"
+    },
+    {
+      "id": "ocr-cyrillic-rec-v1",
+      "contract": {
+        "roles": [
+          "ocr-recognizer",
+          "ocr-dictionary"
+        ],
+        "preprocessing": {
+          "color": "BGR",
+          "layout": "NCHW",
+          "height": 48,
+          "width": "Lik baseline 320; preserve aspect ratio, resize width=min(320,ceil(48*aspect)), pad right with normalized zero; vertical crops rotate 90 degrees before resize when height/width>=1.5",
+          "normalization": "(uint8/255 - 0.5)/0.5; right padding is 0 after normalization"
+        },
+        "postprocessing": {
+          "algorithm": "CTC greedy argmax; remove repeated adjacent IDs and blank 0; dictionary characters.json plus trailing space; dictionary entries index+1; preserve case and Cyrillic",
+          "classes": 852,
+          "confidence": "mean of selected nonblank timestep probabilities"
+        },
+        "license": "Apache-2.0",
+        "sourceRepo": "PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec"
+      },
+      "artifacts": [
+        {
+          "path": "ocr-cyrillic-rec-v1/characters.json",
+          "size": 4485,
+          "sha256": "fc9dea2eb76e0aab116de4e51614bcd84d40832af50bd69471169c4eb2988588"
+        },
+        {
+          "path": "ocr-cyrillic-rec-v1/inference.yml",
+          "size": 6991,
+          "sha256": "5c76cc91fa98410178a09f498db10050d0ec1634a660053d3005ab7be581f501"
+        },
+        {
+          "path": "ocr-cyrillic-rec-v1/model.onnx",
+          "size": 8043887,
+          "sha256": "8500822cfc794747c28589669abc59487d55ae93dd05b5f7c4912d7c50ccefe9",
+          "onnx": {
+            "irVersion": 9,
+            "opsets": {
+              "ai.onnx": 19
+            },
+            "inputs": [
+              {
+                "name": "x",
+                "type": "float32",
+                "shape": [
+                  "DynamicDimension.0",
+                  3,
+                  48,
+                  "DynamicDimension.1"
+                ],
+                "smokeShape": [
+                  1,
+                  3,
+                  48,
+                  320
+                ],
+                "smokeFill": 0
+              }
+            ],
+            "outputs": [
+              {
+                "name": "fetch_name_0",
+                "type": "tensor(float)",
+                "shape": [
+                  "DynamicDimension.2",
+                  "DynamicDimension.3",
+                  852
+                ],
+                "smokeShape": [
+                  1,
+                  40,
+                  852
+                ]
+              }
+            ],
+            "operators": [
+              "Add",
+              "AveragePool",
+              "BatchNormalization",
+              "Concat",
+              "Constant",
+              "Conv",
+              "GlobalAveragePool",
+              "HardSigmoid",
+              "HardSwish",
+              "Identity",
+              "LayerNormalization",
+              "MatMul",
+              "Mul",
+              "Relu",
+              "Reshape",
+              "Shape",
+              "Sigmoid",
+              "Slice",
+              "Softmax",
+              "Squeeze",
+              "Transpose",
+              "Unsqueeze"
+            ],
+            "smokeReference": {
+              "file": "model.onnx.smoke.f32",
+              "size": 136320,
+              "sha256": "ee35491b66ad0585f5f67991064771286c3c4e266890291047cc1de17f07eefd",
+              "format": "little-endian-float32-output-order",
+              "comparison": "allclose",
+              "minimumCosine": 0.98,
+              "atol": 0.0001,
+              "rtol": 0.001
+            },
+            "hostValidation": {
+              "runtime": "onnxruntime==1.22.1",
+              "provider": "CPUExecutionProvider",
+              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "finiteOutputs": true
+            }
+          },
+          "conversionParity": {
+            "component": "ocr-cyrillic-rec-v1",
+            "paddle": "3.3.1",
+            "onnxruntime": "1.22.1",
+            "syntheticInputShape": [
+              1,
+              3,
+              48,
+              320
+            ],
+            "outputShape": [
+              1,
+              40,
+              852
+            ],
+            "maxAbsoluteError": 8.285045623779297e-06,
+            "allclose": true,
+            "atol": 0.0001,
+            "rtol": 0.001,
+            "qualityBenchmark": false
+          }
+        },
+        {
+          "path": "ocr-cyrillic-rec-v1/model.onnx.smoke.f32",
+          "size": 136320,
+          "sha256": "ee35491b66ad0585f5f67991064771286c3c4e266890291047cc1de17f07eefd"
+        }
+      ],
+      "sources": [
+        {
+          "kind": "huggingface",
+          "repo": "PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec",
+          "revision": "712d2d65556ccc1ea7b5d2bb232b018838b6a3ab",
+          "declaredLicense": "apache-2.0",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 6947,
+              "url": "https://huggingface.co/PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec/resolve/712d2d65556ccc1ea7b5d2bb232b018838b6a3ab/README.md",
+              "sha256": "4cf17ac9ad8b912d40f539569493c7252833ff18b755193e937a502b5b6fbe06"
+            },
+            {
+              "path": "config.json",
+              "size": 18036,
+              "url": "https://huggingface.co/PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec/resolve/712d2d65556ccc1ea7b5d2bb232b018838b6a3ab/config.json",
+              "sha256": "b62d0464a75de5c367adbc13bf392a99074bf8c97f3429c4888447345528efee"
+            },
+            {
+              "path": "inference.json",
+              "size": 217712,
+              "url": "https://huggingface.co/PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec/resolve/712d2d65556ccc1ea7b5d2bb232b018838b6a3ab/inference.json",
+              "sha256": "5d90f1bfca52d80c01de176c5238fae2459995a99ff1dbfe5319ab4ed1735df2"
+            },
+            {
+              "path": "inference.pdiparams",
+              "size": 7972691,
+              "url": "https://huggingface.co/PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec/resolve/712d2d65556ccc1ea7b5d2bb232b018838b6a3ab/inference.pdiparams",
+              "sha256": "434dc9fa2a99fa3653e08f8cf793ae56be7dd41c35c4980e6255147cc02bbc80"
+            },
+            {
+              "path": "inference.yml",
+              "size": 6991,
+              "url": "https://huggingface.co/PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec/resolve/712d2d65556ccc1ea7b5d2bb232b018838b6a3ab/inference.yml",
+              "sha256": "5c76cc91fa98410178a09f498db10050d0ec1634a660053d3005ab7be581f501"
+            }
+          ]
+        }
+      ],
+      "preparation": {
+        "command": "python scripts/models/prepare.py prepare --component ocr-cyrillic-rec-v1",
+        "exportToolLockSha256": "d4f8c9d88093cb3267a723fffc9097438d177d7793b84c78d86fd109a5898956",
+        "paddleToolLockSha256": "cf235921583c9297905fe44fd8f3f1251c0ef87968f5db40280341c6b9bd71f2"
+      },
+      "fingerprint": "79dd3954e5304db0612af7ac39215f8200608ecdd5010474a2ac5c16fd6855c2"
+    },
+    {
+      "id": "yunet-v1",
+      "contract": {
+        "roles": [
+          "face-detector"
+        ],
+        "preprocessing": {
+          "orientation": "apply EXIF orientation before detection",
+          "color": "BGR",
+          "layout": "NCHW",
+          "scale": 1,
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "resize": "Lik policy: preserve aspect ratio, bilinear fit into 640x640 and pad right/bottom with zero; map coordinates back. The pinned ONNX is fixed 640x640 (not the OpenCV demo 320 setting)."
+        },
+        "postprocessing": {
+          "strides": [
+            8,
+            16,
+            32
+          ],
+          "score": "sqrt(clamp(cls,0,1)*clamp(obj,0,1))",
+          "box": "center=((grid_x+dx)*stride,(grid_y+dy)*stride); wh=exp(dw,dh)*stride",
+          "landmarks": "five xy pairs: (grid+offset)*stride",
+          "scoreThreshold": 0.9,
+          "nmsIouThreshold": 0.3,
+          "topK": 5000,
+          "coordinateSpace": "unpad/unscale to EXIF-oriented image"
+        },
+        "license": "MIT",
+        "sourceRepo": "opencv/opencv_zoo"
+      },
+      "artifacts": [
+        {
+          "path": "yunet-v1/model.onnx",
+          "size": 232589,
+          "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+          "onnx": {
+            "irVersion": 6,
+            "opsets": {
+              "ai.onnx": 11
+            },
+            "inputs": [
+              {
+                "name": "input",
+                "type": "float32",
+                "shape": [
+                  1,
+                  3,
+                  640,
+                  640
+                ],
+                "smokeShape": [
+                  1,
+                  3,
+                  640,
+                  640
+                ],
+                "smokeFill": 0
+              }
+            ],
+            "outputs": [
+              {
+                "name": "cls_8",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  6400,
+                  1
+                ],
+                "smokeShape": [
+                  1,
+                  6400,
+                  1
+                ]
+              },
+              {
+                "name": "cls_16",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  1600,
+                  1
+                ],
+                "smokeShape": [
+                  1,
+                  1600,
+                  1
+                ]
+              },
+              {
+                "name": "cls_32",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  400,
+                  1
+                ],
+                "smokeShape": [
+                  1,
+                  400,
+                  1
+                ]
+              },
+              {
+                "name": "obj_8",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  6400,
+                  1
+                ],
+                "smokeShape": [
+                  1,
+                  6400,
+                  1
+                ]
+              },
+              {
+                "name": "obj_16",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  1600,
+                  1
+                ],
+                "smokeShape": [
+                  1,
+                  1600,
+                  1
+                ]
+              },
+              {
+                "name": "obj_32",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  400,
+                  1
+                ],
+                "smokeShape": [
+                  1,
+                  400,
+                  1
+                ]
+              },
+              {
+                "name": "bbox_8",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  6400,
+                  4
+                ],
+                "smokeShape": [
+                  1,
+                  6400,
+                  4
+                ]
+              },
+              {
+                "name": "bbox_16",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  1600,
+                  4
+                ],
+                "smokeShape": [
+                  1,
+                  1600,
+                  4
+                ]
+              },
+              {
+                "name": "bbox_32",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  400,
+                  4
+                ],
+                "smokeShape": [
+                  1,
+                  400,
+                  4
+                ]
+              },
+              {
+                "name": "kps_8",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  6400,
+                  10
+                ],
+                "smokeShape": [
+                  1,
+                  6400,
+                  10
+                ]
+              },
+              {
+                "name": "kps_16",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  1600,
+                  10
+                ],
+                "smokeShape": [
+                  1,
+                  1600,
+                  10
+                ]
+              },
+              {
+                "name": "kps_32",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  400,
+                  10
+                ],
+                "smokeShape": [
+                  1,
+                  400,
+                  10
+                ]
+              }
+            ],
+            "operators": [
+              "Add",
+              "Conv",
+              "MaxPool",
+              "Relu",
+              "Reshape",
+              "Resize",
+              "Sigmoid",
+              "Transpose"
+            ],
+            "smokeReference": {
+              "file": "model.onnx.smoke.f32",
+              "size": 537600,
+              "sha256": "5f115b26219ce6b8324e7f1b43893c8fbc4467b5e928f3d86d542994735dedfe",
+              "format": "little-endian-float32-output-order",
+              "comparison": "allclose",
+              "minimumCosine": 0.98,
+              "atol": 0.0001,
+              "rtol": 0.001
+            },
+            "hostValidation": {
+              "runtime": "onnxruntime==1.22.1",
+              "provider": "CPUExecutionProvider",
+              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "finiteOutputs": true
+            }
+          },
+          "conversionParity": {
+            "kind": "byte-identical publisher ONNX; no conversion"
+          }
+        },
+        {
+          "path": "yunet-v1/model.onnx.smoke.f32",
+          "size": 537600,
+          "sha256": "5f115b26219ce6b8324e7f1b43893c8fbc4467b5e928f3d86d542994735dedfe"
+        }
+      ],
+      "sources": [
+        {
+          "kind": "github",
+          "repo": "opencv/opencv_zoo",
+          "revision": "47534e27c9851bb1128ccc0102f1145e27f23f98",
+          "declaredLicense": "MIT: face_detection_yunet; Apache-2.0: face_recognition_sface (directory LICENSE files)",
+          "files": [
+            {
+              "path": "models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
+              "size": 232589,
+              "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+              "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/47534e27c9851bb1128ccc0102f1145e27f23f98/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
+            },
+            {
+              "path": "models/face_detection_yunet/LICENSE",
+              "size": 1085,
+              "sha256": "c83b8120c50ccbd4c4f96edf53141bdd566ebb8f8e9227e415326aa1b1aba958",
+              "url": "https://raw.githubusercontent.com/opencv/opencv_zoo/47534e27c9851bb1128ccc0102f1145e27f23f98/models/face_detection_yunet/LICENSE"
+            },
+            {
+              "path": "models/face_detection_yunet/README.md",
+              "size": 3221,
+              "sha256": "a140c9e9574ff99d3dc1c435d5e8b5e60690dc91597e66387cbbb52be12cce4c",
+              "url": "https://raw.githubusercontent.com/opencv/opencv_zoo/47534e27c9851bb1128ccc0102f1145e27f23f98/models/face_detection_yunet/README.md"
+            }
+          ]
+        }
+      ],
+      "preparation": {
+        "command": "python scripts/models/prepare.py prepare --component yunet-v1",
+        "exportToolLockSha256": "d4f8c9d88093cb3267a723fffc9097438d177d7793b84c78d86fd109a5898956",
+        "paddleToolLockSha256": "cf235921583c9297905fe44fd8f3f1251c0ef87968f5db40280341c6b9bd71f2"
+      },
+      "fingerprint": "0e4c1a69350825deafa786fbd79d858edecfb1e295002e610793c416e685846b"
+    },
+    {
+      "id": "sface-v1",
+      "contract": {
+        "roles": [
+          "face-embedding"
+        ],
+        "embeddingDimension": 128,
+        "metric": "cosine after external L2 normalization",
+        "preprocessing": {
+          "color": "RGB",
+          "layout": "NCHW",
+          "inputRange": [
+            0,
+            255
+          ],
+          "normalization": "none externally; pinned graph contains (x-127.5)/128 through scalar ops",
+          "alignment": "similarity transform from YuNet eye/nose/mouth landmarks; bilinear warp to 112x112",
+          "alignmentTemplate": [
+            [
+              38.2946,
+              51.6963
+            ],
+            [
+              73.5318,
+              51.5014
+            ],
+            [
+              56.0252,
+              71.7366
+            ],
+            [
+              41.5493,
+              92.3655
+            ],
+            [
+              70.7299,
+              92.2041
+            ]
+          ]
+        },
+        "outputNormalization": "external L2 normalization of fc1; threshold is a calibration parameter, not a measured Lik match guarantee",
+        "license": "Apache-2.0",
+        "sourceRepo": "opencv/opencv_zoo"
+      },
+      "artifacts": [
+        {
+          "path": "sface-v1/model.onnx",
+          "size": 38696353,
+          "sha256": "0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79",
+          "onnx": {
+            "irVersion": 6,
+            "opsets": {
+              "ai.onnx": 11
+            },
+            "inputs": [
+              {
+                "name": "data",
+                "type": "float32",
+                "shape": [
+                  1,
+                  3,
+                  112,
+                  112
+                ],
+                "smokeShape": [
+                  1,
+                  3,
+                  112,
+                  112
+                ],
+                "smokeFill": 0
+              }
+            ],
+            "outputs": [
+              {
+                "name": "fc1",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  128
+                ],
+                "smokeShape": [
+                  1,
+                  128
+                ]
+              }
+            ],
+            "operators": [
+              "BatchNormalization",
+              "Conv",
+              "Dropout",
+              "Flatten",
+              "Gemm",
+              "Mul",
+              "PRelu",
+              "Sub"
+            ],
+            "smokeReference": {
+              "file": "model.onnx.smoke.f32",
+              "size": 512,
+              "sha256": "d64f60f83feedfa7a7c0cf5671769a41e7171c1806866868ed91c795452f085b",
+              "format": "little-endian-float32-output-order",
+              "comparison": "allclose",
+              "minimumCosine": 0.98,
+              "atol": 0.0001,
+              "rtol": 0.001
+            },
+            "hostValidation": {
+              "runtime": "onnxruntime==1.22.1",
+              "provider": "CPUExecutionProvider",
+              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "finiteOutputs": true
+            }
+          },
+          "conversionParity": {
+            "kind": "byte-identical publisher ONNX; no conversion"
+          }
+        },
+        {
+          "path": "sface-v1/model.onnx.smoke.f32",
+          "size": 512,
+          "sha256": "d64f60f83feedfa7a7c0cf5671769a41e7171c1806866868ed91c795452f085b"
+        }
+      ],
+      "sources": [
+        {
+          "kind": "github",
+          "repo": "opencv/opencv_zoo",
+          "revision": "47534e27c9851bb1128ccc0102f1145e27f23f98",
+          "declaredLicense": "MIT: face_detection_yunet; Apache-2.0: face_recognition_sface (directory LICENSE files)",
+          "files": [
+            {
+              "path": "models/face_recognition_sface/face_recognition_sface_2021dec.onnx",
+              "size": 38696353,
+              "sha256": "0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79",
+              "url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/47534e27c9851bb1128ccc0102f1145e27f23f98/models/face_recognition_sface/face_recognition_sface_2021dec.onnx"
+            },
+            {
+              "path": "models/face_recognition_sface/LICENSE",
+              "size": 11358,
+              "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+              "url": "https://raw.githubusercontent.com/opencv/opencv_zoo/47534e27c9851bb1128ccc0102f1145e27f23f98/models/face_recognition_sface/LICENSE"
+            },
+            {
+              "path": "models/face_recognition_sface/README.md",
+              "size": 2267,
+              "sha256": "e090e126f3fb5c0b0b2d84ee644b17e42a70b2e45a90616814970b811e91d063",
+              "url": "https://raw.githubusercontent.com/opencv/opencv_zoo/47534e27c9851bb1128ccc0102f1145e27f23f98/models/face_recognition_sface/README.md"
+            }
+          ]
+        }
+      ],
+      "preparation": {
+        "command": "python scripts/models/prepare.py prepare --component sface-v1",
+        "exportToolLockSha256": "d4f8c9d88093cb3267a723fffc9097438d177d7793b84c78d86fd109a5898956",
+        "paddleToolLockSha256": "cf235921583c9297905fe44fd8f3f1251c0ef87968f5db40280341c6b9bd71f2"
+      },
+      "fingerprint": "6c34b126fe2e499648d0c63345f3986b8aee27c57c0ad247121d60043e4cc2da"
+    },
+    {
+      "id": "sensitive-v1",
+      "contract": {
+        "roles": [
+          "sensitive-screening"
+        ],
+        "sourceRepo": "Marqo/nsfw-image-detection-384",
+        "license": "Apache-2.0",
+        "architecture": "vit_tiny_patch16_384; hidden dimension 192; 12 transformer blocks; 3 attention heads",
+        "preprocessing": {
+          "orientation": "apply EXIF orientation before resize",
+          "color": "RGB",
+          "layout": "NCHW",
+          "resize": "bicubic shorter side 384 then centered 384x384 crop (timm crop_pct=1.0, crop_mode=center)",
+          "scale": 0.00392156862745098,
+          "mean": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "std": [
+            0.5,
+            0.5,
+            0.5
+          ]
+        },
+        "output": {
+          "name": "probabilities",
+          "shape": [
+            1,
+            2
+          ],
+          "classes": [
+            "NSFW",
+            "SFW"
+          ],
+          "normalization": "softmax inside ONNX wrapper",
+          "sensitiveScoreIndex": 0
+        },
+        "scope": "Publisher training covers photos, drawings, memes and generated imagery. This is a sexual/NSFW-content screening signal; it does not certify absence of every kind of private or sensitive information.",
+        "calibration": {
+          "status": "not-run",
+          "releaseThreshold": null,
+          "required": "separate reviewed calibration/test fixtures; freeze per-artifact threshold before automatic safe decisions; no data means remain unclassified/quarantined"
+        },
+        "privacyContract": "docs/SENSITIVE_MEDIA.md; manual overrides separate; highest scheduler priority after import/change; hidden by default"
+      },
+      "artifacts": [
+        {
+          "path": "sensitive-v1/config.json",
+          "size": 629,
+          "sha256": "ae848d1dca0aeccd38f2ebb4b1bb47219cdc7f34e3ddc50c8d6430abe74d79b4"
+        },
+        {
+          "path": "sensitive-v1/model.onnx",
+          "size": 22487218,
+          "sha256": "16589e0814ffe4df6123b16e87c54d59d41d103374ab902f83885d09709596a1",
+          "onnx": {
+            "irVersion": 8,
+            "opsets": {
+              "ai.onnx": 17
+            },
+            "inputs": [
+              {
+                "name": "pixel_values",
+                "type": "float32",
+                "shape": [
+                  1,
+                  3,
+                  384,
+                  384
+                ],
+                "smokeShape": [
+                  1,
+                  3,
+                  384,
+                  384
+                ],
+                "smokeFill": 0
+              }
+            ],
+            "outputs": [
+              {
+                "name": "probabilities",
+                "type": "tensor(float)",
+                "shape": [
+                  1,
+                  2
+                ],
+                "smokeShape": [
+                  1,
+                  2
+                ]
+              }
+            ],
+            "operators": [
+              "Add",
+              "Concat",
+              "Constant",
+              "ConstantOfShape",
+              "Conv",
+              "Div",
+              "Equal",
+              "Erf",
+              "Expand",
+              "Gather",
+              "Gemm",
+              "LayerNormalization",
+              "MatMul",
+              "Mul",
+              "Reshape",
+              "Shape",
+              "Slice",
+              "Softmax",
+              "Split",
+              "Squeeze",
+              "Transpose",
+              "Where"
+            ],
+            "smokeReference": {
+              "file": "model.onnx.smoke.f32",
+              "size": 8,
+              "sha256": "5ac3d0c5b26088217b35f9756591bf01af5548b554f87c61d8466bac896d2931",
+              "format": "little-endian-float32-output-order",
+              "comparison": "allclose",
+              "minimumCosine": 0.98,
+              "atol": 0.0001,
+              "rtol": 0.001
+            },
+            "hostValidation": {
+              "runtime": "onnxruntime==1.22.1",
+              "provider": "CPUExecutionProvider",
+              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "finiteOutputs": true
+            }
+          },
+          "conversionParity": {
+            "precision": "FP32",
+            "fp32OnnxMaxAbsoluteErrorToTorch": 4.470348358154297e-08,
+            "syntheticCosineToTorchFp32": 0.9999999403953552,
+            "syntheticMaxAbsoluteError": 4.470348358154297e-08,
+            "acceptanceThreshold": 0.98,
+            "qualityBenchmark": false
+          }
+        },
+        {
+          "path": "sensitive-v1/model.onnx.smoke.f32",
+          "size": 8,
+          "sha256": "5ac3d0c5b26088217b35f9756591bf01af5548b554f87c61d8466bac896d2931"
+        }
+      ],
+      "sources": [
+        {
+          "kind": "huggingface",
+          "repo": "Marqo/nsfw-image-detection-384",
+          "revision": "0c26ec22111b83f106d72a55f611ec35962bcb65",
+          "declaredLicense": "apache-2.0",
+          "files": [
+            {
+              "path": "README.md",
+              "size": 4108,
+              "url": "https://huggingface.co/Marqo/nsfw-image-detection-384/resolve/0c26ec22111b83f106d72a55f611ec35962bcb65/README.md",
+              "sha256": "619f379b00af55e69da0ebaf1ba3f9dda1980e20433a391815e85aa24e475c90"
+            },
+            {
+              "path": "config.json",
+              "size": 629,
+              "url": "https://huggingface.co/Marqo/nsfw-image-detection-384/resolve/0c26ec22111b83f106d72a55f611ec35962bcb65/config.json",
+              "sha256": "ae848d1dca0aeccd38f2ebb4b1bb47219cdc7f34e3ddc50c8d6430abe74d79b4"
+            },
+            {
+              "path": "model.safetensors",
+              "size": 22404720,
+              "url": "https://huggingface.co/Marqo/nsfw-image-detection-384/resolve/0c26ec22111b83f106d72a55f611ec35962bcb65/model.safetensors",
+              "sha256": "6bf2e0f64a1d20169736c2836e3a787b12379fdc08ba87f7d94a7a3d58eeefce"
+            }
+          ]
+        }
+      ],
+      "preparation": {
+        "command": "python scripts/models/prepare.py prepare --component sensitive-v1",
+        "exportToolLockSha256": "d4f8c9d88093cb3267a723fffc9097438d177d7793b84c78d86fd109a5898956",
+        "paddleToolLockSha256": "cf235921583c9297905fe44fd8f3f1251c0ef87968f5db40280341c6b9bd71f2"
+      },
+      "fingerprint": "b5d886b092dde57a69384df8ff09b3934643fb8ffaea2062a8d3ea603815b6d0"
+    },
+    {
+      "id": "siglip2-tokenizer-v1",
+      "contract": {
+        "roles": [
+          "tokenizer"
+        ],
+        "preprocessing": {
+          "tokenizer": "GemmaTokenizerFast 4.55.4/tokenizers 0.21.4 from exact publisher tokenizer.json",
+          "sequenceLength": 64,
+          "padding": "right, ID 0",
+          "specialTokens": "no BOS; append EOS ID 1; truncate to 64 including EOS",
+          "textNormalization": "exact tokenizers JSON Replace(space, ▁) plus Split(space, MergedWithPrevious); preserve case/punctuation as observed. GemmaTokenizerFast ignores legacy do_lower_case=true config; golden tests are authoritative. Do not substitute SiglipTokenizer (SigLIP 1)."
+        },
+        "license": "Apache-2.0",
+        "sourceRepo": "google/siglip2-base-patch16-224"
+      },
+      "artifacts": [
+        {
+          "path": "siglip2-tokenizer-v1/special_tokens_map.json",
+          "size": 636,
+          "sha256": "baec30ea10906f16adb8c18af7a34023002c1746542612b8b41c9f09e1351351"
+        },
+        {
+          "path": "siglip2-tokenizer-v1/tokenizer.json",
+          "size": 34363039,
+          "sha256": "cb9140fae3ac5122c972d37adf83e1248471a38147ad76f8215c8872c6fd8322"
+        },
+        {
+          "path": "siglip2-tokenizer-v1/tokenizer.model",
+          "size": 4241003,
+          "sha256": "61a7b147390c64585d6c3543dd6fc636906c9af3865a5548f27f31aee1d4c8e2"
+        },
+        {
+          "path": "siglip2-tokenizer-v1/tokenizer_config.json",
+          "size": 47164,
+          "sha256": "14afe629fe4959b9e0d51e1852b8d9f7ad074f90a1a7125a4fcdd17f06e78fc8"
+        }
+      ],
+      "sources": [
+        {
+          "kind": "huggingface",
+          "repo": "google/siglip2-large-patch16-256",
+          "revision": "787800c8990e6f058423089178e718139608408c",
+          "declaredLicense": "apache-2.0",
+          "files": [
+            {
+              "path": "special_tokens_map.json",
+              "size": 636,
+              "url": "https://huggingface.co/google/siglip2-large-patch16-256/resolve/787800c8990e6f058423089178e718139608408c/special_tokens_map.json",
+              "sha256": "baec30ea10906f16adb8c18af7a34023002c1746542612b8b41c9f09e1351351"
+            },
+            {
+              "path": "tokenizer.json",
+              "size": 34363039,
+              "url": "https://huggingface.co/google/siglip2-large-patch16-256/resolve/787800c8990e6f058423089178e718139608408c/tokenizer.json",
+              "sha256": "cb9140fae3ac5122c972d37adf83e1248471a38147ad76f8215c8872c6fd8322"
+            },
+            {
+              "path": "tokenizer.model",
+              "size": 4241003,
+              "url": "https://huggingface.co/google/siglip2-large-patch16-256/resolve/787800c8990e6f058423089178e718139608408c/tokenizer.model",
+              "sha256": "61a7b147390c64585d6c3543dd6fc636906c9af3865a5548f27f31aee1d4c8e2"
+            },
+            {
+              "path": "tokenizer_config.json",
+              "size": 47164,
+              "url": "https://huggingface.co/google/siglip2-large-patch16-256/resolve/787800c8990e6f058423089178e718139608408c/tokenizer_config.json",
+              "sha256": "14afe629fe4959b9e0d51e1852b8d9f7ad074f90a1a7125a4fcdd17f06e78fc8"
+            }
+          ]
+        },
+        {
+          "kind": "huggingface",
+          "repo": "google/siglip2-base-patch16-224",
+          "revision": "75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2",
+          "declaredLicense": "apache-2.0",
+          "files": [
+            {
+              "path": "special_tokens_map.json",
+              "size": 636,
+              "url": "https://huggingface.co/google/siglip2-base-patch16-224/resolve/75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2/special_tokens_map.json",
+              "sha256": "baec30ea10906f16adb8c18af7a34023002c1746542612b8b41c9f09e1351351"
+            },
+            {
+              "path": "tokenizer.json",
+              "size": 34363039,
+              "url": "https://huggingface.co/google/siglip2-base-patch16-224/resolve/75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2/tokenizer.json",
+              "sha256": "cb9140fae3ac5122c972d37adf83e1248471a38147ad76f8215c8872c6fd8322"
+            },
+            {
+              "path": "tokenizer.model",
+              "size": 4241003,
+              "url": "https://huggingface.co/google/siglip2-base-patch16-224/resolve/75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2/tokenizer.model",
+              "sha256": "61a7b147390c64585d6c3543dd6fc636906c9af3865a5548f27f31aee1d4c8e2"
+            },
+            {
+              "path": "tokenizer_config.json",
+              "size": 47164,
+              "url": "https://huggingface.co/google/siglip2-base-patch16-224/resolve/75de2d55ec2d0b4efc50b3e9ad70dba96a7b2fa2/tokenizer_config.json",
+              "sha256": "14afe629fe4959b9e0d51e1852b8d9f7ad074f90a1a7125a4fcdd17f06e78fc8"
+            }
+          ]
+        }
+      ],
+      "preparation": "Byte-identical pinned tokenizer files; both publisher revisions verified",
+      "fingerprint": "1e5fcdf7934d91c20eed5d2f5c798c8be16fe8b57ff9aca153914995e53327a0"
+    }
+  ],
+  "profiles": [
+    {
+      "id": "compact-v1",
+      "components": [
+        "clip-image-v1",
+        "multilingual-text-v1",
+        "ocr-mobile-det-v1",
+        "ocr-cyrillic-rec-v1",
+        "yunet-v1",
+        "sface-v1",
+        "sensitive-v1"
+      ],
+      "pipelines": {
+        "search": {
+          "components": [
+            "clip-image-v1",
+            "multilingual-text-v1"
+          ],
+          "dimension": 512,
+          "fingerprint": "05d42961dc5660710de9bc8a437aae2095511b455344333ab0dbaef0b63ad622"
+        },
+        "ocr": {
+          "components": [
+            "ocr-mobile-det-v1",
+            "ocr-cyrillic-rec-v1"
+          ],
+          "fingerprint": "23762e4671958157921aab5310a416b2e07705465774932ca3bb2ea91a287f4a"
+        },
+        "people": {
+          "components": [
+            "yunet-v1",
+            "sface-v1"
+          ],
+          "dimension": 128,
+          "fingerprint": "6043b172f27f9b1fdcab2b6bd20de5ac18dab4468916f3180fe794823b00082c"
+        },
+        "sensitive": {
+          "components": [
+            "sensitive-v1"
+          ],
+          "calibration": "not-run",
+          "fingerprint": "3e289326f66735a08964ed49b820dfbc3561473882f5be8de6205971e39523d8"
+        }
+      },
+      "fingerprint": "5391879590a7eca59afc3d2d7b7b8e17f148eecfdaa469eb1d940869e2e2a71d"
+    },
+    {
+      "id": "balanced-v1",
+      "components": [
+        "siglip2-base-v1",
+        "siglip2-tokenizer-v1",
+        "ocr-mobile-det-v1",
+        "ocr-cyrillic-rec-v1",
+        "yunet-v1",
+        "sface-v1",
+        "sensitive-v1"
+      ],
+      "pipelines": {
+        "search": {
+          "components": [
+            "siglip2-base-v1",
+            "siglip2-tokenizer-v1"
+          ],
+          "dimension": 768,
+          "fingerprint": "ab41a3968feeb3345ec08767017209db6597e5a870f9865d4b6440542ad6b327"
+        },
+        "ocr": {
+          "components": [
+            "ocr-mobile-det-v1",
+            "ocr-cyrillic-rec-v1"
+          ],
+          "fingerprint": "23762e4671958157921aab5310a416b2e07705465774932ca3bb2ea91a287f4a"
+        },
+        "people": {
+          "components": [
+            "yunet-v1",
+            "sface-v1"
+          ],
+          "dimension": 128,
+          "fingerprint": "6043b172f27f9b1fdcab2b6bd20de5ac18dab4468916f3180fe794823b00082c"
+        },
+        "sensitive": {
+          "components": [
+            "sensitive-v1"
+          ],
+          "calibration": "not-run",
+          "fingerprint": "3e289326f66735a08964ed49b820dfbc3561473882f5be8de6205971e39523d8"
+        }
+      },
+      "fingerprint": "2c4b1ebf5ffca586e52f188df2876a9552bfebe8e43aeefc3ca6c9f8d5136101"
+    },
+    {
+      "id": "extended-v1",
+      "components": [
+        "siglip2-large-v1",
+        "siglip2-tokenizer-v1",
+        "ocr-server-det-v1",
+        "ocr-cyrillic-rec-v1",
+        "yunet-v1",
+        "sface-v1",
+        "sensitive-v1"
+      ],
+      "pipelines": {
+        "search": {
+          "components": [
+            "siglip2-large-v1",
+            "siglip2-tokenizer-v1"
+          ],
+          "dimension": 1024,
+          "fingerprint": "39c9a26b2d94fe5d34746a3d7d99df61be5e44f1a47ffb0751c99600fcb0d3f8"
+        },
+        "ocr": {
+          "components": [
+            "ocr-server-det-v1",
+            "ocr-cyrillic-rec-v1"
+          ],
+          "fingerprint": "12502ba012707a503a3163785b1de7f6bbcb241f5425f858ce0334400a80f179"
+        },
+        "people": {
+          "components": [
+            "yunet-v1",
+            "sface-v1"
+          ],
+          "dimension": 128,
+          "fingerprint": "6043b172f27f9b1fdcab2b6bd20de5ac18dab4468916f3180fe794823b00082c"
+        },
+        "sensitive": {
+          "components": [
+            "sensitive-v1"
+          ],
+          "calibration": "not-run",
+          "fingerprint": "3e289326f66735a08964ed49b820dfbc3561473882f5be8de6205971e39523d8"
+        }
+      },
+      "fingerprint": "45a6cacee37cb8be6b299edf8a9914daea8875de5fd9f4cd280b77d07f25a67b"
+    }
+  ],
+  "backendPolicy": "backend-policy-v1.json",
+  "qualityAcceptance": "not-run; external fixtures required",
+  "licenseNotices": [
+    {
+      "path": "licenses/Apache-2.0.txt",
+      "size": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/CLIP-MIT.txt",
+      "size": 1064,
+      "sha256": "987e63b32f6c89ff5160e429458a872ff048e6860b590a3912e938f9da8f14db"
+    },
+    {
+      "path": "licenses/YuNet-MIT.txt",
+      "size": 1085,
+      "sha256": "c83b8120c50ccbd4c4f96edf53141bdd566ebb8f8e9227e415326aa1b1aba958"
+    }
+  ]
+}

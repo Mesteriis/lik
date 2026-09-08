@@ -17,6 +17,44 @@ val keystoreProperties = Properties().apply {
     }
 }
 
+val modelPython = providers.gradleProperty("likModelPython").orElse("python3")
+val generatedModelAssets = layout.buildDirectory.dir("generated/modelAssets")
+
+val stageModelMetadata by tasks.registering(Exec::class) {
+    description = "Stage preset manifests/licenses only. External model caches never enter APK assets."
+    workingDir(rootProject.projectDir)
+    outputs.dir(generatedModelAssets)
+    outputs.upToDateWhen { false }
+    commandLine(modelPython.get(), "scripts/models/artifacts.py", "stage",
+        "--output", generatedModelAssets.get().asFile.absolutePath)
+}
+
+tasks.named("preBuild") { dependsOn(stageModelMetadata) }
+
+listOf("Debug", "Release").forEach { variant ->
+    val checkPayloads = tasks.register<Exec>("verify${variant}ModelPayloads") {
+        group = "verification"
+        description = "Reject model/tokenizer payloads in the $variant APK."
+        dependsOn("package$variant")
+        workingDir(rootProject.projectDir)
+        commandLine(modelPython.get(), "scripts/models/inspect_apk.py",
+            "--directory", layout.buildDirectory.dir("outputs/apk/${variant.lowercase()}").get().asFile.absolutePath)
+    }
+    tasks.matching { it.name == "assemble$variant" }.configureEach { dependsOn(checkPayloads) }
+}
+
+val verifyDistributionApks by tasks.registering {
+    group = "verification"
+    description = "Reject model/tokenizer payloads in debug/release APKs, including oversized stale archives."
+    dependsOn("assembleDebug", "assembleRelease")
+}
+
+tasks.register("assembleDistribution") {
+    group = "build"
+    description = "Build metadata-only debug/release APKs and verify no model payload is bundled."
+    dependsOn(verifyDistributionApks)
+}
+
 android {
     namespace = "io.github.mesteriis.lik"
     compileSdk = 37
@@ -61,6 +99,7 @@ android {
     }
 
     sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    sourceSets.getByName("main").assets.srcDir(generatedModelAssets.get().asFile)
 
     lint {
         abortOnError = true
@@ -79,6 +118,7 @@ dependencies {
     implementation(libs.androidx.room.paging)
     implementation(libs.androidx.paging)
     implementation(libs.androidx.work)
+    implementation(libs.onnxruntime.android)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit4)
     androidTestImplementation(libs.androidx.test.core)

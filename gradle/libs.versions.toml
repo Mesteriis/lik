@@ -10,6 +10,7 @@ room = "2.8.4"
 ksp = "2.3.9"
 paging = "3.5.1"
 work = "2.11.2"
+onnxruntime = "1.29.0"
 
 [libraries]
 junit4 = { module = "junit:junit", version.ref = "junit" }
@@ -22,6 +23,7 @@ androidx-room-paging = { module = "androidx.room:room-paging", version.ref = "ro
 androidx-paging = { module = "androidx.paging:paging-runtime", version.ref = "paging" }
 androidx-work = { module = "androidx.work:work-runtime", version.ref = "work" }
 androidx-work-testing = { module = "androidx.work:work-testing", version.ref = "work" }
+onnxruntime-android = { module = "com.microsoft.onnxruntime:onnxruntime-android", version.ref = "onnxruntime" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-test" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-test" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-ext-junit" }

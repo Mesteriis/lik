@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "fixtureStatus": "external dataset required; scenarios are not measured samples",
+  "scenarios": [
+    {
+      "id": "ordinary",
+      "en": "Ordinary indoor/outdoor photos",
+      "ru": "Обычные фото в помещении и на улице"
+    },
+    {
+      "id": "sports",
+      "en": "Sports and swimwear hard negatives",
+      "ru": "Спорт и купальные костюмы: сложные отрицательные примеры"
+    },
+    {
+      "id": "textures",
+      "en": "Skin-like textures and colors",
+      "ru": "Текстуры и цвета, похожие на кожу"
+    },
+    {
+      "id": "art",
+      "en": "Classical art with contextual review",
+      "ru": "Классическое искусство с контекстной оценкой"
+    },
+    {
+      "id": "drawings",
+      "en": "Adult drawings and safe drawings",
+      "ru": "Рисунки для взрослых и безопасные рисунки"
+    },
+    {
+      "id": "photos",
+      "en": "Adult explicit photos and matched safe photos",
+      "ru": "Явные фото для взрослых и похожие безопасные фото"
+    },
+    {
+      "id": "generated",
+      "en": "Generated adult and safe images",
+      "ru": "Сгенерированные взрослые и безопасные изображения"
+    },
+    {
+      "id": "screenshots",
+      "en": "Text-bearing screenshots in each language",
+      "ru": "Скриншоты с текстом на каждом языке"
+    },
+    {
+      "id": "lighting",
+      "en": "Low light, blur and partial crops",
+      "ru": "Слабое освещение, размытие и частичные кадры"
+    },
+    {
+      "id": "documents",
+      "en": "Private documents outside NSFW scope",
+      "ru": "Личные документы вне области NSFW-классификатора"
+    }
+  ]
+}

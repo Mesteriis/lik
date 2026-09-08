@@ -1,0 +1,305 @@
+{
+  "schemaVersion": 1,
+  "queries": [
+    {
+      "id": "en01",
+      "language": "en",
+      "text": "a cat sleeping on a sofa"
+    },
+    {
+      "id": "en02",
+      "language": "en",
+      "text": "a dog playing in snow"
+    },
+    {
+      "id": "en03",
+      "language": "en",
+      "text": "children playing in a park"
+    },
+    {
+      "id": "en04",
+      "language": "en",
+      "text": "a family dinner at home"
+    },
+    {
+      "id": "en05",
+      "language": "en",
+      "text": "a birthday cake with candles"
+    },
+    {
+      "id": "en06",
+      "language": "en",
+      "text": "a sunset over the sea"
+    },
+    {
+      "id": "en07",
+      "language": "en",
+      "text": "snowy mountains under blue sky"
+    },
+    {
+      "id": "en08",
+      "language": "en",
+      "text": "a forest path in autumn"
+    },
+    {
+      "id": "en09",
+      "language": "en",
+      "text": "a waterfall among rocks"
+    },
+    {
+      "id": "en10",
+      "language": "en",
+      "text": "flowers growing in a garden"
+    },
+    {
+      "id": "en11",
+      "language": "en",
+      "text": "a sandy beach with umbrellas"
+    },
+    {
+      "id": "en12",
+      "language": "en",
+      "text": "a city street at night"
+    },
+    {
+      "id": "en13",
+      "language": "en",
+      "text": "a bridge across a river"
+    },
+    {
+      "id": "en14",
+      "language": "en",
+      "text": "an old church in a village"
+    },
+    {
+      "id": "en15",
+      "language": "en",
+      "text": "a modern building made of glass"
+    },
+    {
+      "id": "en16",
+      "language": "en",
+      "text": "a red car parked outside"
+    },
+    {
+      "id": "en17",
+      "language": "en",
+      "text": "a train at a station"
+    },
+    {
+      "id": "en18",
+      "language": "en",
+      "text": "a bicycle beside a wall"
+    },
+    {
+      "id": "en19",
+      "language": "en",
+      "text": "an airplane in the sky"
+    },
+    {
+      "id": "en20",
+      "language": "en",
+      "text": "a boat on a lake"
+    },
+    {
+      "id": "en21",
+      "language": "en",
+      "text": "a cup of coffee on a table"
+    },
+    {
+      "id": "en22",
+      "language": "en",
+      "text": "a plate of pasta"
+    },
+    {
+      "id": "en23",
+      "language": "en",
+      "text": "fresh fruit at a market"
+    },
+    {
+      "id": "en24",
+      "language": "en",
+      "text": "a handwritten note"
+    },
+    {
+      "id": "en25",
+      "language": "en",
+      "text": "a shop sign with text"
+    },
+    {
+      "id": "en26",
+      "language": "en",
+      "text": "a receipt on a desk"
+    },
+    {
+      "id": "en27",
+      "language": "en",
+      "text": "a computer screen and keyboard"
+    },
+    {
+      "id": "en28",
+      "language": "en",
+      "text": "a person wearing a yellow jacket"
+    },
+    {
+      "id": "en29",
+      "language": "en",
+      "text": "a group of people posing together"
+    },
+    {
+      "id": "en30",
+      "language": "en",
+      "text": "a person holding an umbrella in rain"
+    },
+    {
+      "id": "ru01",
+      "language": "ru",
+      "text": "кот спит на диване"
+    },
+    {
+      "id": "ru02",
+      "language": "ru",
+      "text": "собака играет в снегу"
+    },
+    {
+      "id": "ru03",
+      "language": "ru",
+      "text": "дети играют в парке"
+    },
+    {
+      "id": "ru04",
+      "language": "ru",
+      "text": "семейный ужин дома"
+    },
+    {
+      "id": "ru05",
+      "language": "ru",
+      "text": "именинный торт со свечами"
+    },
+    {
+      "id": "ru06",
+      "language": "ru",
+      "text": "закат над морем"
+    },
+    {
+      "id": "ru07",
+      "language": "ru",
+      "text": "снежные горы под синим небом"
+    },
+    {
+      "id": "ru08",
+      "language": "ru",
+      "text": "лесная тропинка осенью"
+    },
+    {
+      "id": "ru09",
+      "language": "ru",
+      "text": "водопад среди скал"
+    },
+    {
+      "id": "ru10",
+      "language": "ru",
+      "text": "цветы растут в саду"
+    },
+    {
+      "id": "ru11",
+      "language": "ru",
+      "text": "песчаный пляж с зонтиками"
+    },
+    {
+      "id": "ru12",
+      "language": "ru",
+      "text": "городская улица ночью"
+    },
+    {
+      "id": "ru13",
+      "language": "ru",
+      "text": "мост через реку"
+    },
+    {
+      "id": "ru14",
+      "language": "ru",
+      "text": "старая церковь в деревне"
+    },
+    {
+      "id": "ru15",
+      "language": "ru",
+      "text": "современное стеклянное здание"
+    },
+    {
+      "id": "ru16",
+      "language": "ru",
+      "text": "красная машина припаркована на улице"
+    },
+    {
+      "id": "ru17",
+      "language": "ru",
+      "text": "поезд на вокзале"
+    },
+    {
+      "id": "ru18",
+      "language": "ru",
+      "text": "велосипед у стены"
+    },
+    {
+      "id": "ru19",
+      "language": "ru",
+      "text": "самолёт в небе"
+    },
+    {
+      "id": "ru20",
+      "language": "ru",
+      "text": "лодка на озере"
+    },
+    {
+      "id": "ru21",
+      "language": "ru",
+      "text": "чашка кофе на столе"
+    },
+    {
+      "id": "ru22",
+      "language": "ru",
+      "text": "тарелка макарон"
+    },
+    {
+      "id": "ru23",
+      "language": "ru",
+      "text": "свежие фрукты на рынке"
+    },
+    {
+      "id": "ru24",
+      "language": "ru",
+      "text": "записка от руки"
+    },
+    {
+      "id": "ru25",
+      "language": "ru",
+      "text": "вывеска магазина с текстом"
+    },
+    {
+      "id": "ru26",
+      "language": "ru",
+      "text": "чек на письменном столе"
+    },
+    {
+      "id": "ru27",
+      "language": "ru",
+      "text": "экран компьютера и клавиатура"
+    },
+    {
+      "id": "ru28",
+      "language": "ru",
+      "text": "человек в жёлтой куртке"
+    },
+    {
+      "id": "ru29",
+      "language": "ru",
+      "text": "группа людей позирует вместе"
+    },
+    {
+      "id": "ru30",
+      "language": "ru",
+      "text": "человек с зонтом под дождём"
+    }
+  ]
+}

@@ -1,0 +1,342 @@
+{
+  "schemaVersion": 1,
+  "components": {
+    "clip-image-v1": {
+      "roles": [
+        "search-image"
+      ],
+      "embeddingDimension": 512,
+      "metric": "cosine of L2-normalized embeddings",
+      "preprocessing": {
+        "orientation": "apply EXIF orientation before resize",
+        "color": "RGB",
+        "resize": "bicubic shortest side 224 then centered 224x224 crop",
+        "layout": "NCHW",
+        "scale": 0.00392156862745098,
+        "mean": [
+          0.48145466,
+          0.4578275,
+          0.40821073
+        ],
+        "std": [
+          0.26862954,
+          0.26130258,
+          0.27577711
+        ]
+      },
+      "outputNormalization": "External L2 normalization of image_embeds; HF graph preserves FP32 public I/O with FP16 internal weights/operators",
+      "license": "MIT",
+      "sourceRepo": "openai/clip-vit-base-patch32"
+    },
+    "multilingual-text-v1": {
+      "roles": [
+        "search-text",
+        "tokenizer"
+      ],
+      "embeddingDimension": 512,
+      "metric": "cosine of L2-normalized embeddings",
+      "preprocessing": {
+        "tokenizer": "DistilBertTokenizerFast; publisher tokenizer.json; cased WordPiece",
+        "sequenceLength": 128,
+        "padding": "right, ID 0",
+        "specialTokens": "[CLS]=101, [SEP]=102",
+        "attentionMask": "1 for tokens, 0 for pad",
+        "textNormalization": "publisher BertNormalizer: clean_text=true, handle_chinese_chars=true, strip_accents=null, lowercase=false; see golden token IDs"
+      },
+      "outputNormalization": "External mask-weighted mean of last_hidden_state, publisher linear.weight projection 768→512, then L2 normalization",
+      "license": "Apache-2.0",
+      "sourceRepo": "sentence-transformers/clip-ViT-B-32-multilingual-v1",
+      "onnxOutput": {
+        "name": "last_hidden_state",
+        "shape": [
+          1,
+          128,
+          768
+        ]
+      },
+      "projection": {
+        "artifact": "multilingual-text-v1/projection.safetensors",
+        "tensor": "linear.weight",
+        "dtype": "F32",
+        "shape": [
+          512,
+          768
+        ],
+        "bias": false,
+        "activation": "identity",
+        "format": "safetensors; little-endian uint64 header length then UTF-8 JSON then raw tensor bytes"
+      }
+    },
+    "siglip2-base-v1": {
+      "roles": [
+        "search-image",
+        "search-text"
+      ],
+      "embeddingDimension": 768,
+      "metric": "cosine of L2-normalized embeddings",
+      "preprocessing": {
+        "orientation": "apply EXIF orientation before resize",
+        "color": "RGB",
+        "resize": "bilinear resize to 224x224; no center crop",
+        "layout": "NCHW",
+        "scale": 0.00392156862745098,
+        "mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "std": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "text": "siglip2-tokenizer-v1, length 64, no attention mask"
+      },
+      "outputNormalization": "Select pooler_output by name (not last_hidden_state), then external L2 normalization; FP32 public I/O, FP16 internal weights/operators",
+      "license": "Apache-2.0",
+      "sourceRepo": "google/siglip2-base-patch16-224",
+      "textAttentionMask": "ONNX text tower accepts input_ids only; preserve all 64 padded positions as publisher SigLIP inference"
+    },
+    "siglip2-large-v1": {
+      "roles": [
+        "search-image",
+        "search-text"
+      ],
+      "embeddingDimension": 1024,
+      "metric": "cosine of L2-normalized embeddings",
+      "preprocessing": {
+        "orientation": "apply EXIF orientation before resize",
+        "color": "RGB",
+        "resize": "bilinear resize to 256x256; no center crop",
+        "layout": "NCHW",
+        "scale": 0.00392156862745098,
+        "mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "std": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "text": "siglip2-tokenizer-v1, length 64, no attention mask"
+      },
+      "outputNormalization": "Select pooler_output by name (not last_hidden_state), then external L2 normalization; image tower FP32, text tower FP16 internal weights/operators with FP32 public I/O. FP16 image was rejected after Android auxiliary-output parity failed.",
+      "license": "Apache-2.0",
+      "sourceRepo": "google/siglip2-large-patch16-256",
+      "textAttentionMask": "ONNX text tower accepts input_ids only; preserve all 64 padded positions as publisher SigLIP inference"
+    },
+    "siglip2-tokenizer-v1": {
+      "roles": [
+        "tokenizer"
+      ],
+      "preprocessing": {
+        "tokenizer": "GemmaTokenizerFast 4.55.4/tokenizers 0.21.4 from exact publisher tokenizer.json",
+        "sequenceLength": 64,
+        "padding": "right, ID 0",
+        "specialTokens": "no BOS; append EOS ID 1; truncate to 64 including EOS",
+        "textNormalization": "exact tokenizers JSON Replace(space, ▁) plus Split(space, MergedWithPrevious); preserve case/punctuation as observed. GemmaTokenizerFast ignores legacy do_lower_case=true config; golden tests are authoritative. Do not substitute SiglipTokenizer (SigLIP 1)."
+      },
+      "license": "Apache-2.0",
+      "sourceRepo": "google/siglip2-base-patch16-224"
+    },
+    "yunet-v1": {
+      "roles": [
+        "face-detector"
+      ],
+      "preprocessing": {
+        "orientation": "apply EXIF orientation before detection",
+        "color": "BGR",
+        "layout": "NCHW",
+        "scale": 1,
+        "mean": [
+          0,
+          0,
+          0
+        ],
+        "resize": "Lik policy: preserve aspect ratio, bilinear fit into 640x640 and pad right/bottom with zero; map coordinates back. The pinned ONNX is fixed 640x640 (not the OpenCV demo 320 setting)."
+      },
+      "postprocessing": {
+        "strides": [
+          8,
+          16,
+          32
+        ],
+        "score": "sqrt(clamp(cls,0,1)*clamp(obj,0,1))",
+        "box": "center=((grid_x+dx)*stride,(grid_y+dy)*stride); wh=exp(dw,dh)*stride",
+        "landmarks": "five xy pairs: (grid+offset)*stride",
+        "scoreThreshold": 0.9,
+        "nmsIouThreshold": 0.3,
+        "topK": 5000,
+        "coordinateSpace": "unpad/unscale to EXIF-oriented image"
+      },
+      "license": "MIT",
+      "sourceRepo": "opencv/opencv_zoo"
+    },
+    "sface-v1": {
+      "roles": [
+        "face-embedding"
+      ],
+      "embeddingDimension": 128,
+      "metric": "cosine after external L2 normalization",
+      "preprocessing": {
+        "color": "RGB",
+        "layout": "NCHW",
+        "inputRange": [
+          0,
+          255
+        ],
+        "normalization": "none externally; pinned graph contains (x-127.5)/128 through scalar ops",
+        "alignment": "similarity transform from YuNet eye/nose/mouth landmarks; bilinear warp to 112x112",
+        "alignmentTemplate": [
+          [
+            38.2946,
+            51.6963
+          ],
+          [
+            73.5318,
+            51.5014
+          ],
+          [
+            56.0252,
+            71.7366
+          ],
+          [
+            41.5493,
+            92.3655
+          ],
+          [
+            70.7299,
+            92.2041
+          ]
+        ]
+      },
+      "outputNormalization": "external L2 normalization of fc1; threshold is a calibration parameter, not a measured Lik match guarantee",
+      "license": "Apache-2.0",
+      "sourceRepo": "opencv/opencv_zoo"
+    },
+    "ocr-mobile-det-v1": {
+      "roles": [
+        "ocr-detector"
+      ],
+      "preprocessing": {
+        "orientation": "apply EXIF orientation before detection",
+        "color": "BGR",
+        "layout": "NCHW",
+        "resize": "Exact publisher DetResizeForTest resize_long=960: ratio=960/max(h,w), truncate scaled h/w to integers, ceil each to multiple of 128, bilinear resize; preserve separate x/y ratios when mapping boxes. Tiny inputs with h+w<64 are padded before this transform. This is resize_type2, not the limit_side_len/32 variant.",
+        "scale": 0.00392156862745098,
+        "mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "std": [
+          0.229,
+          0.224,
+          0.225
+        ]
+      },
+      "postprocessing": {
+        "algorithm": "DBPostProcess quadrilaterals; probability map threshold 0.3; box score >=0.6; max candidates 1000; unclip_ratio=1.5; map to original oriented size",
+        "contractFile": "inference.yml"
+      },
+      "license": "Apache-2.0",
+      "sourceRepo": "PaddlePaddle/PP-OCRv5_mobile_det"
+    },
+    "ocr-server-det-v1": {
+      "roles": [
+        "ocr-detector"
+      ],
+      "preprocessing": {
+        "orientation": "apply EXIF orientation before detection",
+        "color": "BGR",
+        "layout": "NCHW",
+        "resize": "Exact publisher DetResizeForTest resize_long=960: ratio=960/max(h,w), truncate scaled h/w to integers, ceil each to multiple of 128, bilinear resize; preserve separate x/y ratios when mapping boxes. Tiny inputs with h+w<64 are padded before this transform. This is resize_type2, not the limit_side_len/32 variant.",
+        "scale": 0.00392156862745098,
+        "mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "std": [
+          0.229,
+          0.224,
+          0.225
+        ]
+      },
+      "postprocessing": {
+        "algorithm": "DBPostProcess quadrilaterals; probability map threshold 0.3; box score >=0.6; max candidates 1000; unclip_ratio=1.5; map to original oriented size",
+        "contractFile": "inference.yml"
+      },
+      "license": "Apache-2.0",
+      "sourceRepo": "PaddlePaddle/PP-OCRv5_server_det"
+    },
+    "ocr-cyrillic-rec-v1": {
+      "roles": [
+        "ocr-recognizer",
+        "ocr-dictionary"
+      ],
+      "preprocessing": {
+        "color": "BGR",
+        "layout": "NCHW",
+        "height": 48,
+        "width": "Lik baseline 320; preserve aspect ratio, resize width=min(320,ceil(48*aspect)), pad right with normalized zero; vertical crops rotate 90 degrees before resize when height/width>=1.5",
+        "normalization": "(uint8/255 - 0.5)/0.5; right padding is 0 after normalization"
+      },
+      "postprocessing": {
+        "algorithm": "CTC greedy argmax; remove repeated adjacent IDs and blank 0; dictionary characters.txt plus trailing space; dictionary entries index+1; preserve case and Cyrillic",
+        "classes": 852,
+        "confidence": "mean of selected nonblank timestep probabilities"
+      },
+      "license": "Apache-2.0",
+      "sourceRepo": "PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec",
+      "characterDictionaryArtifact": "ocr-cyrillic-rec-v1/characters.txt; exact 850 publisher dictionary entries; append a space and prepend CTC blank index 0 to match 852 classes"
+    },
+    "sensitive-v1": {
+      "roles": [
+        "sensitive-screening"
+      ],
+      "sourceRepo": "Marqo/nsfw-image-detection-384",
+      "license": "Apache-2.0",
+      "architecture": "vit_tiny_patch16_384; hidden dimension 192; 12 transformer blocks; 3 attention heads",
+      "preprocessing": {
+        "orientation": "apply EXIF orientation before resize",
+        "color": "RGB",
+        "layout": "NCHW",
+        "resize": "bicubic shorter side 384 then centered 384x384 crop (timm crop_pct=1.0, crop_mode=center)",
+        "scale": 0.00392156862745098,
+        "mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "std": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "output": {
+        "name": "logits",
+        "shape": [
+          1,
+          2
+        ],
+        "classes": [
+          "NSFW",
+          "SFW"
+        ],
+        "normalization": "external numerically stable softmax; score index 0",
+        "sensitiveScoreIndex": 0
+      },
+      "scope": "Publisher training covers photos, drawings, memes and generated imagery. This is a sexual/NSFW-content screening signal; it does not certify absence of every kind of private or sensitive information.",
+      "calibration": {
+        "status": "not-run",
+        "releaseThreshold": null,
+        "required": "separate reviewed calibration/test fixtures; freeze per-artifact threshold before automatic safe decisions; no data means remain unclassified/quarantined"
+      },
+      "privacyContract": "docs/SENSITIVE_MEDIA.md; manual overrides separate; highest scheduler priority after import/change; hidden by default"
+    }
+  }
+}

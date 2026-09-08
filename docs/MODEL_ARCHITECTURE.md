@@ -1,6 +1,6 @@
 # Несколько моделей на телефоне: подход для Lik
 
-Статус: **архитектурное предложение, runtime ещё не реализован**. Требование нескольких моделей и подход Rune заданы пользователем. Текущее приложение продолжает быть каркасом: никаких весов, runtime-библиотек, измерений или bundled model artifacts в нём пока нет.
+Статус: **HF manifests и отдельный CPU acceptance probe реализованы в Task 9; Settings download, галерейный runtime и индексы — Task 10**. Модели никогда не входят в APK. Библиотека ORT Android включена для CPU-проверки; готового ML-профиля у новой установки нет.
 
 ## Что сохраняем из Rune и что меняем
 
@@ -22,7 +22,7 @@
 
 ## Пользовательская модель
 
-Настройки показывают функции: **Поиск по описанию**, **Люди**, **Текст на фото** и следующие выбранные возможности. В деталях каждой функции видны используемые модели, версия, место на диске, загрузка/ошибка, прогресс индексации и доступные действия. Рекомендация для первой реализации — установка проверенных наборов; выбор произвольного файла не означает поддержку произвольной нейросети.
+Настройки показывают функции: **Поиск по описанию**, **Люди**, **Текст на фото** и следующие выбранные возможности. В деталях каждой функции видны используемые модели, версия, место на диске, загрузка/ошибка, прогресс индексации и доступные действия. Устанавливаются только три проверенных preset-набора из закреплённых Hugging Face URLs. Произвольные URL, импорт файлов моделей и пользовательские профили не поддерживаются.
 
 Например, на телефоне одновременно установлены:
 
@@ -30,13 +30,13 @@
 - люди: face detector и face embedder;
 - OCR: detector, recognizer нужного языка и словарь.
 
-Это пример ролей, не утверждённый список моделей. Одну модель можно совместно использовать в нескольких функциях. Две версии одной модели могут оставаться на диске для сравнения или отката. Установленная модель не обязана быть загружена в RAM.
+Точные выбранные модели и их версии перечислены ниже и в каталоге Task 9. Одну модель можно совместно использовать в нескольких функциях. Две версии одной модели могут оставаться на диске для сравнения или отката. Установленная модель не обязана быть загружена в RAM.
 
 При отключении «Людей» семантический поиск продолжает работать. При обновлении OCR пересчитывается только соответствующий индекс. Обновление text/image поиска переключает совместимую пару, а не один encoder независимо от второго.
 
 ## Планируемые встроенные profiles
 
-Profiles — immutable versioned sets для semantic search, OCR и people; произвольные пользовательские profiles не поддерживаются. Balanced — profile по умолчанию. Это выбранный контракт следующей поставки, не утверждение о доступности, размере, лицензии, hash, качестве или производительности уже сегодня.
+Profiles — immutable versioned sets для semantic search, OCR и people; произвольные пользовательские profiles не поддерживаются. Balanced — profile по умолчанию. Реальные URL/размеры/hash/лицензии и conversion parity закреплены в Task 9. Выбор по умолчанию не означает downloaded/ready; качество и Fold-производительность ещё не приняты.
 
 | Profile | Semantic search | OCR | People |
 | --- | --- | --- | --- |
@@ -44,7 +44,7 @@ Profiles — immutable versioned sets для semantic search, OCR и people; п�
 | Balanced (default) | SigLIP 2 Base 224 | PP-OCRv5 mobile detector/Cyrillic recognizer | YuNet/SFace |
 | Extended | SigLIP 2 Large 256 | PP-OCRv5 server detector/Cyrillic recognizer | YuNet/SFace |
 
-Pinned upstream revisions, filenames, sizes, hashes, licenses, tokenizer/preprocessing/output contracts and ONNX exports must be recorded before a profile can be distributed. Reproducible preparation obtains those artifacts from an **external verified cache** and packages them into ordinary debug/release APKs. A distribution build must fail when a required artifact is absent or mismatched. This repository does not currently contain that cache, preparation scripts or packaged artifacts.
+Task 9 pins publisher and converter revisions, immutable Hugging Face runtime URLs, filenames, sizes/SHA-256, licenses and tensor/preprocessing contracts. All APKs contain manifests and license notices only. Distribution verification rejects weights/tokenizers, even when the external development cache is complete. Task 10 downloads files explicitly from Settings using durable resumable Range staging and per-file journals, space reservations, network/retry/cancel controls, whole-file size/SHA checks, self-tests and atomic publication. INTERNET is authorized for these downloads. Shared files are deduplicated by digest; cleanup respects every installed profile and live operation/lease. The previous active profile remains until the new artifacts and enabled index generations are complete.
 
 ## Предлагаемые сущности
 
@@ -69,7 +69,7 @@ Pinned upstream revisions, filenames, sizes, hashes, licenses, tokenizer/preproc
 
 ```mermaid
 flowchart LR
-    C[Проверенный каталог] --> D[External verified cache]
+    C[Проверенный каталог] --> D[Settings download из immutable HF URLs]
     D --> S[Staging операции]
     S --> V[Размеры и SHA-256 всех файлов]
     V --> T[Проверка runtime и self-test набора]
@@ -130,4 +130,10 @@ Fingerprint поиска включает **веса обоих encoders, tokeni
 6. Удаление модели с live lease откладывается; отключение функции не удаляет зависимость другой функции.
 7. На Fold измеряются cold/warm latency, память UI + runtime, температура и батарея при индексации одновременно с просмотром.
 
-Следующий шаг после выбора D05/D06 — небольшой работающий сценарий с конкретным проверенным набором моделей и этими тестами. Общий downloader, ONNX/llama runtime и фоновые сервисы заранее в каркас не добавляются.
+Следующий шаг после выбора D05/D06 — небольшой работающий сценарий с конкретным проверенным набором моделей и этими тестами. Task 10 добавляет downloader/runtime/indexing по этому утверждённому контракту; сторонние модели и фоновые сервисы вне него не добавляются.
+
+## Task 9: зафиксированные артефакты и границы проверки
+
+[Каталог v1](../models/catalog-v1.json) фиксирует три набора, реальные HF ONNX URLs/hash/размеры и общие зависимости. [Provenance](MODEL_PROVENANCE.md) и [воспроизводимая подготовка](../models/README.md) описывают внешнее хранилище доказательств и запрет model payloads в APK. CPU остаётся эталоном; optional Samsung NNAPI/NPU регулируется [backend policy](SAMSUNG_BACKENDS.md). Настройки профилей, runtime, индексы и полная мобильная предобработка относятся к следующим задачам.
+
+Все профили дополнительно используют один shared `sensitive-v1` (Marqo ViT-Tiny), без дублирования байтов и без фиктивного порога. Калибровка на реальных данных не выполнена. [Task 13](SENSITIVE_MEDIA.md) задаёт quarantine новых/изменённых фото, отдельные ручные overrides и временный BIOMETRIC_STRONG reveal; подготовка классификатора не является реализацией скрытия. [AiGate](AIGATE_INTEGRATION.md) — отдельный opt-in контракт Task 10, который не заменяет offline модели.

@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "cpu-reference-v1",
+  "default": "CPUExecutionProvider",
+  "requiredFallback": "CPUExecutionProvider",
+  "profileIdentityIncludesBackend": false,
+  "hostReferenceRuntime": "onnxruntime==1.22.1",
+  "androidReferenceRuntime": "com.microsoft.onnxruntime:onnxruntime-android:1.29.0",
+  "accelerators": {
+    "NnapiExecutionProvider": {
+      "status": "experimental-not-measured",
+      "autoEnable": false,
+      "options": {"CPU_DISABLED": true, "USE_FP16": false},
+      "policy": "Probe on the actual Fold only. NNAPI CPU devices are disabled; unsupported partitions may run in ORT CPU and must be reported. Provider registration is not proof of NPU execution.",
+      "androidStatus": "NNAPI deprecated since Android 15/API 35; not a promised forward-compatible performance path"
+    },
+    "QNNExecutionProvider": {
+      "status": "not-built-not-measured",
+      "autoEnable": false,
+      "policy": "Only consider after identifying a supported Qualcomm SoC, obtaining the vendor SDK under its own terms, and building a separate verified ORT backend. Do not infer support from Samsung branding. No vendor library is bundled."
+    },
+    "SamsungNeuralSDK": {
+      "status": "unavailable-to-third-party-developers",
+      "autoEnable": false,
+      "policy": "Samsung's official download notice says this SDK is no longer provided to third-party developers. No private API or system model extraction is supported."
+    }
+  },
+  "galaxyAiFoundationModels": {
+    "status": "no-public-Samsung-foundation-model-API-established-by-this-research",
+    "policy": "No Galaxy AI model access is claimed. Android AICore/ML Kit GenAI is a separate Google API/model contract and is not a replacement for the pinned Lik profiles."
+  },
+  "acceleratorAcceptance": {
+    "scope": "every enabled pipeline in the exact profile, on the exact model artifacts, device firmware, driver and runtime build",
+    "requiredEvidence": [
+      "device model, SoC, Android API, build fingerprint, NNAPI driver name/version, runtime library SHA-256 and provider options",
+      "catalog SHA-256, pipeline fingerprint, all model/tokenizer hashes and fixture manifest SHA-256",
+      "per-model session creation and full pipeline self-test, finite outputs and exact shapes",
+      "paired CPU/accelerator outputs on all fixed RU/EN image/text/OCR/face fixtures; maximum absolute error, cosine drift, ranked retrieval changes, OCR text changes and face decision changes",
+      "per-operator/partition assigned execution provider, unsupported operator names/reasons and CPU fallback counts; unavailable profiling is a failed capability claim",
+      "cold session/load latency, warm p50/p95 latency with sample count, total pipeline latency including copies and tokenization, peak process PSS/native/Java memory",
+      "at least 10 minutes of sustained indexing with timestamped thermal status, charging/battery state, throughput, cancellation and foreground responsiveness",
+      "written acceptance against explicit per-pipeline tolerances, and recovery to the CPU reference on session/driver/self-test failure"
+    ],
+    "numericPolicy": "Set tolerances before a run. Identical FP32/INT8 artifacts start with atol=1e-4, rtol=1e-3 and embedding cosine >=0.999; failing a tolerance cannot be fixed by silently relaxing it. Reduced precision requires a new reviewed backend configuration and task-quality evaluation.",
+    "enablePolicy": "Runtime opt-in may enable only an accepted evidence fingerprint; model, OS, driver or runtime changes invalidate acceptance. No Task 9 emulator/host smoke or absent metric can enable an accelerator. CPU-only completion does not depend on accelerator availability."
+  },
+  "sources": [
+    "https://developer.samsung.com/neural/overview.html",
+    "https://developer.android.com/ndk/guides/neuralnetworks",
+    "https://developer.android.com/ndk/guides/neuralnetworks/migration-guide",
+    "https://onnxruntime.ai/docs/execution-providers/NNAPI-ExecutionProvider.html",
+    "https://onnxruntime.ai/docs/tutorials/mobile/",
+    "https://onnxruntime.ai/docs/build/android.html",
+    "https://developer.android.com/ai/gemini-nano"
+  ],
+  "researchedAt": "2026-09-08"
+}

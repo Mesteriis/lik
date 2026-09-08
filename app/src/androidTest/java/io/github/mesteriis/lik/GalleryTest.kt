@@ -342,6 +342,17 @@ class GalleryTest {
                 }
                 if (localId == null) Thread.sleep(50)
             }
+            // Selection freezes the current adapter snapshot. Room/state may publish
+            // the new device row before Paging has presented it to the timeline.
+            assertTrue("Both source rows must reach the timeline before selection", waitFor(5_000) {
+                var presented = false
+                scenario.onActivity { activity ->
+                    val adapter = activity.findViewById<RecyclerView>(R.id.photo_timeline).adapter as TimelineAdapter
+                    presented = adapter.positionForPhoto(importedId) >= 0 &&
+                        adapter.positionForPhoto(requireNotNull(localId)) >= 0
+                }
+                presented
+            })
             scenario.onActivity { activity ->
                 val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
                 val adapter = list.adapter as TimelineAdapter

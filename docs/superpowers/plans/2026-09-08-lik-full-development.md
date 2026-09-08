@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use test-driven development for behavior changes. Work only in the assigned task, run focused tests red/green, then the full required verification before committing.
 
-**Goal:** Complete T00-T12 for a photo-only Android gallery with stable local/Google Share flows, a persistent catalog, organization, export and trash, and three built-in offline AI profiles.
+**Goal:** Complete T00-T13 for a photo-only Android gallery with stable local/Google Share flows, a persistent catalog, organization, export and trash, three built-in offline AI profiles, and biometric protection for sensitive photos.
 
 **Architecture:** Keep one native Android Views `:app` module. Room owns persistent metadata and user relationships while `PhotoStore` owns private imported files and MediaStore owns device originals. AI profiles are immutable, versioned sets of search, OCR, and face pipelines; profile and compatible index generations switch atomically.
 
@@ -15,14 +15,14 @@
 - User-facing text is English and Russian; support light/dark themes, large fonts, resizable windows, and Fold state restoration.
 - Preserve all ten user PNGs and stable launcher alias component names; exactly one launcher alias remains enabled.
 - Never commit downloaded weights, model exports, SDK paths, signing material, or build outputs. Commit pinned model manifests, hashes, licenses, and reproducible preparation scripts.
-- Three profiles are visible and selectable: Compact, Balanced (default), Extended. Each is a coherent set for semantic search, OCR, and people; all weights are packaged from an external verified cache into ordinary debug/release APKs for distribution builds.
+- Three profiles are visible and selectable: Compact, Balanced (default), Extended. Each is a coherent set for semantic search, OCR, and people; all weights/tokenizers are downloaded explicitly from immutable Hugging Face URLs in Settings and must never be packaged in debug/release/distribution APKs. Balanced selection alone is not runtime readiness.
 - Models are offline and user-supplied profiles are unsupported. Switching keeps the old profile active until all enabled feature indexes for the new profile are ready, then switches profile plus index generations atomically.
 - Private-import trash retention is 30 days. MediaStore and Google originals are never deleted.
 - Keep README provenance, `docs/FEATURE_MATRIX.md`, `docs/MODEL_ARCHITECTURE.md`, and `docs/VERIFICATION.md` current.
 
 ### Task 0: Documentation contract
 
-Reconcile AGENTS, README, feature matrix, Google import, architecture/model architecture, and verification docs. Mark obsolete Photo Picker and old grid decisions historical. Distinguish implementation, automated evidence, physical Fold acceptance, and genuine Google cloud Share acceptance. Record the three AI profiles and external-cache packaging constraint without claiming models were measured or bundled when they were not.
+Reconcile AGENTS, README, feature matrix, Google import, architecture/model architecture, and verification docs. Mark obsolete Photo Picker and old grid decisions historical. Distinguish implementation, automated evidence, physical Fold acceptance, and genuine Google cloud Share acceptance. Record the three AI profiles and HF Settings-download/no-bundled-weights constraint without claiming models were measured or bundled when they were not.
 
 ### Task 1: Import summary and operation identity
 
@@ -58,11 +58,19 @@ Share selected media via narrow temporary grants and save copies via the system 
 
 ### Task 9: Built-in profile artifacts and evidence harness
 
-Define immutable Compact/Balanced/Extended profile manifests and reproducible preparation/verification scripts. Compact uses CLIP ViT-B/32 plus aligned multilingual text, PP-OCRv5 mobile detector/Cyrillic recognizer, YuNet/SFace. Balanced uses SigLIP 2 Base 224 with the same OCR/face set. Extended uses SigLIP 2 Large 256, PP-OCRv5 server detector/Cyrillic recognizer, YuNet/SFace. Pin exact upstream revisions, filenames, sizes, hashes, licenses, tokenizer/preprocessing/output contracts, and ONNX exports. Build assets from an external cache; distribution build verification fails if any required artifact is missing or mismatched. Provide an RU/EN evaluation harness (minimum 30 queries each) and record measurements only after real runs.
+Define immutable Compact/Balanced/Extended profile manifests and reproducible preparation/verification scripts. Compact uses CLIP ViT-B/32 plus aligned multilingual text, PP-OCRv5 mobile detector/Cyrillic recognizer, YuNet/SFace. Balanced uses SigLIP 2 Base 224 with the same OCR/face set. Extended uses SigLIP 2 Large 256, PP-OCRv5 server detector/Cyrillic recognizer, YuNet/SFace. Pin exact upstream revisions, filenames, sizes, hashes, licenses, tokenizer/preprocessing/output contracts, and ONNX exports. Keep actual source/reference exports and verified HF conversions in an external developer cache. All APKs contain metadata/licenses only; distribution verification rejects bundled model/tokenizer payloads. Every runtime dependency has an immutable HF URL; community conversions are allowed only with explicit converter/license provenance and independent publisher parity. Provide an RU/EN evaluation harness (minimum 30 queries each) and record measurements only after real runs.
+
+User extension: include one deduplicated shared local NSFW screening classifier with primary publisher provenance, exact source and artifact pins, CPU export parity, preprocessing, ordered labels and explicit uncalibrated threshold state. Add an RU/EN sensitive-content evaluation slice. `docs/SENSITIVE_MEDIA.md` defines the selected classifier and Task 13 privacy contract; artifact validation alone must not be described as implemented privacy protection.
 
 ### Task 10: AI profile settings, runtime, indexing, and semantic search
 
-Add Settings > AI with three profile cards, default Balanced, component names, verified sizes/measurements, per-feature toggles, active/preparing status, progress, pause/resume/cancel, and inactive-index cleanup. ModelCatalog is the sole persisted selection source. Verify bundled artifacts/self-test, build enabled-feature index generations, keep the old profile serving, then atomically activate profile+indexes. Use a private ONNX Runtime process, one heavy inference task at a time, and USearch behind a narrow JNI interface with exact-search reference tests. WorkManager indexing runs after opt-in while charging/storage/battery/thermal constraints permit; manual foreground indexing and interactive search preempt background work. Check source access/revision before committing results.
+Add Settings > AI with three profile cards, default Balanced, component names, verified sizes/measurements, per-feature toggles, active/preparing status, progress, pause/resume/cancel, and inactive-index cleanup. ModelCatalog is the sole persisted selection source. Implement explicit Hugging Face Settings downloads with INTERNET permission, resumable durable Range requests, private per-file staging and operation journals, low-space reservations, progress/network/cancel/retry controls, exact size/SHA verification, atomic publication, shared-artifact dedup and safe cleanup. No arbitrary URLs or imported model files. Selected Balanced stays unready until download and self-test complete. Build enabled-feature index generations, keep the old profile serving, then atomically activate profile+indexes. Use a private ONNX Runtime process, one heavy inference task at a time, and USearch behind a narrow JNI interface with exact-search reference tests. WorkManager indexing runs after opt-in while charging/storage/battery/thermal constraints permit; manual foreground indexing and interactive search preempt background work. Check source access/revision before committing results.
+
+User clarification during Task 9: keep CPU as required reference/fallback and consider Samsung/NNAPI/vendor NPU only as an experimental backend, following `models/backend-policy-v1.json` and `docs/SAMSUNG_BACKENDS.md`. No Galaxy AI foundation-model access is assumed. Actual Fold provider assignments, unsupported operators, complete pipeline parity, cold/warm latency, memory and sustained thermal evidence must precede accelerator opt-in; backend availability is not a profile-completion dependency.
+
+Also implement the separate optional AiGate consumer contract in `docs/AIGATE_INTEGRATION.md`: explicit EN/RU opt-in and loopback port settings, health/model discovery, Open AiGate action, no provider secrets in Lik, and a deliberate per-photo action before sending a resized metadata-stripped image. Use only `127.0.0.1` with narrow cleartext handling, cancellation/timeouts and a visible local-versus-router distinction. Do not infer vision capability from the current `/v1/models` response or silently write router output into local indexes. Built-in profiles remain offline/default and independent. Task 9 records this contract only; Task 10 implements and tests the connector.
+
+Schedule shared sensitive screening ahead of other indexing after import/content change. Preserve the future visibility boundary: hidden/sensitive media requires an authenticated reveal and a separate send action before AiGate receives it. Screening errors never imply safe content.
 
 ### Task 11: OCR and people
 
@@ -71,6 +79,10 @@ Run RU/EN OCR with the active profile, persist text by media revision/pipeline g
 ### Task 12: Exact duplicates and similar photos
 
 Persist exact content SHA-256 and a separate perceptual fingerprint relation without changing media identity. Add comparison UI showing source, dimensions, size, and allowed actions. Never auto-delete or merge. Imported-photo deletion uses trash; device originals remain read-only. Test exact duplicates across sources, visually similar edits, false positives, inaccessible items, and user-confirmed action routing.
+
+### Task 13: Sensitive-photo quarantine and biometric reveal
+
+Implement `docs/SENSITIVE_MEDIA.md`: quarantine new/revised/unclassified photos; hide sensitive content by default across every feed, thumbnail, search, viewer, export and AI/router boundary; persist manual overrides separately from model results. Expose top-bar reveal using BIOMETRIC_STRONG only, no credential fallback, with an in-memory lease that relocks on background/screen lock/process restart. Failed/unavailable biometrics preserve hiding. Freeze a calibrated classifier threshold only after real disjoint evaluation; missing calibration keeps automatic safe decisions disabled. Test cross-surface access, async races, cancellation, content revision changes, all authentication failure paths and router's separate send authorization.
 
 ## Required Verification
 
