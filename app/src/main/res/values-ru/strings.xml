@@ -26,6 +26,7 @@
   <string name="gallery_access_denied">Доступ к фото на устройстве выключен. Импортированные копии остаются доступны в Лике.</string>
   <string name="gallery_access_permanently_denied">Доступ к фото на устройстве выключен. Откройте настройки приложения, чтобы разрешить его; импортированные копии остаются доступны.</string>
   <string name="gallery_source_error">Сейчас Лик не может прочитать фото на устройстве. Импортированные копии остаются доступны.</string>
+  <string name="gallery_imported_source_error">Лик не смог обновить импортированные фото. Показаны фото из сохранённого каталога; некоторые могут быть временно недоступны.</string>
   <string name="imported_photo">Фото %1$d</string>
   <string name="google_photos_unavailable">Google Фото недоступны на этом устройстве.</string>
   <string name="device_photo_kept_in_system_gallery">Фото остаётся в системной галерее. Лик не создаёт и не удаляет его копию.</string>

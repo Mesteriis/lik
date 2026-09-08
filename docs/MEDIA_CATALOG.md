@@ -22,6 +22,8 @@ There was no previous Room database, so version 1 needs no SQL upgrade migration
 
 The repository holds PhotoStore's writer monitor while applying the inventory in one Room transaction. Insert-if-absent preserves existing identities and enriched metadata; marking seen updates availability and last-seen time. A failed transaction rolls back the inventory. No completion flag is needed: every refresh safely retries, including a crash after file commit but before catalog registration. A failed directory listing throws instead of being treated as an empty library. The files are never changed by a catalog transaction.
 
+The gallery load boundary catches imported-inventory I/O and access failures after transaction rollback. It returns previously available catalog rows with an explicit imported-source error, skips file enrichment for that failed inventory, and lets the screen finish scanning. The notice explains that some cached photos may be temporarily unavailable. A subsequent successful refresh clears the error. Device-source errors remain separate.
+
 Optional EXIF capture-date enrichment runs after migration and catches unreadable metadata. Existing capture-date ordering is preserved. Negative EXIF caching and enrichment by content revision remain Task 6. The database builder has no destructive fallback; future schema versions require explicit migrations. App backup rules already exclude the database and private files.
 
 ## Verification

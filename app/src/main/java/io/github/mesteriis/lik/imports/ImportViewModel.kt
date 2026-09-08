@@ -22,6 +22,7 @@ data class ImportState(
     val photos: List<GalleryPhoto> = emptyList(), val busy: Boolean = false,
     val scanning: Boolean = false,
     val deviceSourceError: Boolean = false,
+    val importedSourceError: Boolean = false,
     val operation: LibraryOperation = LibraryOperation.NONE,
     val operationId: Long? = null,
     val total: Int = 0, val processed: Int = 0,
@@ -44,7 +45,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
 
     fun refresh(includeDevicePhotos: Boolean = false) {
         val revision = ++refreshRevision
-        updates.value = requireNotNull(updates.value).copy(scanning = true, deviceSourceError = false)
+        updates.value = requireNotNull(updates.value).copy(scanning = true, deviceSourceError = false, importedSourceError = false)
         worker.execute {
             val loaded = GalleryCatalog.loadResult(getApplication(), includeDevicePhotos)
             main.post {
@@ -53,6 +54,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
                         photos = loaded.photos,
                         scanning = false,
                         deviceSourceError = loaded.deviceSourceError,
+                        importedSourceError = loaded.importedSourceError,
                     )
                 }
             }
@@ -196,6 +198,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
                 updates.value = state.copy(
                     scanning = current.scanning,
                     deviceSourceError = current.deviceSourceError,
+                    importedSourceError = current.importedSourceError,
                 )
             }
         }

@@ -91,3 +91,10 @@ Room 2.8.4 хранит метаданные и доступность; прив
 - `ANDROID_SERIAL=emulator-5580 ./gradlew connectedDebugAndroidTest` — 41 тест на AVD `lik_api37_qa`, Android 17 / API 37, 0 ошибок/пропусков. Полный набор повторён после ужесточения проверки файлового inventory и снова прошёл.
 - Включены пять новых тестов на настоящем Room/SQLite; существующие Share, MediaStore, viewer, access transition, lifecycle и launcher tests прошли с подключённым каталогом.
 - `git diff --check` чист. Физические устройства на этом этапе не использовались.
+
+### Исправление по review: ошибка inventory импортов
+
+Ошибка чтения каталога приватных файлов теперь откатывает транзакцию и возвращает ранее доступные записи с отдельным сообщением EN/RU. Сканирование завершается; после успешного обновления сообщение исчезает. Regression test сначала воспроизвёл исключение `IOException`, затем оба новых API 37 теста прошли, включая пересоздание Activity и восстановление чтения.
+
+- Полный `lint testDebugUnitTest assembleDebug assembleRelease assembleDebugAndroidTest` прошёл: 55 JVM-тестов, 0 ошибок/пропусков.
+- `ANDROID_SERIAL=emulator-5580 ./gradlew connectedDebugAndroidTest` прошёл: 43 теста на Android 17 / API 37, 0 ошибок/пропусков.

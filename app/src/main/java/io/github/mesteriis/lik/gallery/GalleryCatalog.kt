@@ -11,6 +11,7 @@ import io.github.mesteriis.lik.catalog.MediaSource
 import io.github.mesteriis.lik.catalog.toGalleryPhoto
 import io.github.mesteriis.lik.imports.ImportedPhoto
 import io.github.mesteriis.lik.imports.PhotoLibrary
+import java.io.IOException
 import java.time.ZoneOffset
 
 object GalleryCatalog {
@@ -21,9 +22,17 @@ object GalleryCatalog {
     fun loadResult(context: Context, includeDevicePhotos: Boolean): GalleryCatalogLoad {
         val store = PhotoLibrary.store(context)
         val repository = MediaRepository(MediaDatabase.get(context))
-        repository.reconcileImports(store, System.currentTimeMillis())
+        val importedSourceError = try {
+            repository.reconcileImports(store, System.currentTimeMillis())
+            false
+        } catch (_: IOException) {
+            true
+        } catch (_: SecurityException) {
+            true
+        }
         // Enrichment is separate from the file inventory migration; a bad EXIF block is harmless.
-        repository.available().filter { it.source == MediaSource.GOOGLE_IMPORT && it.takenAt == null }
+        // A failed inventory has rolled back; keep the previous rows and avoid touching unavailable files.
+        if (!importedSourceError) repository.available().filter { it.source == MediaSource.GOOGLE_IMPORT && it.takenAt == null }
             .forEach { record ->
                 val photo = fromImported(ImportedPhoto(record.mediaId, store.fileFor(record.mediaId)))
                 photo.takenAt?.let { repository.enrichImportedCaptureDate(record.mediaId, it, photo.dateOffsetSeconds) }
@@ -35,6 +44,7 @@ object GalleryCatalog {
         return GalleryCatalogLoad(
             photos = repository.available().map { it.toGalleryPhoto(store::fileFor) },
             deviceSourceError = includeDevicePhotos && queried.isFailure,
+            importedSourceError = importedSourceError,
         )
     }
 

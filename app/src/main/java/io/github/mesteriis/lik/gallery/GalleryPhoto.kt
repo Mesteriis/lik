@@ -33,6 +33,7 @@ data class GalleryPhoto(
 data class GalleryCatalogLoad(
     val photos: List<GalleryPhoto>,
     val deviceSourceError: Boolean = false,
+    val importedSourceError: Boolean = false,
 )
 
 internal fun deviceQueryResult(

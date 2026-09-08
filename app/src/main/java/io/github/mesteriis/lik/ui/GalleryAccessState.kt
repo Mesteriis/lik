@@ -34,7 +34,11 @@ sealed interface GalleryScreenState {
     data class Partial(val count: Int) : GalleryScreenState
     data class Denied(val importedCount: Int) : GalleryScreenState
     data class PermanentlyDenied(val importedCount: Int) : GalleryScreenState
-    data class SourceError(val access: DevicePhotoAccess, val importedCount: Int) : GalleryScreenState
+    data class SourceError(
+        val access: DevicePhotoAccess,
+        val importedCount: Int,
+        val importedSourceError: Boolean = false,
+    ) : GalleryScreenState
 
     companion object {
         fun resolve(
@@ -43,9 +47,10 @@ sealed interface GalleryScreenState {
             photos: Int,
             imports: Int,
             sourceError: Boolean = false,
+            importedSourceError: Boolean = false,
         ): GalleryScreenState = when {
             scanning -> Loading(access)
-            sourceError -> SourceError(access, imports)
+            sourceError || importedSourceError -> SourceError(access, imports, importedSourceError)
             access == DevicePhotoAccess.PERMANENTLY_DENIED -> PermanentlyDenied(imports)
             access == DevicePhotoAccess.DENIED -> Denied(imports)
             access == DevicePhotoAccess.PARTIAL -> Partial(photos)

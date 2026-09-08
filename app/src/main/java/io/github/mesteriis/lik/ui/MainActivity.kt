@@ -238,6 +238,7 @@ open class MainActivity : ComponentActivity() {
             photos = state.photos.size,
             imports = state.photos.count { it.source == io.github.mesteriis.lik.gallery.PhotoSource.GOOGLE_IMPORT },
             sourceError = state.deviceSourceError,
+            importedSourceError = state.importedSourceError,
         )
         renderAccessState()
         findViewById<TextView>(R.id.import_error).apply {
@@ -496,12 +497,12 @@ open class MainActivity : ComponentActivity() {
         button.visibility = if (photoAccess == DevicePhotoAccess.FULL) View.GONE else View.VISIBLE
         button.setText(if (photoAccess == DevicePhotoAccess.PERMANENTLY_DENIED) R.string.open_photo_access_settings else R.string.allow_photo_access)
         val status = findViewById<TextView>(R.id.gallery_access_status)
-        val message = when (currentScreenState) {
+        val message = when (val screen = currentScreenState) {
             is GalleryScreenState.Loading -> R.string.gallery_scanning
             is GalleryScreenState.Partial -> R.string.gallery_partial_access
             is GalleryScreenState.Denied -> R.string.gallery_access_denied
             is GalleryScreenState.PermanentlyDenied -> R.string.gallery_access_permanently_denied
-            is GalleryScreenState.SourceError -> R.string.gallery_source_error
+            is GalleryScreenState.SourceError -> if (screen.importedSourceError) R.string.gallery_imported_source_error else R.string.gallery_source_error
             else -> null
         }
         status.text = message?.let(::getString).orEmpty()
@@ -509,7 +510,7 @@ open class MainActivity : ComponentActivity() {
         val showEmpty = currentScreenState is GalleryScreenState.Empty ||
             (photos.isEmpty() && (currentScreenState is GalleryScreenState.Denied || currentScreenState is GalleryScreenState.PermanentlyDenied || currentScreenState is GalleryScreenState.SourceError))
         findViewById<TextView>(R.id.empty_gallery).apply {
-            text = if (showEmpty && currentScreenState is GalleryScreenState.SourceError) getString(R.string.gallery_source_error) else getString(R.string.gallery_placeholder)
+            text = if (showEmpty && currentScreenState is GalleryScreenState.SourceError) getString(requireNotNull(message)) else getString(R.string.gallery_placeholder)
             visibility = if (ui.section == GallerySection.FEED && showEmpty) View.VISIBLE else View.GONE
         }
     }
