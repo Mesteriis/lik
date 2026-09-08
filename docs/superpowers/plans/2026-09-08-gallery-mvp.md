@@ -1,6 +1,6 @@
 # Галерея с ручным импортом — план реализации
 
-> **Superseded:** the generic Photo Picker import described here was replaced on 2026-09-08 by direct MediaStore viewing plus Google Photos → Share → Lik. See `../specs/2026-09-08-device-media-gallery-design.md`.
+> **Historical / superseded:** the generic Photo Picker and GridView decisions described here were replaced on 2026-09-08 by direct MediaStore viewing plus Google Photos → Share → Lik and the five-level RecyclerView timeline. The checked items below record former implementation work; they are not the current product contract. See `../specs/2026-09-08-device-media-gallery-design.md`.
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task, inline. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Довести Lik до удобной офлайн-галереи фотографий, которые пользователь вручную выбирает из Google Photos или отправляет через «Поделиться».

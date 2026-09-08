@@ -1,6 +1,6 @@
 # Несколько моделей на телефоне: подход для Lik
 
-Статус: **архитектурное предложение, runtime ещё не реализован**. Требование нескольких моделей и подход Rune заданы пользователем. Конкретные веса, runtime-библиотеки и порядок ML-функций выбираются по [матрице D05–D09](FEATURE_MATRIX.md). Текущее приложение продолжает быть каркасом.
+Статус: **архитектурное предложение, runtime ещё не реализован**. Требование нескольких моделей и подход Rune заданы пользователем. Текущее приложение продолжает быть каркасом: никаких весов, runtime-библиотек, измерений или bundled model artifacts в нём пока нет.
 
 ## Что сохраняем из Rune и что меняем
 
@@ -34,6 +34,18 @@
 
 При отключении «Людей» семантический поиск продолжает работать. При обновлении OCR пересчитывается только соответствующий индекс. Обновление text/image поиска переключает совместимую пару, а не один encoder независимо от второго.
 
+## Планируемые встроенные profiles
+
+Profiles — immutable versioned sets для semantic search, OCR и people; произвольные пользовательские profiles не поддерживаются. Balanced — profile по умолчанию. Это выбранный контракт следующей поставки, не утверждение о доступности, размере, лицензии, hash, качестве или производительности уже сегодня.
+
+| Profile | Semantic search | OCR | People |
+| --- | --- | --- | --- |
+| Compact | CLIP ViT-B/32 plus aligned multilingual text | PP-OCRv5 mobile detector/Cyrillic recognizer | YuNet/SFace |
+| Balanced (default) | SigLIP 2 Base 224 | PP-OCRv5 mobile detector/Cyrillic recognizer | YuNet/SFace |
+| Extended | SigLIP 2 Large 256 | PP-OCRv5 server detector/Cyrillic recognizer | YuNet/SFace |
+
+Pinned upstream revisions, filenames, sizes, hashes, licenses, tokenizer/preprocessing/output contracts and ONNX exports must be recorded before a profile can be distributed. Reproducible preparation obtains those artifacts from an **external verified cache** and packages them into ordinary debug/release APKs. A distribution build must fail when a required artifact is absent or mismatched. This repository does not currently contain that cache, preparation scripts or packaged artifacts.
+
 ## Предлагаемые сущности
 
 Названия ниже описывают контракты; пустые классы в приложение не добавляются.
@@ -57,7 +69,7 @@
 
 ```mermaid
 flowchart LR
-    C[Проверенный каталог] --> D[Загрузка или SAF import]
+    C[Проверенный каталог] --> D[External verified cache]
     D --> S[Staging операции]
     S --> V[Размеры и SHA-256 всех файлов]
     V --> T[Проверка runtime и self-test набора]
