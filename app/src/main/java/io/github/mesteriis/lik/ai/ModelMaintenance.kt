@@ -24,13 +24,7 @@ object ModelMaintenance {
         // Catalog is the serving authority: clear every pointer first. A crash after this point can
         // leave only unreachable Room/file garbage, never a stale generation that can be reselected.
         catalog.removeInactive(profile, removedGenerationIds)
-        if (removedGenerationIds.isNotEmpty()) database.runInTransaction {
-            database.aiIndexes().deleteGenerations(removedGenerationIds)
-        }
-        removedGenerationIds.forEach { id ->
-            NativeIndexFiles.remove(context, id)
-        }
-        removalJournal.finish(profile)
+        GenerationRetirement.drain(context, profile, removedGenerationIds, catalog, database)
         IsolatedRuntimeClient(context).evict(catalog.trusted.artifacts(profile).map { it.sha256 }.toSet()).getOrThrow()
         val after = catalog.snapshot()
         val installed = after.profiles.filterValues { it.phase !in setOf(ProfilePhase.NOT_INSTALLED, ProfilePhase.ERROR) }
@@ -50,10 +44,8 @@ object ModelMaintenance {
             withPipelineLocks(catalog, profile) {
                 if (catalog.snapshot().active != profile && catalog.snapshot().pending?.profile != profile) {
                     catalog.removeInactive(profile, ids)
-                    if (ids.isNotEmpty()) database.runInTransaction { database.aiIndexes().deleteGenerations(ids) }
-                    ids.forEach { NativeIndexFiles.remove(context, it) }
-                    journal.finish(profile)
                 }
+                GenerationRetirement.drain(context, profile, ids, catalog, database)
             }
         }
     }

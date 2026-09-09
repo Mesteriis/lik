@@ -22,17 +22,31 @@ class SemanticSearchRepository(
     private val catalog: ModelCatalog = ModelCatalog.get(context),
     private val database: MediaDatabase = MediaDatabase.get(context),
     private val engine: SemanticEmbeddingEngine = SemanticEmbeddingEngine(context),
+    private val queryEmbedding: ((ProfileId, String) -> FloatArray)? = null,
 ) {
     fun search(text: String, limit: Int = 60): SemanticSearchResult {
         require(text.isNotBlank() && limit in 1..200)
-        val state = catalog.snapshot()
-        val profile = state.active ?: error("AI_PROFILE_NOT_ACTIVE")
-        require(AiFeature.SEARCH in state.enabledFeatures) { "SEMANTIC_SEARCH_DISABLED" }
-        val generationId = state.activeGenerations[AiFeature.SEARCH] ?: error("SEARCH_INDEX_NOT_READY")
+        repeat(3) {
+            val state = catalog.snapshot()
+            val profile = state.active ?: error("AI_PROFILE_NOT_ACTIVE")
+            require(AiFeature.SEARCH in state.enabledFeatures) { "SEMANTIC_SEARCH_DISABLED" }
+            val generationId = state.activeGenerations[AiFeature.SEARCH] ?: error("SEARCH_INDEX_NOT_READY")
+            val result = GenerationUseCoordinator.read(generationId) {
+                val pinned = catalog.snapshot()
+                if (pinned.active != profile || pinned.activeGenerations[AiFeature.SEARCH] != generationId) null
+                else searchPinned(profile, generationId, text, limit)
+            }
+            if (result != null) return result
+        }
+        error("SEARCH_INDEX_CHANGED")
+    }
+
+    private fun searchPinned(profile: ProfileId, generationId: String, text: String, limit: Int): SemanticSearchResult {
         val generation = database.aiIndexes().generation(generationId) ?: error("SEARCH_INDEX_MISSING")
         require(generation.status == GenerationStatus.COMPLETE) { "SEARCH_INDEX_NOT_READY" }
         val dimension = catalog.trusted.profiles.getValue(profile).pipelines.getValue(AiFeature.SEARCH).dimension!!
-        val query = InferenceGate.run(InferencePriority.INTERACTIVE) { engine.query(profile, text) }
+        val query = queryEmbedding?.invoke(profile, text)
+            ?: InferenceGate.run(InferencePriority.INTERACTIVE) { engine.query(profile, text) }
         val dao = database.aiIndexes()
         val indexed = dao.currentEmbeddingCount(generationId)
         val available = dao.availableCount()
@@ -329,15 +343,16 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
 
     private fun publishCatalog(catalog: ModelCatalog, profile: ProfileId, record: AiIndexGenerationRecord,
                                dao: AiIndexDao) {
-        catalog.generationReady(profile, AiFeature.SEARCH, record.toContract(complete = true))
-        val retained = catalog.snapshot().generations.keys
-        val superseded = dao.generations().filter {
-            it.profileId == profile.wire && it.feature == AiFeature.SEARCH.name && it.generationId !in retained
-        }.map { it.generationId }.toSet()
-        if (superseded.isNotEmpty()) {
-            dao.deleteGenerations(superseded)
-            superseded.forEach { NativeIndexFiles.remove(applicationContext, it) }
+        var superseded = emptySet<String>()
+        catalog.generationReady(profile, AiFeature.SEARCH, record.toContract(complete = true)) { next ->
+            superseded = dao.generations().filter {
+                it.profileId == profile.wire && it.feature == AiFeature.SEARCH.name &&
+                    it.generationId !in next.generations
+            }.map { it.generationId }.toSet()
+            GenerationRetirement.journal(File(applicationContext.filesDir, "ai"), profile, superseded)
         }
+        GenerationRetirement.drain(applicationContext, profile, superseded, catalog,
+            MediaDatabase.get(applicationContext))
     }
 
     private fun AiIndexGenerationRecord.toContract(complete: Boolean) = IndexGeneration(

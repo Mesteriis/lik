@@ -132,4 +132,27 @@ class SemanticAndRuntimeTest {
         assertTrue(done.await(2, java.util.concurrent.TimeUnit.SECONDS))
         assertEquals(1, maximum.get())
     }
+
+    @Test fun generationReadLeaseDefersRetirementUntilSearchUseEnds() {
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val retired = java.util.concurrent.CountDownLatch(1)
+        val search = Thread {
+            GenerationUseCoordinator.read("serving") {
+                entered.countDown()
+                release.await()
+            }
+        }
+        val cleanup = Thread {
+            GenerationUseCoordinator.exclusive("serving") { retired.countDown() }
+        }
+        search.start()
+        assertTrue(entered.await(2, java.util.concurrent.TimeUnit.SECONDS))
+        cleanup.start()
+        assertFalse(retired.await(100, java.util.concurrent.TimeUnit.MILLISECONDS))
+        release.countDown()
+        assertTrue(retired.await(2, java.util.concurrent.TimeUnit.SECONDS))
+        search.join(2_000)
+        cleanup.join(2_000)
+    }
 }

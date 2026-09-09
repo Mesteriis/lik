@@ -19,10 +19,17 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
 
     fun snapshot(): CatalogSnapshot = current
     internal fun stateFileForMetadata(): File = stateFile
-    @Synchronized fun update(transform: (CatalogSnapshot) -> CatalogSnapshot): CatalogSnapshot {
+    @Synchronized fun update(transform: (CatalogSnapshot) -> CatalogSnapshot): CatalogSnapshot =
+        updateBeforeCommit(transform) {}
+
+    private fun updateBeforeCommit(
+        transform: (CatalogSnapshot) -> CatalogSnapshot,
+        beforeCommit: (CatalogSnapshot) -> Unit,
+    ): CatalogSnapshot {
         val old = current
         val next = CatalogGenerationBounds.prune(transform(old), acceptedPipelineFingerprints)
         require(next.catalogVersion == trusted.version && next.revision > old.revision)
+        beforeCommit(next)
         write(next)
         current = next
         listeners.toList().forEach { it(next) }
@@ -64,14 +71,19 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
         state.copy(revision = state.revision + 1, generations = state.generations + (generation.id to generation))
     }
 
-    fun generationReady(profile: ProfileId, feature: AiFeature, generation: IndexGeneration): CatalogSnapshot = update { state ->
-        val withGeneration = state.copy(generations = state.generations + (generation.id to generation))
-        if (withGeneration.pending?.profile == profile && feature in withGeneration.pending.enabled)
-            ProfileTransitions.generationReady(withGeneration, profile, feature, generation.id)
-        else withGeneration.copy(revision = withGeneration.revision + 1,
-            activeGenerations = if (withGeneration.active == profile && feature in withGeneration.enabledFeatures)
-                withGeneration.activeGenerations + (feature to generation.id) else withGeneration.activeGenerations)
-    }
+    @Synchronized fun generationReady(
+        profile: ProfileId,
+        feature: AiFeature,
+        generation: IndexGeneration,
+        beforeCommit: (CatalogSnapshot) -> Unit = {},
+    ): CatalogSnapshot = updateBeforeCommit({ state ->
+            val withGeneration = state.copy(generations = state.generations + (generation.id to generation))
+            if (withGeneration.pending?.profile == profile && feature in withGeneration.pending.enabled)
+                ProfileTransitions.generationReady(withGeneration, profile, feature, generation.id)
+            else withGeneration.copy(revision = withGeneration.revision + 1,
+                activeGenerations = if (withGeneration.active == profile && feature in withGeneration.enabledFeatures)
+                    withGeneration.activeGenerations + (feature to generation.id) else withGeneration.activeGenerations)
+        }, beforeCommit)
     fun operationPhase(profile: ProfileId, phase: ProfilePhase, completed: Long = 0, total: Long = 0, error: String? = null) = update { state ->
         state.copy(revision = state.revision + 1, profiles = state.profiles + (profile to ProfileState(phase, completed, total, error)))
     }
@@ -84,6 +96,13 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
     }
     fun discardGenerations(ids: Set<String>): CatalogSnapshot = update { state ->
         CatalogGenerationCleanup.remove(state, ids)
+    }
+    @Synchronized internal fun retireIfUnretained(id: String, action: () -> Unit): Boolean {
+        val retained = current.generations.keys + current.activeGenerations.values +
+            current.pending?.readyGenerations.orEmpty().values
+        if (id in retained) return false
+        action()
+        return true
     }
     fun closeForTests() { instances.entries.removeIf { it.value === this } }
 

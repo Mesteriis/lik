@@ -469,6 +469,115 @@ class AiRuntimeTest {
         }
     }
 
+    @Test fun semanticSearchLeaseDefersSupersededGenerationCleanup() {
+        val catalog = ModelCatalog.get(context)
+        val original = catalog.snapshot()
+        val database = MediaDatabase.get(context)
+        val dao = database.aiIndexes()
+        val profile = ProfileId.COMPACT
+        val pipeline = catalog.trusted.profiles.getValue(profile).pipelines.getValue(AiFeature.SEARCH)
+        val oldId = "lease-old-${System.nanoTime()}"
+        val newId = "lease-new-${System.nanoTime()}"
+        val mediaId = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(oldId.toByteArray()).joinToString("") { "%02x".format(it) }
+        val old = AiIndexGenerationRecord(oldId, profile.wire, AiFeature.SEARCH.name, pipeline.fingerprint,
+            GenerationStatus.COMPLETE, 1, 1, null, null, 1)
+        val new = old.copy(generationId = newId, createdAt = 2)
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val searchResult = java.util.concurrent.atomic.AtomicReference<SemanticSearchResult>()
+        val searchError = java.util.concurrent.atomic.AtomicReference<Throwable>()
+        val oldNative = NativeIndexFiles.generation(context, oldId).apply {
+            mkdirs(); File(this, "old-marker").writeText("old")
+        }
+        try {
+            database.media().upsert(MediaRecord(mediaId, MediaSource.GOOGLE_IMPORT, mediaId,
+                privateFileId = mediaId, mimeType = "image/jpeg", contentRevision = 1, lastSeenAt = 1))
+            dao.saveGeneration(old); dao.saveGeneration(new)
+            dao.saveEmbedding(AiEmbeddingRecord(oldId, mediaId, 1, 1, 1,
+                FloatArray(pipeline.dimension!!) { if (it == 0) 1f else 0f }.toBytes()))
+            catalog.update { state -> state.copy(revision = state.revision + 1, selected = profile, active = profile,
+                profiles = state.profiles + (profile to ProfileState(ProfilePhase.ACTIVE)),
+                enabledFeatures = setOf(AiFeature.SEARCH), pending = null,
+                generations = linkedMapOf(oldId to old.toContractForTest(), newId to new.toContractForTest()),
+                activeGenerations = mapOf(AiFeature.SEARCH to oldId)) }
+            val repository = SemanticSearchRepository(context, catalog, database,
+                queryEmbedding = { _, _ ->
+                    entered.countDown(); release.await()
+                    FloatArray(pipeline.dimension) { if (it == 0) 1f else 0f }
+                })
+            val search = thread {
+                runCatching { repository.search("query", 1) }
+                    .onSuccess(searchResult::set).onFailure(searchError::set)
+            }
+            assertTrue(entered.await(2, TimeUnit.SECONDS))
+            catalog.update { state -> state.copy(revision = state.revision + 1,
+                generations = mapOf(newId to new.toContractForTest()),
+                activeGenerations = mapOf(AiFeature.SEARCH to newId)) }
+            val cleanup = thread { GenerationRetirement.retire(context, profile, setOf(oldId), catalog, database) }
+            Thread.sleep(100)
+            assertTrue(cleanup.isAlive)
+            assertNotNull(dao.generation(oldId))
+            assertTrue(oldNative.exists())
+            release.countDown(); search.join(2_000); cleanup.join(2_000)
+            assertNull(searchError.get())
+            assertEquals(mediaId, searchResult.get().hits.single().mediaId)
+            assertNull(dao.generation(oldId))
+            assertFalse(oldNative.exists())
+        } finally {
+            release.countDown()
+            GenerationRetirement.afterStepForTests = null
+            GenerationRemovalJournal(File(context.filesDir, "ai")).complete(profile, setOf(oldId))
+            catalog.update { original.copy(revision = it.revision + 1) }
+            dao.deleteGenerations(setOf(oldId, newId))
+            database.media().trash(setOf(mediaId), 1); database.media().claimPurge(setOf(mediaId))
+            database.media().finishPurge(mediaId)
+            NativeIndexFiles.remove(context, oldId); NativeIndexFiles.remove(context, newId)
+        }
+    }
+
+    @Test fun supersededGenerationRemovalRecoversAfterRoomDeleteCrash() {
+        val catalog = ModelCatalog.get(context)
+        val original = catalog.snapshot()
+        val database = MediaDatabase.get(context)
+        val dao = database.aiIndexes()
+        val profile = ProfileId.COMPACT
+        val id = "retirement-crash-${System.nanoTime()}"
+        val pipeline = catalog.trusted.profiles.getValue(profile).pipelines.getValue(AiFeature.SEARCH)
+        val native = NativeIndexFiles.generation(context, id).apply { mkdirs(); File(this, "marker").writeText("old") }
+        try {
+            dao.saveGeneration(AiIndexGenerationRecord(id, profile.wire, AiFeature.SEARCH.name,
+                pipeline.fingerprint, GenerationStatus.COMPLETE, 0, 0, null, null, 1))
+            catalog.update { state -> state.copy(revision = state.revision + 1,
+                generations = state.generations - id,
+                activeGenerations = state.activeGenerations.filterValues { it != id },
+                pending = state.pending?.copy(readyGenerations = state.pending.readyGenerations.filterValues { it != id })) }
+            GenerationRetirement.afterStepForTests = { step, generation ->
+                if (step == GenerationRetirementStep.ROOM_REMOVED && generation == id) error("SIMULATED_CRASH")
+            }
+            assertThrows(IllegalStateException::class.java) {
+                GenerationRetirement.retire(context, profile, setOf(id), catalog, database)
+            }
+            assertNull(dao.generation(id))
+            assertTrue(native.exists())
+            assertTrue(id in GenerationRemovalJournal(File(context.filesDir, "ai")).ids())
+            GenerationRetirement.afterStepForTests = null
+            ModelMaintenance.recover(context)
+            assertFalse(native.exists())
+            assertFalse(id in GenerationRemovalJournal(File(context.filesDir, "ai")).ids())
+        } finally {
+            GenerationRetirement.afterStepForTests = null
+            GenerationRemovalJournal(File(context.filesDir, "ai")).complete(profile, setOf(id))
+            catalog.update { original.copy(revision = it.revision + 1) }
+            dao.deleteGenerations(setOf(id)); NativeIndexFiles.remove(context, id)
+        }
+    }
+
+    private fun AiIndexGenerationRecord.toContractForTest() = IndexGeneration(
+        generationId, AiFeature.valueOf(feature), pipelineFingerprint, status == GenerationStatus.COMPLETE,
+        completed, total,
+    )
+
     @Test fun allThreeInstalledProfilesExecuteRussianTextAndImageInIsolatedRuntime() {
         val required = InstrumentationRegistry.getArguments().getString("likRuntimeModels") == "true"
         assumeTrue("Explicit external emulator provisioning is required", required)
