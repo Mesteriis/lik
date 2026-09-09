@@ -262,6 +262,59 @@ class AiContractsTest {
         assertFalse(pipeline.accepts("c".repeat(64)))
     }
 
+    @Test fun installedProfileSelectionReusesMigrationCompatibleGeneration() {
+        val oldFingerprint = "a".repeat(64)
+        val generation = IndexGeneration("old-ready", AiFeature.SEARCH, oldFingerprint, true, 20, 20)
+        val state = CatalogSnapshot.readyForTest(ProfileId.COMPACT).copy(
+            profiles = CatalogSnapshot.readyForTest(ProfileId.COMPACT).profiles +
+                (ProfileId.EXTENDED to ProfileState(ProfilePhase.INSTALLED)),
+            generations = mapOf(generation.id to generation),
+        )
+
+        val selected = ProfileTransitions.select(
+            state,
+            ProfileId.EXTENDED,
+            setOf(AiFeature.SEARCH),
+            mapOf(AiFeature.SEARCH to "b".repeat(64)),
+            compatibleFingerprints = mapOf(AiFeature.SEARCH to setOf(oldFingerprint)),
+        )
+
+        assertEquals(ProfileId.EXTENDED, selected.active)
+        assertNull(selected.pending)
+        assertEquals(generation.id, selected.activeGenerations[AiFeature.SEARCH])
+    }
+
+    @Test fun catalogGenerationHistoryIsStructurallyBoundedAndKeepsRequiredReuse() {
+        val current = "c".repeat(64)
+        val compatible = "b".repeat(64)
+        val active = IndexGeneration("active", AiFeature.SEARCH, compatible, true, 5, 5)
+        val pending = IndexGeneration("pending", AiFeature.OCR, current, true, 5, 5)
+        val history = linkedMapOf(active.id to active, pending.id to pending)
+        repeat(1_200) { at ->
+            val feature = if (at % 2 == 0) AiFeature.SEARCH else AiFeature.OCR
+            val fingerprint = if (at % 3 == 0) current else compatible
+            history["history-$at"] = IndexGeneration("history-$at", feature, fingerprint,
+                complete = at % 5 != 0, completed = at, total = 1_200)
+        }
+        val state = CatalogSnapshot.readyForTest(ProfileId.COMPACT).copy(
+            generations = history,
+            activeGenerations = mapOf(AiFeature.SEARCH to active.id),
+            pending = PendingProfile(ProfileId.EXTENDED, setOf(AiFeature.OCR),
+                mapOf(AiFeature.OCR to pending.id)),
+        )
+
+        val bounded = CatalogGenerationBounds.prune(state, mapOf(
+            AiFeature.SEARCH to setOf(current, compatible),
+            AiFeature.OCR to setOf(current, compatible),
+        ))
+
+        assertTrue(bounded.generations.size <= 10)
+        assertEquals(active, bounded.generations[active.id])
+        assertEquals(pending, bounded.generations[pending.id])
+        assertTrue(bounded.generations.values.any { !it.complete })
+        assertTrue(bounded.generations.values.any { it.complete && it.pipelineFingerprint == current })
+    }
+
     @Test fun removingGenerationsClearsEveryCatalogPointer() {
         val generation = IndexGeneration("old", AiFeature.SEARCH, "p", true, 1, 1)
         val state = CatalogSnapshot.readyForTest(ProfileId.COMPACT).copy(

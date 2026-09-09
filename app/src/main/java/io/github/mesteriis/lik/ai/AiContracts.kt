@@ -74,12 +74,14 @@ object ProfileTransitions {
         enabled: Set<AiFeature>,
         pipelineFingerprints: Map<AiFeature, String> = emptyMap(),
         profileVerified: Boolean = true,
+        compatibleFingerprints: Map<AiFeature, Set<String>> = emptyMap(),
     ): CatalogSnapshot {
         val targetInstalled = current.profile(target).phase in setOf(ProfilePhase.INSTALLED, ProfilePhase.ACTIVE, ProfilePhase.PREPARING)
         val reused = enabled.mapNotNull { feature ->
             val fingerprint = pipelineFingerprints[feature] ?: return@mapNotNull null
-            current.generations.values.firstOrNull {
-                it.feature == feature && it.pipelineFingerprint == fingerprint && it.complete
+            current.generations.values.lastOrNull {
+                it.feature == feature && it.complete &&
+                    (it.pipelineFingerprint == fingerprint || it.pipelineFingerprint in compatibleFingerprints[feature].orEmpty())
             }?.let { feature to it.id }
         }.toMap()
         val canActivate = targetInstalled && profileVerified && reused.keys.containsAll(enabled)
@@ -127,12 +129,13 @@ object ProfileTransitions {
         enabled: Set<AiFeature>,
         pipelineFingerprints: Map<AiFeature, String>,
         profileVerified: Boolean = true,
+        compatibleFingerprints: Map<AiFeature, Set<String>> = emptyMap(),
     ): CatalogSnapshot {
         if (current.active == null && current.pending == null) return current.copy(
             revision = current.revision + 1, enabledFeatures = enabled,
         )
         val target = current.pending?.profile ?: current.active ?: current.selected
-        return select(current, target, enabled, pipelineFingerprints, profileVerified)
+        return select(current, target, enabled, pipelineFingerprints, profileVerified, compatibleFingerprints)
     }
 
     fun generationReady(current: CatalogSnapshot, target: ProfileId, feature: AiFeature, generation: String): CatalogSnapshot {
@@ -214,6 +217,24 @@ object CatalogGenerationCleanup {
         activeGenerations = state.activeGenerations.filterValues { it !in removed },
         pending = state.pending?.let { it.copy(readyGenerations = it.readyGenerations.filterValues { id -> id !in removed }) },
     )
+}
+
+/** Keeps the durable snapshot within its fixed metadata slot without losing serving or reusable generations. */
+object CatalogGenerationBounds {
+    fun prune(state: CatalogSnapshot, accepted: Map<AiFeature, Set<String>>): CatalogSnapshot {
+        val required = state.activeGenerations.values.toMutableSet().apply {
+            addAll(state.pending?.readyGenerations.orEmpty().values)
+        }
+        val latest = mutableMapOf<Triple<AiFeature, String, Boolean>, String>()
+        state.generations.values.forEach { generation ->
+            if (generation.pipelineFingerprint in accepted[generation.feature].orEmpty()) {
+                latest[Triple(generation.feature, generation.pipelineFingerprint, generation.complete)] = generation.id
+            }
+        }
+        required += latest.values
+        val bounded = state.generations.filterKeys { it in required }
+        return if (bounded == state.generations) state else state.copy(generations = bounded)
+    }
 }
 
 object CatalogOracleRepair {

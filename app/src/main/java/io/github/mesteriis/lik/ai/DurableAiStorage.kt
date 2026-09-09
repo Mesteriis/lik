@@ -62,12 +62,16 @@ object PreallocatedMetadata {
         check(!rejectNewFilesForTests) { "UNRESERVED_METADATA_ALLOCATION" }
         val legacy = target.takeIf(File::isFile)?.readBytes() ?: ByteArray(0)
         require(legacy.size <= SLOT_BYTES - HEADER) { "METADATA_TOO_LARGE" }
+        replaceWithPreallocated(target, legacy)
+    }
+
+    private fun replaceWithPreallocated(target: File, initial: ByteArray) {
         val parent = requireNotNull(target.parentFile).also(File::mkdirs)
         val temporary = File(parent, ".${target.name}-${System.nanoTime()}.metadata")
         RandomAccessFile(temporary, "rw").use { output ->
             Os.posix_fallocate(output.fd, 0, FILE_BYTES)
             output.setLength(FILE_BYTES)
-            writeSlot(output, 0, 1, legacy)
+            writeSlot(output, 0, 1, initial)
             output.fd.sync()
         }
         Os.rename(temporary.absolutePath, target.absolutePath)
@@ -77,6 +81,13 @@ object PreallocatedMetadata {
 
     fun write(target: File, bytes: ByteArray) {
         require(bytes.size <= SLOT_BYTES - HEADER) { "METADATA_TOO_LARGE" }
+        if (!isPrepared(target)) {
+            check(!rejectNewFilesForTests) { "UNRESERVED_METADATA_ALLOCATION" }
+            // The caller already decoded any legacy state and supplied its bounded successor.
+            // Seed the fixed file directly, so an oversized legacy history can migrate safely.
+            replaceWithPreallocated(target, bytes)
+            return
+        }
         prepare(target)
         RandomAccessFile(target, "rw").use { output ->
             val slots = listOfNotNull(readSlot(output, 0), readSlot(output, 1))

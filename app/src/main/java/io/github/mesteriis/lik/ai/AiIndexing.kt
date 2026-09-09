@@ -122,7 +122,7 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
         val retired = GenerationRemovalJournal(File(applicationContext.filesDir, "ai")).ids()
         val compatible = dao.compatible(pipeline.fingerprint)?.takeIf { it.generationId !in retired }
         if (compatible != null && generationCurrent(compatible, dao)) {
-            publishCatalog(catalog, profile, compatible)
+            publishCatalog(catalog, profile, compatible, dao)
             return
         }
         val generation = dao.generations().lastOrNull {
@@ -202,7 +202,7 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
             throw RetryableIndexException("INDEX_COVERAGE_CHANGED")
         }
         if (isStopped) throw InterruptedException("INDEX_CANCELLED")
-        publishCatalog(catalog, profile, done)
+        publishCatalog(catalog, profile, done, dao)
     }
 
     private fun generationCurrent(record: AiIndexGenerationRecord, dao: AiIndexDao): Boolean {
@@ -327,8 +327,17 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
         fun keys() = values.map { it.key }.toLongArray()
     }
 
-    private fun publishCatalog(catalog: ModelCatalog, profile: ProfileId, record: AiIndexGenerationRecord) {
+    private fun publishCatalog(catalog: ModelCatalog, profile: ProfileId, record: AiIndexGenerationRecord,
+                               dao: AiIndexDao) {
         catalog.generationReady(profile, AiFeature.SEARCH, record.toContract(complete = true))
+        val retained = catalog.snapshot().generations.keys
+        val superseded = dao.generations().filter {
+            it.profileId == profile.wire && it.feature == AiFeature.SEARCH.name && it.generationId !in retained
+        }.map { it.generationId }.toSet()
+        if (superseded.isNotEmpty()) {
+            dao.deleteGenerations(superseded)
+            superseded.forEach { NativeIndexFiles.remove(applicationContext, it) }
+        }
     }
 
     private fun AiIndexGenerationRecord.toContract(complete: Boolean) = IndexGeneration(

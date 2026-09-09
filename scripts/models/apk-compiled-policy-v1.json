@@ -1,7 +1,7 @@
 {
   "provenance": "Explicitly reviewed compiler outputs; never updated by a build or inferred from an inspected APK.",
   "schemaVersion": 1,
-  "sourceFingerprint": "a908a392c32941b7cf968a6f8fc16773b3ba35164b4c3c816219b71c26cdb3f7",
+  "sourceFingerprint": "a225134c4c77b3ab326a564a0bd6ccfa245738f982ef49a326cf4fe365e0d132",
   "sourceInputs": {
     "files": [
       "app/build.gradle.kts",
@@ -96,8 +96,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/14/classes.dex",
-          "sha256": "00ae1777368bc3255ecf3a91fb1671c58a5c16c698d2e461c4ba53fdac33e79d",
-          "size": 693548
+          "sha256": "f87bed7dfb0650325ef1d02241d26905035b608dd8779bba3be63e02ec1604ee",
+          "size": 701608
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/4/classes.dex",
@@ -583,8 +583,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/5/classes.dex",
-          "sha256": "91e9cab85a9f6ce03cb2441a868c2fe5eccb98b9cdfb51324cf6455966b9c764",
-          "size": 390160
+          "sha256": "ec931a5ddd7992d136d689631247f6581be2d14f009e3dc28b9b3b50dbf4caf0",
+          "size": 395504
         },
         {
           "compilerPath": "app/build/intermediates/global_synthetics_dex/debugAndroidTest/generateDebugAndroidTestGlobalSynthetics/classes.dex",
@@ -807,20 +807,20 @@
       "dex": [
         {
           "compilerPath": "app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex",
-          "sha256": "150c7805329571cd61029ec8d571f66933b20c6ece1ff44d5075100454f38938",
-          "size": 1177284
+          "sha256": "134d81223ca7213cced86ce8e982d9a02f0c17c302e35a636893f28bd61e1136",
+          "size": 1179712
         }
       ],
       "kind": "app",
       "profiles": {
         "assets/dexopt/baseline.prof": {
           "compilerPath": "app/build/intermediates/binary_art_profile/release/compileReleaseArtProfile/baseline.prof",
-          "sha256": "d7209e399d6695c3854ac7262cc7904f3bf281e0e3915e52b31f272a9f507e68",
-          "size": 992
+          "sha256": "9a3fa26c7da4e2f92b80476b0cc2a6ce8508952b89b9b4d2cc3b274894ce52da",
+          "size": 999
         },
         "assets/dexopt/baseline.profm": {
           "compilerPath": "app/build/intermediates/binary_art_profile_metadata/release/compileReleaseArtProfile/baseline.profm",
-          "sha256": "34270a1ed8507901ee2770e93af494aeae6ec31292a2b9c5cdea62383caa3500",
+          "sha256": "2ba757bae74895c557c3b74e23d5f7a1e7cc7f3fc1819f0e0b2f549971989f00",
           "size": 164
         }
       },

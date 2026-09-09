@@ -174,6 +174,34 @@ class AiRuntimeTest {
         }
     }
 
+    @Test fun corruptArtifactRepairKeepsReceiptPreallocatedAtExactBoundary() {
+        val root = File(context.cacheDir, "corrupt-receipt-boundary-${System.nanoTime()}").apply { mkdirs() }
+        val payload = "expected".toByteArray()
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(payload)
+            .joinToString("") { "%02x".format(it) }
+        val spec = ArtifactSpec("test/model.onnx", payload.size.toLong(), digest,
+            URI("https://huggingface.co/org/repo/resolve/${"a".repeat(40)}/model.onnx"))
+        val store = ArtifactStore(root)
+        val ledger = DownloadReservationLedger(root)
+        try {
+            store.file(digest).apply { parentFile!!.mkdirs(); writeBytes(ByteArray(payload.size) { 7 }) }
+            store.prepareDownloadMetadata("repair", listOf(spec), File(root, "catalog-state-v1.json"))
+            assertTrue(store.repair(spec))
+            store.prepareMissingTransferEntries(listOf(spec))
+            val unit = android.system.Os.statvfs(root.absolutePath).let { maxOf(512L, it.f_bsize, it.f_frsize) }
+            ledger.acquire("repair", listOf(spec to 0L), unit * 2, 1)
+            PreallocatedMetadata.rejectNewFilesForTests = true
+            java.io.RandomAccessFile(store.sharedPart(digest), "rw").use {
+                it.seek(0); it.write(payload); it.fd.sync()
+            }
+            store.publish(store.verifyStaging(store.sharedPart(digest), spec), spec)
+            assertTrue(store.installed(digest, payload.size.toLong()))
+        } finally {
+            PreallocatedMetadata.rejectNewFilesForTests = false
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun roomPublicationRejectsSameGenerationRevisionRaceWithoutAdvancingCheckpoint() {
         val mediaId = "d".repeat(63) + "1"
         val file = PhotoLibrary.store(context).fileFor(mediaId).apply {
@@ -405,6 +433,39 @@ class AiRuntimeTest {
             catalog.closeForTests()
             if (original == null) stateFile.delete() else stateFile.writeBytes(original)
             ModelCatalog.get(context).closeForTests()
+        }
+    }
+
+    @Test fun modelCatalogBoundsThousandGenerationWriteWithinFixedSlot() {
+        val catalog = ModelCatalog.get(context)
+        val original = catalog.snapshot()
+        val current = catalog.trusted.profiles.getValue(ProfileId.BALANCED)
+            .pipelines.getValue(AiFeature.SEARCH).fingerprint
+        val active = IndexGeneration("stress-active", AiFeature.SEARCH, current, true, 1, 1)
+        val pending = IndexGeneration("stress-pending", AiFeature.SEARCH, current, true, 2, 2)
+        try {
+            catalog.update { state ->
+                val generations = linkedMapOf(active.id to active, pending.id to pending)
+                repeat(1_200) { at ->
+                    val id = "stress-$at"
+                    generations[id] = IndexGeneration(id, AiFeature.SEARCH, current,
+                        complete = at % 3 != 0, completed = at, total = 1_200)
+                }
+                state.copy(
+                    revision = state.revision + 1,
+                    generations = generations,
+                    activeGenerations = mapOf(AiFeature.SEARCH to active.id),
+                    pending = PendingProfile(ProfileId.BALANCED, setOf(AiFeature.SEARCH),
+                        mapOf(AiFeature.SEARCH to pending.id)),
+                )
+            }
+            assertTrue(catalog.snapshot().generations.size <= 4)
+            assertEquals(active, catalog.snapshot().generations[active.id])
+            assertEquals(pending, catalog.snapshot().generations[pending.id])
+            assertEquals(256L * 1024, catalog.stateFileForMetadata().length())
+            assertTrue(PreallocatedMetadata.read(catalog.stateFileForMetadata()).size < 128 * 1024 - 48)
+        } finally {
+            catalog.update { original.copy(revision = it.revision + 1) }
         }
     }
 

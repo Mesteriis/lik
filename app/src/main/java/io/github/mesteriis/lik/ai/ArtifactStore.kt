@@ -76,7 +76,9 @@ class ArtifactStore(val root: File) {
         val quarantine = File(root, "quarantine").also(File::mkdirs)
         val rejected = File(quarantine, "${spec.sha256}-${System.currentTimeMillis()}.corrupt")
         check(target.renameTo(rejected)) { "CORRUPT_ARTIFACT_QUARANTINE_FAILED" }
-        receipt(spec.sha256).delete()
+        // The receipt may already be part of an admitted download's fixed metadata budget.
+        // Clear its slots in place so publication never needs a new directory entry/block.
+        PreallocatedMetadata.clear(receipt(spec.sha256))
         knownInvalid.remove(spec.sha256)
         DurableAiFiles.syncDirectory(artifacts)
         DurableAiFiles.syncDirectory(quarantine)

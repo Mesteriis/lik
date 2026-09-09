@@ -9,13 +9,19 @@ import java.io.File
 class ModelCatalog private constructor(private val root: File, val trusted: TrustedModelCatalog) {
     private val stateFile = File(root, "catalog-state-v1.json")
     private val listeners = mutableSetOf<(CatalogSnapshot) -> Unit>()
+    private val acceptedPipelineFingerprints: Map<AiFeature, Set<String>> by lazy {
+        AiFeature.entries.associateWith { feature ->
+            trusted.profiles.values.mapNotNull { it.pipelines[feature] }
+                .flatMap { sequenceOf(it.fingerprint) + it.compatibleFingerprints.asSequence() }.toSet()
+        }
+    }
     @Volatile private var current = initialize()
 
     fun snapshot(): CatalogSnapshot = current
     internal fun stateFileForMetadata(): File = stateFile
     @Synchronized fun update(transform: (CatalogSnapshot) -> CatalogSnapshot): CatalogSnapshot {
         val old = current
-        val next = transform(old)
+        val next = CatalogGenerationBounds.prune(transform(old), acceptedPipelineFingerprints)
         require(next.catalogVersion == trusted.version && next.revision > old.revision)
         write(next)
         current = next
@@ -28,16 +34,18 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
     }
     fun select(profile: ProfileId): CatalogSnapshot = update { state ->
         val fingerprints = trusted.profiles.getValue(profile).pipelines.mapValues { it.value.fingerprint }
+        val compatible = trusted.profiles.getValue(profile).pipelines.mapValues { it.value.compatibleFingerprints }
         ProfileTransitions.select(state, profile, state.enabledFeatures, fingerprints,
-            state.verifiedOracles[profile] == trusted.oracleRevision)
+            state.verifiedOracles[profile] == trusted.oracleRevision, compatible)
     }
     fun setFeature(feature: AiFeature, enabled: Boolean): CatalogSnapshot = update { state ->
         val requested = state.pending?.enabled ?: state.enabledFeatures
         val features = if (enabled) requested + feature else requested - feature
         val target = state.pending?.profile ?: state.active ?: state.selected
         val fingerprints = trusted.profiles.getValue(target).pipelines.mapValues { it.value.fingerprint }
+        val compatible = trusted.profiles.getValue(target).pipelines.mapValues { it.value.compatibleFingerprints }
         ProfileTransitions.featuresChanged(state, features, fingerprints,
-            state.verifiedOracles[target] == trusted.oracleRevision)
+            state.verifiedOracles[target] == trusted.oracleRevision, compatible)
     }
 
     fun selfTested(profile: ProfileId): CatalogSnapshot = update { state ->
@@ -95,7 +103,8 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
                 { installed.getValue(it) }, ::generationCompatible)
         val artifactRepaired = CatalogArtifactRepair.repair(versioned, installed, corrupted)
         val oracleRepaired = CatalogOracleRepair.requireCurrent(artifactRepaired, trusted.oracleRevision) { installed.getValue(it) }
-        val repaired = CatalogStorageRepair.repair(oracleRepaired, ::generationUsable)
+        val repaired = CatalogGenerationBounds.prune(
+            CatalogStorageRepair.repair(oracleRepaired, ::generationUsable), acceptedPipelineFingerprints)
         if (repaired != persisted) write(repaired)
         return repaired
     }
