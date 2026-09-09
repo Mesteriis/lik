@@ -13,6 +13,31 @@ import java.io.IOException
 import android.util.Base64
 
 class SimilarityPersistenceTest {
+    @Test fun routineScanBookkeepingAndNoOpUpsertPreserveReadyVisualGeneration()=triggerFixture{db->
+        val a=row("routine-a",MediaSource.DEVICE);val b=row("routine-b",MediaSource.DEVICE);safe(db,a);safe(db,b)
+        db.similarity().publishIfCurrent(fingerprint(a,"a",ByteArray(8)));db.similarity().publishIfCurrent(fingerprint(b,"b",ByteArray(8).also{it[0]=1}));scanEveryPending(db)
+        val revision=db.similarity().libraryRevision();val relation=db.similarity().visibleRelations(10,0).single();val before=db.similarity().fingerprint(a.mediaId)!!
+        repeat(100){index->db.media().markScanSeen(a.mediaId,"routine-$index",index.toLong()+10)}
+        db.media().upsert(db.media().get(a.mediaId)!!.copy(lastSeenAt=999,displayName="renamed metadata",takenAt=123,modifiedAt=456))
+        db.ocrPeople().saveExposure(AiMediaExposureRecord(a.mediaId,a.contentRevision,AiExposure.SAFE,999))
+        assertEquals(revision,db.similarity().libraryRevision());assertEquals(before.relationsRevision,db.similarity().fingerprint(a.mediaId)!!.relationsRevision);assertTrue(db.similarity().fingerprint(a.mediaId)!!.relationsReady);assertEquals(relation,db.similarity().visibleRelations(10,0).single())
+    }
+
+    @Test fun eachRealDomainChangeBumpsExactlyOnceAndInvalidatesVisualRows(){
+        val changes=listOf<(MediaDatabase,MediaRecord)->Unit>(
+            {db,row->db.media().upsert(row.copy(contentRevision=row.contentRevision+1))},
+            {db,row->db.media().upsert(row.copy(accessGrantEpoch=row.accessGrantEpoch+1))},
+            {db,row->db.media().upsert(row.copy(availability=MediaAvailability.INACCESSIBLE))},
+            {db,row->db.media().trash(setOf(row.mediaId),44)},
+            {db,row->db.ocrPeople().saveExposure(AiMediaExposureRecord(row.mediaId,row.contentRevision,AiExposure.SENSITIVE,44))},
+        )
+        changes.forEachIndexed{index,change->triggerFixture{db->
+            val a=row("change-$index-a",MediaSource.GOOGLE_IMPORT,privateId=(index+1).toString().repeat(64).take(64));val b=row("change-$index-b",MediaSource.DEVICE);safe(db,a);safe(db,b)
+            db.similarity().publishIfCurrent(fingerprint(a,"a",ByteArray(8)));db.similarity().publishIfCurrent(fingerprint(b,"b",ByteArray(8).also{it[0]=1}));scanEveryPending(db);assertEquals(1,db.similarity().visibleRelations(10,0).size)
+            val revision=db.similarity().libraryRevision();change(db,a);assertEquals(revision+1,db.similarity().libraryRevision());assertTrue(db.similarity().visibleRelations(10,0).isEmpty());assertFalse(db.similarity().progress().complete)
+        }}
+    }
+
     @Test fun durablePauseBlocksEveryOrdinaryRunUntilExplicitManualResume()=fixture{db->
         val a=row("pause-a",MediaSource.DEVICE);val b=row("pause-b",MediaSource.DEVICE);safe(db,a);safe(db,b)
         db.similarity().publishIfCurrent(fingerprint(a,"a",ByteArray(8)));db.similarity().publishIfCurrent(fingerprint(b,"b",ByteArray(8).also{it[0]=1}))
@@ -65,6 +90,11 @@ class SimilarityPersistenceTest {
     private fun fixture(block:(MediaDatabase)->Unit) {
         val context=ApplicationProvider.getApplicationContext<Context>()
         val db=Room.inMemoryDatabaseBuilder(context,MediaDatabase::class.java).build()
+        try { block(db) } finally { db.close() }
+    }
+    private fun triggerFixture(block:(MediaDatabase)->Unit) {
+        val context=ApplicationProvider.getApplicationContext<Context>()
+        val db=Room.inMemoryDatabaseBuilder(context,MediaDatabase::class.java).addCallback(MediaDatabase.SIMILARITY_CALLBACK).build()
         try { block(db) } finally { db.close() }
     }
 

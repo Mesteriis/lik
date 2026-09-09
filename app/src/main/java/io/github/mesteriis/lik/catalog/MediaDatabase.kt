@@ -38,20 +38,22 @@ abstract class MediaDatabase : RoomDatabase() {
                 .build().also { instance = it }
         }
 
-        private val SIMILARITY_CALLBACK=object:RoomDatabase.Callback(){
+        internal val SIMILARITY_CALLBACK=object:RoomDatabase.Callback(){
             override fun onCreate(db:SupportSQLiteDatabase){ensureSimilarityLibraryState(db)}
             override fun onOpen(db:SupportSQLiteDatabase){ensureSimilarityLibraryState(db)}
         }
 
         private fun ensureSimilarityLibraryState(db:SupportSQLiteDatabase){
             db.execSQL("INSERT OR IGNORE INTO similarity_library_state(stateId,revision) VALUES('default',0)")
+            val body="UPDATE similarity_library_state SET revision=revision+1 WHERE stateId='default'; UPDATE similarity_checkpoint SET checkpointMediaId=CASE WHEN status='PAUSED' THEN checkpointMediaId ELSE NULL END,completed=CASE WHEN status='PAUSED' THEN completed ELSE 0 END,total=CASE WHEN status='PAUSED' THEN total ELSE 0 END,status=CASE WHEN status='PAUSED' THEN 'PAUSED' ELSE 'IDLE' END,updatedAt=CAST(strftime('%s','now') AS INTEGER)*1000,error=CASE WHEN status='PAUSED' THEN error ELSE NULL END,libraryRevision=(SELECT revision FROM similarity_library_state WHERE stateId='default'),tranche=CASE WHEN status='PAUSED' THEN tranche ELSE tranche+1 END,comparisons=CASE WHEN status='PAUSED' THEN comparisons ELSE 0 END,continuations=CASE WHEN status='PAUSED' THEN continuations ELSE 0 END WHERE checkpointId='default';"
             listOf("media" to "media","ai_media_exposure" to "exposure").forEach{(table,label)->
-                listOf("INSERT","UPDATE","DELETE").forEach{operation->
-                    val name="similarity_${label}_${operation.lowercase()}"
-                    db.execSQL("DROP TRIGGER IF EXISTS $name")
-                    db.execSQL("CREATE TRIGGER $name AFTER $operation ON $table BEGIN UPDATE similarity_library_state SET revision=revision+1 WHERE stateId='default'; UPDATE similarity_checkpoint SET checkpointMediaId=NULL,completed=0,total=0,status=CASE WHEN status='PAUSED' THEN 'PAUSED' ELSE 'IDLE' END,updatedAt=CAST(strftime('%s','now') AS INTEGER)*1000,error=NULL,libraryRevision=(SELECT revision FROM similarity_library_state WHERE stateId='default') WHERE checkpointId='default'; END")
-                }
+                listOf("insert","update","delete").forEach{db.execSQL("DROP TRIGGER IF EXISTS similarity_${label}_$it")}
+                db.execSQL("CREATE TRIGGER similarity_${label}_insert AFTER INSERT ON $table BEGIN $body END")
+                db.execSQL("CREATE TRIGGER similarity_${label}_delete AFTER DELETE ON $table BEGIN $body END")
             }
+            val rules=io.github.mesteriis.lik.similarity.SimilarityDomainRevision
+            db.execSQL("CREATE TRIGGER similarity_media_update AFTER UPDATE OF ${rules.MEDIA_UPDATE_COLUMNS.joinToString(",")} ON media WHEN ${rules.mediaUpdateWhen} BEGIN $body END")
+            db.execSQL("CREATE TRIGGER similarity_exposure_update AFTER UPDATE OF ${rules.EXPOSURE_UPDATE_COLUMNS.joinToString(",")} ON ai_media_exposure WHEN ${rules.exposureUpdateWhen} BEGIN $body END")
         }
 
         val MIGRATION_12_13=object:Migration(12,13){
@@ -76,7 +78,7 @@ abstract class MediaDatabase : RoomDatabase() {
                 db.execSQL("DELETE FROM similarity_relation")
                 db.execSQL("DELETE FROM similarity_scan")
                 db.execSQL("UPDATE content_fingerprint SET relationsReady=0,relationsRevision=0")
-                db.execSQL("UPDATE similarity_checkpoint SET status='IDLE',completed=0,total=0,checkpointMediaId=NULL,error=NULL")
+                db.execSQL("UPDATE similarity_checkpoint SET status='IDLE',completed=0,total=0,checkpointMediaId=NULL,error=NULL WHERE status!='PAUSED'")
                 ensureSimilarityLibraryState(db)
             }
         }

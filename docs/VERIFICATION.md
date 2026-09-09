@@ -390,4 +390,14 @@ Room v14 binds fingerprint relation readiness, scan cursors and visual rows to t
 - Full API 37 suite on `emulator-5580` — **PASS**, XML total 155: 149 passed and six expected external-model probes skipped. The target reports 16,384-byte pages. After the final library-state observer and exact relation-revision guard, the focused T12 persistence/migration/UI run passed **28/28**. An earlier full attempt exposed five stale schema-version assertions (`13` instead of `14`); all corresponding migration classes passed focused before the green full run.
 - The final compiler-only candidate is the checked-in receipt. Policy SHA-256: `d652c789d24aefb163a3d1a971451c0998f3f2babb35170f74754539baa6a036`; Android source fingerprint: `96df0c4cf70c2d2acd7434553825aead38c1990a85dba192d38d2b8f13615941`.
 
+### Task 12 review round 4 — selective domain invalidation (2026-09-09)
+
+The v14 database now installs `UPDATE OF`/`WHEN OLD … IS NOT NEW` triggers for the exact media identity, content revision, access, trash and exposure fields that can change fingerprint semantics or visible membership. No-op upserts and routine scanner changes to `lastSeenAt`, `scanMarker`, names and dates do not advance the library revision, clear readiness or hide visual rows. An analytical JVM regression checks 100,000 such bookkeeping changes; API 37 tests exercise the real Room trigger path and verify that content revision, access epoch/state, trash and exposure changes each advance the revision once and immediately invalidate visual publication.
+
+The v13→v14 migration retains an exhausted/manual `PAUSED` checkpoint, including its media cursor, totals, tranche, comparison and continuation counters. A migrated non-manual processor performs zero fingerprint work and consumes no further budget; explicit manual resume alone opens a new tranche. Regenerable visual edges/cursors remain invalidated while exact SHA fingerprints survive.
+
+- `./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin` — **PASS**, 145 JVM tests.
+- Focused `SimilarityPersistenceTest,SimilarityMigrationTest` on API 37 `emulator-5580` — **PASS**, 27/27. The target is the same 16,384-byte-page AVD used for the round-3 full run; the full device suite was not repeated because the changed surface is covered by this focused run.
+- `./gradlew lint testDebugUnitTest assembleDebug assembleRelease assembleDebugAndroidTest` — **PASS**. Reviewed compiler policy SHA-256 is `b7063cb0620911f2d3723d88c332d43e288bbecf739184b61c51ef207cdfeb77`, source fingerprint `e4a8850ad90143ebe4ba180073c2a92cb1a138c661510795b05154b4a7d65d3f`; debug/release/androidTest APK sizes are 62,031,207 / 48,561,421 / 2,041,725 bytes. All inspections report metadata-only delivery with zero ONNX/tokenizer payloads.
+
 No physical device, downloaded/bundled model payload, automatic merge/delete or destructive MediaStore action was used.

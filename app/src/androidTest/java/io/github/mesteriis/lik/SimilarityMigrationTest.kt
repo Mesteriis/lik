@@ -19,13 +19,21 @@ class SimilarityMigrationTest {
             SQLiteDatabase.openOrCreateDatabase(path,null).use{sqlite->
                 val entities=schema.getJSONArray("entities");for(index in 0 until entities.length()){val entity=entities.getJSONObject(index);val table=entity.getString("tableName");sqlite.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}",table));val indices=entity.optJSONArray("indices")?:JSONArray();for(i in 0 until indices.length())sqlite.execSQL(indices.getJSONObject(i).getString("createSql").replace("\${TABLE_NAME}",table))}
                 val setup=schema.getJSONArray("setupQueries");for(i in 0 until setup.length())sqlite.execSQL(setup.getString(i))
+                sqlite.execSQL("INSERT INTO media(mediaId,source,sourceKey,volumeName,volumeVersion,generationAdded,contentUri,dateSource,contentRevision,availability,lastSeenAt,accessGrantEpoch) VALUES('a','DEVICE','a','','',0,'content://a','UNKNOWN',1,'AVAILABLE',1,1)")
+                sqlite.execSQL("INSERT INTO media(mediaId,source,sourceKey,volumeName,volumeVersion,generationAdded,contentUri,dateSource,contentRevision,availability,lastSeenAt,accessGrantEpoch) VALUES('c','DEVICE','c','','',0,'content://c','UNKNOWN',1,'AVAILABLE',1,1)")
+                sqlite.execSQL("INSERT INTO ai_media_exposure(mediaId,contentRevision,exposure,decidedAt) VALUES('a',1,'SAFE',1)")
+                sqlite.execSQL("INSERT INTO ai_media_exposure(mediaId,contentRevision,exposure,decidedAt) VALUES('c',1,'SAFE',1)")
                 sqlite.execSQL("INSERT INTO content_fingerprint VALUES('a',1,1,'same',2,X'0000000000000000',1,1),('b',1,1,'same',2,X'0100000000000000',1,1)")
                 sqlite.execSQL("INSERT INTO similarity_relation VALUES('a','b',1,1,1,1,'VISUAL',2,1,1)")
-                sqlite.execSQL("INSERT INTO similarity_scan VALUES('a',1,1,2,'01',1,1)");sqlite.version=13
+                sqlite.execSQL("INSERT INTO similarity_scan VALUES('a',1,1,2,'01',1,1)")
+                sqlite.execSQL("INSERT INTO similarity_checkpoint(checkpointId,checkpointMediaId,completed,total,status,updatedAt,error,libraryRevision,tranche,comparisons,continuations) VALUES('default','a',4,9,'PAUSED',10,NULL,0,7,8192,7)");sqlite.version=13
             }
             val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_13_14).build();try{
                 val sql=db.openHelper.writableDatabase;fun count(table:String)=sql.query("SELECT COUNT(*) FROM $table").use{it.moveToFirst();it.getInt(0)}
                 assertEquals(14,sql.version);assertEquals(2,count("content_fingerprint"));assertEquals(0,count("similarity_relation"));assertEquals(0,count("similarity_scan"));assertEquals(0,db.similarity().fingerprint("a")!!.relationsRevision)
+                val paused=db.similarity().checkpoint()!!;assertEquals(SimilarityWorkStatus.PAUSED,paused.status);assertEquals(7,paused.tranche);assertEquals(8192,paused.comparisons);assertEquals(7,paused.continuations);var calculations=0
+                assertEquals(SimilarityRunOutcome.PAUSED_BUDGET,SimilarityProcessor(db,FingerprintCalculator{_,_->calculations++;CalculatedFingerprint("new",ByteArray(8))},{false}).run());assertEquals(0,calculations);assertEquals(8192,db.similarity().checkpoint()!!.comparisons)
+                SimilarityProcessor(db,FingerprintCalculator{_,_->calculations++;CalculatedFingerprint("new",ByteArray(8))},{false},newTranche=true).run();assertTrue(calculations>0);assertTrue(db.similarity().checkpoint()!!.comparisons<8192)
             }finally{db.close()}
         }finally{context.deleteDatabase(name)}
     }

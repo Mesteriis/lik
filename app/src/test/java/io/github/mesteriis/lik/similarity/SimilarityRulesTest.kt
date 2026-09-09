@@ -9,6 +9,14 @@ import java.io.ByteArrayInputStream
 import java.security.MessageDigest
 
 class SimilarityRulesTest {
+    @Test fun oneHundredThousandRoutineCatalogUpdatesDoNotChangeSimilarityDomain(){
+        val stable=row("stable",MediaSource.DEVICE).copy(contentRevision=9,accessGrantEpoch=4)
+        repeat(100_000){index->
+            val bookkeeping=stable.copy(lastSeenAt=index.toLong(),scanMarker="scan-$index",displayName="Фото $index",takenAt=index.toLong(),modifiedAt=index.toLong())
+            assertFalse(SimilarityDomainRevision.mediaChanged(stable,bookkeeping))
+        }
+    }
+
     @Test fun automaticLibraryWorkIsFiniteAtOneHundredThousandItems(){
         assertEquals(8,SimilarityBudgets.maximumAutomaticJobs())
         assertEquals(8192L,SimilarityBudgets.maximumAutomaticComparisons())

@@ -1,7 +1,7 @@
 {
   "provenance": "Explicitly reviewed compiler outputs; never updated by a build or inferred from an inspected APK.",
   "schemaVersion": 1,
-  "sourceFingerprint": "96df0c4cf70c2d2acd7434553825aead38c1990a85dba192d38d2b8f13615941",
+  "sourceFingerprint": "e4a8850ad90143ebe4ba180073c2a92cb1a138c661510795b05154b4a7d65d3f",
   "sourceInputs": {
     "files": [
       "app/build.gradle.kts",
@@ -101,8 +101,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/15/classes.dex",
-          "sha256": "34a68cc545e7683d7af9325cfdb0a96f9fbb43753e7e02cb087f9beaaac83bc9",
-          "size": 220660
+          "sha256": "9391370c02d094f2b025cf871f127795a7bb9cc4dba8bb4cbbf87ef902bc3389",
+          "size": 224168
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/4/classes.dex",
@@ -121,8 +121,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/9/classes.dex",
-          "sha256": "f50f4b3cc7fef0cab69c3331fd08d0520f1a85d5ac0fe50d66c811feb8716aed",
-          "size": 628476
+          "sha256": "28fafd4cffe5385be624b5c7782fd10ec0459cc0df912b879b6fe8392e038841",
+          "size": 629788
         },
         {
           "compilerPath": "app/build/intermediates/global_synthetics_dex/debug/generateDebugGlobalSynthetics/classes.dex",
@@ -593,8 +593,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/5/classes.dex",
-          "sha256": "f8d5c3e46cc0ab1669a9c42408309d375610671e96fd36631675985472465e74",
-          "size": 535716
+          "sha256": "677fe39d85b478a52752e9dbb09a6d488475472d44a723de84566ad04162c16b",
+          "size": 546712
         },
         {
           "compilerPath": "app/build/intermediates/global_synthetics_dex/debugAndroidTest/generateDebugAndroidTestGlobalSynthetics/classes.dex",
@@ -817,21 +817,21 @@
       "dex": [
         {
           "compilerPath": "app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex",
-          "sha256": "e17d6beb41e0f72f82939117505fbba87a4bbfbdcbe23f6ed5b795b641f5e232",
-          "size": 1381524
+          "sha256": "43b655e43de2be08fabe539834d90de7566682b44cedf5920cea01620d905e19",
+          "size": 1382316
         }
       ],
       "kind": "app",
       "profiles": {
         "assets/dexopt/baseline.prof": {
           "compilerPath": "app/build/intermediates/binary_art_profile/release/compileReleaseArtProfile/baseline.prof",
-          "sha256": "3ec73ade3eee0d9d750baf9f7a2336ced285cdf62a0bcc1e40085ed053ba1b1f",
-          "size": 862
+          "sha256": "297e34f769cd84783a680a8731d4395ef284ccb08cff30cce43276065da09402",
+          "size": 1031
         },
         "assets/dexopt/baseline.profm": {
           "compilerPath": "app/build/intermediates/binary_art_profile_metadata/release/compileReleaseArtProfile/baseline.profm",
-          "sha256": "8d698b13b47123845212206d6c0de6fb55caa613a80416e1ce827a172e3d661c",
-          "size": 166
+          "sha256": "2631adff8bc8f043d2ea62697c6894002088c02fdd1cd42b10c44c57c8db4aeb",
+          "size": 164
         }
       },
       "resourceArchive": "app/build/intermediates/optimized_processed_res/release/optimizeReleaseResources/resources-release-optimize.ap_",
