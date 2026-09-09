@@ -93,6 +93,8 @@
   <string name="ai_process_now">Process now</string>
   <string name="ai_pause_indexing">Pause background processing</string>
   <string name="ai_index_coverage">Semantic index coverage: %1$d / %2$d. Incomplete coverage means incomplete results.</string>
+  <string name="ai_coverage_checking">Checking visible AI coverage…</string>
+  <string name="ai_safe_coverage_unavailable">AI results are prepared in quarantine. Visible coverage will be available after sensitive-content setup.</string>
   <string name="ai_all_index_coverage">Coverage — description: %1$d / %2$d; text: %3$d / %4$d; people: %5$d / %6$d.</string>
   <string name="search_ocr_text">Text in photo (Russian or English)</string>
   <string name="ocr_not_ready">Enable Text in photos and finish processing before searching recognized text.</string>
@@ -211,4 +213,5 @@
     <item quantity="one">%1$d photo</item>
     <item quantity="other">%1$d photos</item>
   </plurals>
+  <string name="undo_person_split">Undo split</string>
 </resources>

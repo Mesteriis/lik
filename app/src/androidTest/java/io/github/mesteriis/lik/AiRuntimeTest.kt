@@ -1,6 +1,7 @@
 package io.github.mesteriis.lik
 
 import android.graphics.Bitmap
+import androidx.room.Room
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.ListenableWorker
@@ -24,6 +25,22 @@ import org.junit.Test
 
 class AiRuntimeTest {
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
+
+    @Test fun catalogReopenKeepsRoomGenerationButRejectsMissingNativeSearchGeneration() {
+        val name="catalog-room-${System.nanoTime()}.db";val root=File(context.cacheDir,"catalog-room-${System.nanoTime()}").apply{mkdirs()}
+        val trusted=TrustedModelCatalog.load(context);val ocrPipe=trusted.profiles.getValue(ProfileId.BALANCED).pipelines.getValue(AiFeature.OCR).fingerprint
+        val searchPipe=trusted.profiles.getValue(ProfileId.BALANCED).pipelines.getValue(AiFeature.SEARCH).fingerprint
+        try {
+            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).build();try{
+                val media=MediaRecord("m",MediaSource.DEVICE,"1",contentUri="content://m",lastSeenAt=1);db.media().upsert(media)
+                db.aiIndexes().saveGeneration(AiIndexGenerationRecord("ocr-room",ProfileId.BALANCED.wire,AiFeature.OCR.name,ocrPipe,GenerationStatus.COMPLETE,1,1,"m",null,1))
+                db.ocrPeople().saveRun(AiFeatureMediaRunRecord("ocr-room","m",AiFeature.OCR.name,0,1,null))
+            }finally{db.close()}
+            val dbFile=context.getDatabasePath(name);ModelCatalog.openForTests(root,dbFile,trusted).apply{saveGeneration(IndexGeneration("ocr-room",AiFeature.OCR,ocrPipe,true,1,1));saveGeneration(IndexGeneration("search-missing",AiFeature.SEARCH,searchPipe,true,1,1))}
+            val reopened=ModelCatalog.openForTests(root,dbFile,trusted).snapshot()
+            assertNotNull(reopened.generations["ocr-room"]);assertNull(reopened.generations["search-missing"])
+        } finally {context.deleteDatabase(name);root.deleteRecursively()}
+    }
 
     @Test fun nativeUSearchSupportsUpdateDeletePersistenceAndExactParity() {
         assertTrue("USearch JNI must load", USearchBridge.available)

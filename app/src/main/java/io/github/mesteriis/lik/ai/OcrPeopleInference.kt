@@ -12,7 +12,12 @@ import io.github.mesteriis.lik.imports.PhotoLibrary
 import java.io.File
 import kotlin.math.*
 
-data class OcrRegion(val box: FaceBox, val text: String, val confidence: Float)
+data class OcrPoint(val x: Float, val y: Float)
+data class OcrQuad(val points: List<OcrPoint>, val score: Float) {
+    init { require(points.size == 4 && points.all { it.x in 0f..1f && it.y in 0f..1f }) }
+    val box: FaceBox get() = FaceBox(points.minOf { it.x }, points.minOf { it.y }, points.maxOf { it.x }, points.maxOf { it.y })
+}
+data class OcrRegion(val quad: OcrQuad, val text: String, val confidence: Float) { val box get() = quad.box }
 data class OcrInference(val regions: List<OcrRegion>) {
     val displayText get() = OcrText.normalizeDisplay(regions.joinToString("\n") { it.text })
     val confidence get() = regions.map(OcrRegion::confidence).average().takeIf(Double::isFinite)?.toFloat() ?: 0f
@@ -41,17 +46,18 @@ class OcrPeopleInferenceEngine(
     fun ocrBitmap(profile: ProfileId, bitmap: Bitmap): OcrInference {
         val detector = if (profile == ProfileId.EXTENDED) "ocr-server-det-v1/model.onnx" else "ocr-mobile-det-v1/model.onnx"
         val resized = OcrTensor.detector(bitmap)
-        val probability = runtime.runFloat(file(detector), "x", resized.shape, resized.values, "fetch_name_0").getOrThrow()
-        val boxes = DbRegions.rectangles(probability, resized.width, resized.height, bitmap.width, bitmap.height)
+        val probability = runtime.runFloat(file(detector), "x", resized.shape, resized.values, "fetch_name_0",
+            outputCapacityFloats = resized.width * resized.height).getOrThrow()
+        val boxes = DbRegions.quadrilaterals(probability, resized.width, resized.height)
         val dictionary = file("ocr-cyrillic-rec-v1/characters.txt").readLines(Charsets.UTF_8) + " "
-        val regions = boxes.mapNotNull { box ->
-            val crop = crop(bitmap, box)
+        val regions = boxes.mapNotNull { quad ->
+            val crop = crop(bitmap, quad)
             try {
                 val tensor = OcrTensor.recognizer(crop)
                 val flat = runtime.runFloat(file("ocr-cyrillic-rec-v1/model.onnx"), "x", tensor.shape, tensor.values, "fetch_name_0").getOrThrow()
                 if (flat.size % 852 != 0) error("OCR_OUTPUT_SHAPE")
                 val decoded = CtcDecoder.decode(Array(flat.size / 852) { at -> flat.copyOfRange(at * 852, (at + 1) * 852) }, dictionary)
-                decoded.takeIf { it.text.isNotBlank() }?.let { OcrRegion(box, it.text, it.confidence) }
+                decoded.takeIf { it.text.isNotBlank() }?.let { OcrRegion(quad, it.text, it.confidence) }
             } finally { crop.recycle() }
         }.sortedWith(compareBy<OcrRegion> { it.box.top }.thenBy { it.box.left })
         return OcrInference(regions)
@@ -60,7 +66,8 @@ class OcrPeopleInferenceEngine(
     fun peopleBitmap(bitmap: Bitmap): List<FaceInference> {
         val tensor = FaceTensor.detector(bitmap)
         val names = listOf("cls_8","cls_16","cls_32","obj_8","obj_16","obj_32","bbox_8","bbox_16","bbox_32","kps_8","kps_16","kps_32")
-        val flat = runtime.runFloatMulti(file("yunet-v1/model.onnx"), "input", intArrayOf(1,3,640,640), tensor.values, names).getOrThrow()
+        val flat = runtime.runFloatMulti(file("yunet-v1/model.onnx"), "input", intArrayOf(1,3,640,640), tensor.values, names,
+            outputCapacityFloats = 134_400).getOrThrow()
         val proposals = YuNetPostprocess.decode(flat, tensor.scaleX, tensor.scaleY, bitmap.width, bitmap.height)
         return proposals.map { proposal ->
             val aligned = FaceAlignment.align(bitmap, proposal.landmarks)
@@ -89,12 +96,17 @@ class OcrPeopleInferenceEngine(
         require(artifacts.installed(spec.sha256, spec.size)) { "PROFILE_NOT_INSTALLED" }
         return artifacts.file(spec.sha256)
     }
-    private fun crop(bitmap: Bitmap, box: FaceBox): Bitmap {
-        val left = (box.left * bitmap.width).toInt().coerceIn(0, bitmap.width - 1)
-        val top = (box.top * bitmap.height).toInt().coerceIn(0, bitmap.height - 1)
-        val right = ceil(box.right * bitmap.width).toInt().coerceIn(left + 1, bitmap.width)
-        val bottom = ceil(box.bottom * bitmap.height).toInt().coerceIn(top + 1, bitmap.height)
-        return Bitmap.createBitmap(bitmap, left, top, right-left, bottom-top)
+    internal fun crop(bitmap: Bitmap, quad: OcrQuad): Bitmap {
+        val points = quad.points.map { OcrPoint(it.x * bitmap.width, it.y * bitmap.height) }
+        fun distance(a: OcrPoint, b: OcrPoint) = hypot(a.x - b.x, a.y - b.y)
+        val width = ceil(max(distance(points[0], points[1]), distance(points[3], points[2]))).toInt().coerceAtLeast(1)
+        val height = ceil(max(distance(points[0], points[3]), distance(points[1], points[2]))).toInt().coerceAtLeast(1)
+        val output = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val source = points.flatMap { listOf(it.x, it.y) }.toFloatArray()
+        val target = floatArrayOf(0f,0f,width.toFloat(),0f,width.toFloat(),height.toFloat(),0f,height.toFloat())
+        val matrix = Matrix().apply { require(setPolyToPoly(source, 0, target, 0, 4)) }
+        Canvas(output).apply { drawColor(Color.WHITE); drawBitmap(bitmap, matrix, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)) }
+        return output
     }
 }
 
@@ -146,19 +158,42 @@ private fun channels(bitmap: Bitmap, mean: FloatArray, std: FloatArray, bgr: Boo
 }
 
 object DbRegions {
-    /** Bounded connected components over DB probability map; returned boxes are normalized to the source. */
-    fun rectangles(probability: FloatArray, width: Int, height: Int, sourceWidth: Int, sourceHeight: Int): List<FaceBox> {
+    /** Pinned DB postprocess: threshold, component contour, box score, unclip and ordered quadrilateral. */
+    fun quadrilaterals(probability: FloatArray, width: Int, height: Int): List<OcrQuad> {
         if (probability.size != width*height) return emptyList()
-        val seen=BooleanArray(probability.size); val regions=mutableListOf<FaceBox>()
+        val seen=BooleanArray(probability.size); val regions=mutableListOf<OcrQuad>()
         for(seed in probability.indices) if(!seen[seed] && probability[seed]>=.3f){
-            var minX=seed%width; var maxX=minX; var minY=seed/width; var maxY=minY; var score=0f; var count=0
+            var score=0f; val pixels=ArrayList<OcrPoint>()
             val queue=java.util.ArrayDeque<Int>(); queue.add(seed); seen[seed]=true
-            while(queue.isNotEmpty() && count<200000){ val at=queue.removeFirst(); val x=at%width; val y=at/width; minX=min(minX,x);maxX=max(maxX,x);minY=min(minY,y);maxY=max(maxY,y);score+=probability[at];count++
+            while(queue.isNotEmpty() && pixels.size<200000){ val at=queue.removeFirst(); val x=at%width; val y=at/width; pixels += OcrPoint(x+.5f,y+.5f);score+=probability[at]
                 intArrayOf(at-1,at+1,at-width,at+width).forEach { n -> if(n in probability.indices && !seen[n] && probability[n]>=.3f && abs(n%width-x)<=1){seen[n]=true;queue.add(n)} } }
-            if(count>=4 && score/count>=.6f){ val pad=max(1,((maxX-minX+maxY-minY)*.125f).roundToInt()); regions += FaceBox(((minX-pad).coerceAtLeast(0)/width.toFloat()),((minY-pad).coerceAtLeast(0)/height.toFloat()),((maxX+pad+1).coerceAtMost(width)/width.toFloat()),((maxY+pad+1).coerceAtMost(height)/height.toFloat())) }
+            val mean=if(pixels.isEmpty())0f else score/pixels.size
+            if(pixels.size>=4 && mean>=.6f) minimumRectangle(pixels)?.let { raw ->
+                val expanded=unclip(raw,1.5f).map { OcrPoint((it.x/width).coerceIn(0f,1f),(it.y/height).coerceIn(0f,1f)) }
+                if(expanded.map{it.x}.distinct().size>1&&expanded.map{it.y}.distinct().size>1) regions += OcrQuad(order(expanded),mean)
+            }
         }
-        return regions.sortedWith(compareBy<FaceBox>{it.top}.thenBy{it.left}).take(1000)
+        return regions.sortedWith(compareBy<OcrQuad>{it.box.top}.thenBy{it.box.left}).take(1000)
     }
+
+    @Deprecated("Use quadrilaterals")
+    fun rectangles(probability: FloatArray,width:Int,height:Int,sourceWidth:Int,sourceHeight:Int)=quadrilaterals(probability,width,height).map(OcrQuad::box)
+
+    private fun minimumRectangle(points:List<OcrPoint>):List<OcrPoint>?{
+        val hull=convexHull(points);if(hull.size<2)return null
+        var best:List<OcrPoint>?=null;var area=Float.POSITIVE_INFINITY
+        for(i in hull.indices){val a=hull[i];val b=hull[(i+1)%hull.size];val angle=-atan2(b.y-a.y,b.x-a.x);val c=cos(angle);val s=sin(angle)
+            var minX=Float.POSITIVE_INFINITY;var minY=Float.POSITIVE_INFINITY;var maxX=Float.NEGATIVE_INFINITY;var maxY=Float.NEGATIVE_INFINITY
+            hull.forEach{p->val x=p.x*c-p.y*s;val y=p.x*s+p.y*c;minX=min(minX,x);maxX=max(maxX,x);minY=min(minY,y);maxY=max(maxY,y)}
+            val candidateArea=(maxX-minX)*(maxY-minY);if(candidateArea<area){area=candidateArea;val corners=listOf(OcrPoint(minX,minY),OcrPoint(maxX,minY),OcrPoint(maxX,maxY),OcrPoint(minX,maxY));best=corners.map{p->OcrPoint(p.x*c+p.y*s,-p.x*s+p.y*c)}}}
+        return best
+    }
+    private fun convexHull(input:List<OcrPoint>):List<OcrPoint>{val p=input.distinctBy{"${it.x}:${it.y}"}.sortedWith(compareBy<OcrPoint>{it.x}.thenBy{it.y});if(p.size<=2)return p
+        fun cross(o:OcrPoint,a:OcrPoint,b:OcrPoint)=(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x)
+        val lower=mutableListOf<OcrPoint>();p.forEach{x->while(lower.size>=2&&cross(lower[lower.size-2],lower.last(),x)<=0)lower.removeAt(lower.lastIndex);lower+=x}
+        val upper=mutableListOf<OcrPoint>();p.asReversed().forEach{x->while(upper.size>=2&&cross(upper[upper.size-2],upper.last(),x)<=0)upper.removeAt(upper.lastIndex);upper+=x};return lower.dropLast(1)+upper.dropLast(1)}
+    private fun unclip(points:List<OcrPoint>,ratio:Float):List<OcrPoint>{val center=OcrPoint(points.map{it.x}.average().toFloat(),points.map{it.y}.average().toFloat());val area=abs(points.indices.sumOf{i->val a=points[i];val b=points[(i+1)%points.size];(a.x*b.y-a.y*b.x).toDouble()}/2).toFloat();val perimeter=points.indices.sumOf{i->val a=points[i];val b=points[(i+1)%points.size];hypot(a.x-b.x,a.y-b.y).toDouble()}.toFloat();val distance=if(perimeter==0f)0f else area*ratio/perimeter;return points.map{p->val r=hypot(p.x-center.x,p.y-center.y);val scale=if(r==0f)1f else (r+distance)/r;OcrPoint(center.x+(p.x-center.x)*scale,center.y+(p.y-center.y)*scale)}}
+    private fun order(points:List<OcrPoint>):List<OcrPoint>{val sorted=points.sortedBy{it.y};val top=sorted.take(2).sortedBy{it.x};val bottom=sorted.takeLast(2).sortedByDescending{it.x};return top+bottom}
 }
 
 private data class FaceProposal(val box: FaceBox,val landmarks:FloatArray,val confidence:Float)
@@ -185,9 +220,14 @@ private object YuNetPostprocess {
 private object FaceAlignment {
     fun align(source:Bitmap, landmarks:FloatArray):Bitmap {
         require(landmarks.size==10)
-        val output=Bitmap.createBitmap(112,112,Bitmap.Config.ARGB_8888); val matrix=Matrix()
-        matrix.setPolyToPoly(floatArrayOf(landmarks[0],landmarks[1],landmarks[2],landmarks[3]),0,floatArrayOf(38.2946f,51.6963f,73.5318f,51.5014f),0,2)
+        val output=Bitmap.createBitmap(112,112,Bitmap.Config.ARGB_8888)
+        val transform=SimilarityTransform.estimate(landmarks,SFACE_TEMPLATE)
+        val matrix=Matrix().apply{setValues(floatArrayOf(transform.a,-transform.b,transform.tx,transform.b,transform.a,transform.ty,0f,0f,1f))}
         Canvas(output).apply{drawColor(Color.BLACK);drawBitmap(source,matrix,Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))}
         return output
     }
+    private val SFACE_TEMPLATE=floatArrayOf(38.2946f,51.6963f,73.5318f,51.5014f,56.0252f,71.7366f,41.5493f,92.3655f,70.7299f,92.2041f)
 }
+
+data class SimilarityTransform(val a:Float,val b:Float,val tx:Float,val ty:Float){fun map(x:Float,y:Float)=OcrPoint(a*x-b*y+tx,b*x+a*y+ty)
+    companion object{fun estimate(source:FloatArray,target:FloatArray):SimilarityTransform{require(source.size==10&&target.size==10);val sx=(0 until 5).map{source[it*2]}.average().toFloat();val sy=(0 until 5).map{source[it*2+1]}.average().toFloat();val tx0=(0 until 5).map{target[it*2]}.average().toFloat();val ty0=(0 until 5).map{target[it*2+1]}.average().toFloat();var real=0.0;var imag=0.0;var denom=0.0;for(i in 0 until 5){val x=source[i*2]-sx;val y=source[i*2+1]-sy;val u=target[i*2]-tx0;val v=target[i*2+1]-ty0;real+=x*u+y*v;imag+=x*v-y*u;denom+=x*x+y*y};require(denom>0);val a=(real/denom).toFloat();val b=(imag/denom).toFloat();return SimilarityTransform(a,b,tx0-a*sx+b*sy,ty0-b*sx-a*sy)}}}

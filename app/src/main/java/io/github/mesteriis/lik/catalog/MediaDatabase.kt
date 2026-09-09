@@ -13,7 +13,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     io.github.mesteriis.lik.ai.AiOcrResultRecord::class, io.github.mesteriis.lik.ai.AiFeatureMediaRunRecord::class,
     io.github.mesteriis.lik.ai.AiFaceDetectionRecord::class,
     io.github.mesteriis.lik.ai.PersonIdentityRecord::class, io.github.mesteriis.lik.ai.PersonFaceDecisionRecord::class,
-    io.github.mesteriis.lik.ai.PersonMergeRecord::class, io.github.mesteriis.lik.ai.PersonCannotLinkRecord::class], version = 7, exportSchema = true)
+    io.github.mesteriis.lik.ai.PersonMergeRecord::class, io.github.mesteriis.lik.ai.PersonCannotLinkRecord::class,
+    io.github.mesteriis.lik.ai.PersonSplitRecord::class], version = 8, exportSchema = true)
 abstract class MediaDatabase : RoomDatabase() {
     abstract fun media(): MediaDao
     abstract fun organization(): OrganizationDao
@@ -25,8 +26,15 @@ abstract class MediaDatabase : RoomDatabase() {
 
         fun get(context: Context): MediaDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MediaDatabase::class.java, "media.db")
-                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .build().also { instance = it }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE person_cannot_link ADD COLUMN splitPersonId TEXT")
+                db.execSQL("CREATE TABLE IF NOT EXISTS person_split (splitPersonId TEXT NOT NULL PRIMARY KEY, fromPersonId TEXT NOT NULL, createdAt INTEGER NOT NULL)")
+            }
         }
 
         val MIGRATION_6_7 = object : Migration(6, 7) {

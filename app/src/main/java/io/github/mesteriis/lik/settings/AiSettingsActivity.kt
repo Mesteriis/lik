@@ -118,12 +118,7 @@ class AiSettingsActivity : Activity() {
             indexCoverage.visibility = if (visible) View.VISIBLE else View.GONE
             indexActions.visibility = if (visible) View.VISIBLE else View.GONE
             active?.takeIf { visible }?.let {
-                val search = snapshot.activeGenerations[AiFeature.SEARCH]?.let(snapshot.generations::get)
-                val ocr = snapshot.activeGenerations[AiFeature.OCR]?.let(snapshot.generations::get)
-                val people = snapshot.activeGenerations[AiFeature.PEOPLE]?.let(snapshot.generations::get)
-                indexCoverage.text = getString(R.string.ai_all_index_coverage,
-                    search?.completed ?: 0, search?.total ?: 0, ocr?.completed ?: 0, ocr?.total ?: 0,
-                    people?.completed ?: 0, people?.total ?: 0)
+                indexCoverage.text = getString(R.string.ai_coverage_checking)
                 updateLiveCoverage(snapshot)
             }
         } finally { applyingState = false }
@@ -134,16 +129,17 @@ class AiSettingsActivity : Activity() {
         val ids = snapshot.activeGenerations
         io.execute {
             val db = MediaDatabase.get(this)
-            val available = db.aiIndexes().availableCount()
-            val search = ids[AiFeature.SEARCH]?.let(db.aiIndexes()::currentEmbeddingCount) ?: 0
-            val ocr = ids[AiFeature.OCR]?.let(db.ocrPeople()::currentRunCount) ?: 0
-            val people = ids[AiFeature.PEOPLE]?.let(db.ocrPeople()::currentRunCount) ?: 0
+            val eligible = db.ocrPeople().eligibleCount()
+            val search = ids[AiFeature.SEARCH]?.let(db.aiIndexes()::currentSafeEmbeddingCount) ?: 0
+            val ocr = ids[AiFeature.OCR]?.let(db.ocrPeople()::currentSafeRunCount) ?: 0
+            val people = ids[AiFeature.PEOPLE]?.let(db.ocrPeople()::currentSafeRunCount) ?: 0
             runOnUiThread {
                 if (request != coverageRequest || isDestroyed || catalog.snapshot().activeGenerations != ids) return@runOnUiThread
-                indexCoverage.text = getString(R.string.ai_all_index_coverage,
-                    search, if (AiFeature.SEARCH in snapshot.enabledFeatures) available else 0,
-                    ocr, if (AiFeature.OCR in snapshot.enabledFeatures) available else 0,
-                    people, if (AiFeature.PEOPLE in snapshot.enabledFeatures) available else 0)
+                indexCoverage.text = if (eligible == 0) getString(R.string.ai_safe_coverage_unavailable)
+                else getString(R.string.ai_all_index_coverage,
+                    search, if (AiFeature.SEARCH in snapshot.enabledFeatures) eligible else 0,
+                    ocr, if (AiFeature.OCR in snapshot.enabledFeatures) eligible else 0,
+                    people, if (AiFeature.PEOPLE in snapshot.enabledFeatures) eligible else 0)
             }
         }
     }

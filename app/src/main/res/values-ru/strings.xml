@@ -93,6 +93,8 @@
   <string name="ai_process_now">Обработать сейчас</string>
   <string name="ai_pause_indexing">Приостановить фоновую обработку</string>
   <string name="ai_index_coverage">Охват смыслового индекса: %1$d / %2$d. При неполном охвате результаты тоже неполные.</string>
+  <string name="ai_coverage_checking">Проверяем видимый охват ИИ…</string>
+  <string name="ai_safe_coverage_unavailable">Результаты ИИ подготовлены в карантине. Видимый охват появится после настройки чувствительного контента.</string>
   <string name="ai_all_index_coverage">Охват — описание: %1$d / %2$d; текст: %3$d / %4$d; люди: %5$d / %6$d.</string>
   <string name="search_ocr_text">Текст на фото (русский или английский)</string>
   <string name="ocr_not_ready">Включите «Текст на фото» и дождитесь завершения обработки.</string>
@@ -214,4 +216,5 @@
     <item quantity="many">%1$d фото</item>
     <item quantity="other">%1$d фото</item>
   </plurals>
+  <string name="undo_person_split">Отменить разделение</string>
 </resources>

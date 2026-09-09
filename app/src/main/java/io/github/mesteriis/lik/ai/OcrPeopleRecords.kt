@@ -82,9 +82,12 @@ data class PersonFaceDecisionRecord(
 data class PersonMergeRecord(@PrimaryKey val fromPersonId: String, val intoPersonId: String, val updatedAt: Long)
 
 @Entity(tableName = "person_cannot_link", primaryKeys = ["leftAnchorId", "rightAnchorId"])
-data class PersonCannotLinkRecord(val leftAnchorId: String, val rightAnchorId: String, val updatedAt: Long)
+data class PersonCannotLinkRecord(val leftAnchorId: String, val rightAnchorId: String, val updatedAt: Long, val splitPersonId: String? = null)
 
-data class OcrCoverage(val indexed: Int, val eligible: Int, val quarantined: Int)
+@Entity(tableName="person_split")
+data class PersonSplitRecord(@PrimaryKey val splitPersonId:String,val fromPersonId:String,val createdAt:Long)
+
+data class OcrCoverage(val indexed: Int, val eligible: Int, val revealAvailable: Boolean)
 data class PersonGroupRow(val personId: String, val name: String?, val faceCount: Int, val coverMediaId: String?)
 data class VisibleFaceRow(
     val detectionId: String, val anchorId: String, val mediaId: String, val computedClusterId: String,
@@ -102,6 +105,7 @@ interface OcrPeopleDao {
     @Query("SELECT * FROM ai_feature_media_run WHERE generationId=:generationId AND mediaId=:mediaId") fun run(generationId: String, mediaId: String): AiFeatureMediaRunRecord?
     @Query("DELETE FROM ai_feature_media_run WHERE generationId=:generationId AND mediaId=:mediaId") fun deleteRun(generationId: String, mediaId: String): Int
     @Query("SELECT COUNT(*) FROM ai_feature_media_run r JOIN media m ON m.mediaId=r.mediaId WHERE r.generationId=:generationId AND r.error IS NULL AND m.availability='AVAILABLE' AND m.contentRevision=r.contentRevision AND m.accessGrantEpoch=r.accessEpoch") fun currentRunCount(generationId: String): Int
+    @Query("SELECT COUNT(*) FROM ai_feature_media_run r JOIN media m ON m.mediaId=r.mediaId JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE r.generationId=:generationId AND r.error IS NULL AND m.availability='AVAILABLE' AND m.contentRevision=r.contentRevision AND m.accessGrantEpoch=r.accessEpoch AND x.exposure='SAFE'") fun currentSafeRunCount(generationId: String): Int
     @Query("SELECT r.mediaId FROM ai_feature_media_run r LEFT JOIN media m ON m.mediaId=r.mediaId WHERE r.generationId=:generationId AND (m.mediaId IS NULL OR m.availability!='AVAILABLE' OR m.contentRevision!=r.contentRevision OR m.accessGrantEpoch!=r.accessEpoch)") fun staleRunIds(generationId: String): List<String>
     @Query("DELETE FROM ai_ocr_result WHERE generationId = :generationId AND mediaId = :mediaId") fun deleteOcr(generationId: String, mediaId: String): Int
     @Query("SELECT o.* FROM ai_ocr_result o JOIN media m ON m.mediaId=o.mediaId JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE o.generationId=:generationId AND o.mediaId=:mediaId AND m.availability='AVAILABLE' AND m.contentRevision=o.contentRevision AND m.accessGrantEpoch=o.accessEpoch AND x.exposure='SAFE' LIMIT 1")
@@ -113,6 +117,10 @@ interface OcrPeopleDao {
     @Query("SELECT COUNT(*) FROM media m JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.availability='AVAILABLE' AND x.exposure='SAFE'") fun eligibleCount(): Int
     @Query("SELECT COUNT(*) FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.availability='AVAILABLE' AND (x.exposure IS NULL OR x.exposure!='SAFE')") fun quarantinedCount(): Int
     @Query("SELECT o.mediaId FROM ai_ocr_result o LEFT JOIN media m ON m.mediaId=o.mediaId WHERE o.generationId=:generationId AND (m.mediaId IS NULL OR m.availability!='AVAILABLE' OR m.contentRevision!=o.contentRevision OR m.accessGrantEpoch!=o.accessEpoch)") fun staleOcrIds(generationId: String): List<String>
+    @Query("INSERT OR IGNORE INTO ai_feature_media_run(generationId,mediaId,feature,contentRevision,accessEpoch,error) SELECT :target,r.mediaId,:feature,r.contentRevision,r.accessEpoch,NULL FROM ai_feature_media_run r JOIN media m ON m.mediaId=r.mediaId WHERE r.generationId=:source AND r.feature=:feature AND r.error IS NULL AND m.availability='AVAILABLE' AND m.contentRevision=r.contentRevision AND m.accessGrantEpoch=r.accessEpoch")
+    fun copyCurrentRuns(source:String,target:String,feature:String)
+    @Query("INSERT OR REPLACE INTO ai_ocr_result(generationId,mediaId,contentRevision,accessEpoch,pipelineFingerprint,displayText,searchText,regionsJson,confidence) SELECT :target,o.mediaId,o.contentRevision,o.accessEpoch,:pipeline,o.displayText,o.searchText,o.regionsJson,o.confidence FROM ai_ocr_result o JOIN media m ON m.mediaId=o.mediaId WHERE o.generationId=:source AND m.availability='AVAILABLE' AND m.contentRevision=o.contentRevision AND m.accessGrantEpoch=o.accessEpoch")
+    fun copyCurrentOcr(source:String,target:String,pipeline:String)
 
     @Upsert fun saveFace(value: AiFaceDetectionRecord)
     @Query("DELETE FROM ai_face_detection WHERE generationId=:generationId AND mediaId=:mediaId") fun deleteFaces(generationId: String, mediaId: String): Int
@@ -123,6 +131,14 @@ interface OcrPeopleDao {
     @Query("SELECT COUNT(DISTINCT f.mediaId) FROM ai_face_detection f JOIN media m ON m.mediaId=f.mediaId JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE f.generationId=:generationId AND m.availability='AVAILABLE' AND m.contentRevision=f.contentRevision AND m.accessGrantEpoch=f.accessEpoch AND x.exposure='SAFE'") fun currentPeopleMediaCount(generationId: String): Int
     @Query("SELECT COUNT(DISTINCT mediaId) FROM ai_face_detection WHERE generationId=:generationId") fun peopleMediaCount(generationId: String): Int
     @Query("SELECT f.mediaId FROM ai_face_detection f LEFT JOIN media m ON m.mediaId=f.mediaId WHERE f.generationId=:generationId AND (m.mediaId IS NULL OR m.availability!='AVAILABLE' OR m.contentRevision!=f.contentRevision OR m.accessGrantEpoch!=f.accessEpoch) GROUP BY f.mediaId") fun staleFaceMediaIds(generationId: String): List<String>
+    @Query("INSERT OR REPLACE INTO ai_face_detection(detectionId,generationId,mediaId,contentRevision,accessEpoch,pipelineFingerprint,anchorId,`left`,`top`,`right`,`bottom`,landmarks,embedding,confidence,computedClusterId) SELECT :target || ':' || f.detectionId,:target,f.mediaId,f.contentRevision,f.accessEpoch,:pipeline,f.anchorId,f.`left`,f.`top`,f.`right`,f.`bottom`,f.landmarks,f.embedding,f.confidence,f.computedClusterId FROM ai_face_detection f JOIN media m ON m.mediaId=f.mediaId WHERE f.generationId=:source AND m.availability='AVAILABLE' AND m.contentRevision=f.contentRevision AND m.accessGrantEpoch=f.accessEpoch")
+    fun copyCurrentFaces(source:String,target:String,pipeline:String)
+
+    @Transaction fun copyCurrentGeneration(source:String,target:String,feature:String,pipeline:String):Int {
+        copyCurrentRuns(source,target,feature)
+        when(feature){AiFeature.OCR.name->copyCurrentOcr(source,target,pipeline);AiFeature.PEOPLE.name->copyCurrentFaces(source,target,pipeline)}
+        return currentRunCount(target)
+    }
 
     @Upsert fun savePerson(value: PersonIdentityRecord)
     @Query("SELECT * FROM person_identity WHERE personId=:id") fun person(id: String): PersonIdentityRecord?
@@ -137,6 +153,11 @@ interface OcrPeopleDao {
     @Upsert fun saveCannotLink(value: PersonCannotLinkRecord)
     @Query("DELETE FROM person_cannot_link WHERE leftAnchorId=:left AND rightAnchorId=:right") fun removeCannotLink(left: String, right: String): Int
     @Query("SELECT * FROM person_cannot_link") fun cannotLinks(): List<PersonCannotLinkRecord>
+    @Query("DELETE FROM person_cannot_link WHERE splitPersonId=:personId") fun removeSplitCannotLinks(personId:String):Int
+    @Upsert fun saveSplit(value:PersonSplitRecord)
+    @Query("SELECT * FROM person_split WHERE splitPersonId=:personId") fun split(personId:String):PersonSplitRecord?
+    @Query("DELETE FROM person_split WHERE splitPersonId=:personId") fun removeSplit(personId:String):Int
+    @Query("SELECT * FROM person_face_decision WHERE personId=:personId AND decision='ASSIGN'") fun decisionsForPerson(personId:String):List<PersonFaceDecisionRecord>
 
     @Transaction
     fun publishOcrIfCurrent(value: AiOcrResultRecord): Boolean {

@@ -285,12 +285,13 @@ class OrganizationPanel(
             return
         }
         val repository = PeopleRepository(MediaDatabase.get(activity))
-        load({ repository.groups(generation) to repository.excluded(generation) }) { (groups, excluded) ->
+        load({ Triple(repository.groups(generation), repository.excluded(generation), MediaDatabase.get(activity).ocrPeople().eligibleCount()) }) { (groups, excluded, eligible) ->
             if (ModelCatalog.get(activity).snapshot().activeGenerations[AiFeature.PEOPLE] != generation) {
                 render()
                 return@load
             }
-            if (groups.isEmpty() && excluded.isEmpty()) label(text(R.string.people_empty))
+            if (eligible == 0) label(text(R.string.ai_safe_coverage_unavailable))
+            else if (groups.isEmpty() && excluded.isEmpty()) label(text(R.string.people_empty))
             groups.forEach { group -> button(activity.resources.getQuantityString(R.plurals.person_group_count, group.faces.size, group.name ?: text(R.string.unnamed_person), group.faces.size)) {
                 personId = group.personId; screen = "person"; render()
             } }
@@ -314,7 +315,7 @@ class OrganizationPanel(
         root(text(R.string.person_details)); button(text(R.string.back)) { screen="people"; render() }
         val state=ModelCatalog.get(activity).snapshot();val generation=state.activeGenerations[AiFeature.PEOPLE] ?: run { label(text(R.string.people_not_ready)); return }
         val people=PeopleRepository(MediaDatabase.get(activity))
-        load({ people.groups(generation).firstOrNull{it.personId==selectedPerson} to people.mergedSources(selectedPerson) }) { (group, mergedSources) ->
+        load({ Triple(people.groups(generation).firstOrNull{it.personId==selectedPerson},people.mergedSources(selectedPerson),people.splitSource(selectedPerson)) }) { (group, mergedSources, splitSource) ->
             if (ModelCatalog.get(activity).snapshot().activeGenerations[AiFeature.PEOPLE] != generation) {
                 render()
                 return@load
@@ -323,6 +324,7 @@ class OrganizationPanel(
             label(group.name ?: text(R.string.unnamed_person),true)
             button(text(R.string.rename_person)){prompt(R.string.rename_person,group.name.orEmpty()){name->mutate{people.name(selectedPerson,name)}}}
             button(text(R.string.merge_person)){choosePerson(generation,selectedPerson,R.string.merge_person){target->screen="people";mutate{people.merge(selectedPerson,target)}}}
+            if(splitSource!=null) button(text(R.string.undo_person_split)){screen="people";mutate{people.undoSplit(selectedPerson)}}
             if (mergedSources.isNotEmpty()) {
                 label(text(R.string.merged_people), true)
                 mergedSources.forEach { source -> button(activity.getString(R.string.undo_person_merge_named, source.name ?: text(R.string.unnamed_person))) {
@@ -334,7 +336,7 @@ class OrganizationPanel(
                 row.setOnLongClickListener {
                     AlertDialog.Builder(activity).setTitle(R.string.correct_person).setItems(arrayOf(text(R.string.move_face),text(R.string.split_face),text(R.string.exclude_face),text(R.string.clear_person_correction))){_,which->when(which){
                         0->choosePerson(generation,selectedPerson,R.string.move_face){target->mutate{people.move(face.anchorId,target)}}
-                        1->prompt(R.string.split_face){name->mutate{people.split(setOf(face.anchorId),selectedPerson,name)}}
+                        1->prompt(R.string.split_face){name->mutate{people.split(generation,setOf(face.anchorId),selectedPerson,name)}}
                         2->mutate{people.exclude(face.anchorId)}
                         else->mutate{people.clear(face.anchorId)}
                     }}.show();true
@@ -392,7 +394,11 @@ class OrganizationPanel(
         root(resultTitle)
         button(text(R.string.back)) { screen = if (section == GallerySection.ALBUMS) "albums" else "search"; render() }
         label(text(R.string.results_help))
-        load({ repository.dao.search(query.query(61, offset)).map { it to repository.dao.tags(it.mediaId) } }) { rows ->
+        load({
+            val found=repository.dao.search(query.query(61, offset))
+            val current=if(query.ocrText.isBlank())found else query.ocrGenerationId?.let{generation->OcrSafeRead.retainVisible(MediaDatabase.get(activity),generation,found)}.orEmpty()
+            current.map { it to repository.dao.tags(it.mediaId) }
+        }) { rows ->
             if (query.ocrText.isNotBlank() && ModelCatalog.get(activity).snapshot().activeGenerations[AiFeature.OCR] != query.ocrGenerationId) {
                 label(text(R.string.ocr_results_changed)); return@load
             }

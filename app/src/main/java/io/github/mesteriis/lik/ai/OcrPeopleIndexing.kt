@@ -30,10 +30,12 @@ class OcrPeopleIndexWorker(context: Context, parameters: WorkerParameters) : Wor
 
     private fun prepare(profile:ProfileId,feature:AiFeature,pipeline:PipelineSpec,catalog:ModelCatalog,priority:InferencePriority){
         val database=MediaDatabase.get(applicationContext);val index=database.aiIndexes();val dao=database.ocrPeople()
-        val compatible=(listOf(pipeline.fingerprint)+pipeline.compatibleFingerprints).asSequence().mapNotNull(index::compatible).firstOrNull { dao.currentRunCount(it.generationId)==index.availableCount() }
+        val compatibleSource=(listOf(pipeline.fingerprint)+pipeline.compatibleFingerprints).asSequence().mapNotNull(index::compatible).firstOrNull{it.feature==feature.name}
+        val compatible=compatibleSource?.takeIf { dao.currentRunCount(it.generationId)==index.availableCount() }
         if(compatible!=null){publish(catalog,profile,feature,compatible);return}
-        var generation=index.generations().lastOrNull{it.profileId==profile.wire&&it.feature==feature.name&&it.pipelineFingerprint==pipeline.fingerprint&&it.status==GenerationStatus.PREPARING}
-            ?:AiIndexGenerationRecord(UUID.randomUUID().toString(),profile.wire,feature.name,pipeline.fingerprint,GenerationStatus.PREPARING,0,index.availableCount(),null,null,System.currentTimeMillis()).also(index::saveGeneration)
+        val resumed=index.generations().lastOrNull{it.profileId==profile.wire&&it.feature==feature.name&&it.pipelineFingerprint==pipeline.fingerprint&&it.status==GenerationStatus.PREPARING}
+        var generation=resumed ?:AiIndexGenerationRecord(UUID.randomUUID().toString(),profile.wire,feature.name,pipeline.fingerprint,GenerationStatus.PREPARING,0,index.availableCount(),null,null,System.currentTimeMillis()).also(index::saveGeneration)
+        if(resumed==null&&compatibleSource!=null) database.runInTransaction { dao.copyCurrentGeneration(compatibleSource.generationId,generation.generationId,feature.name,pipeline.fingerprint) }
         val engine=OcrPeopleInferenceEngine(applicationContext);val sensitive=SemanticEmbeddingEngine(applicationContext)
         dao.staleRunIds(generation.generationId).forEach { mediaId ->
             dao.deleteOcr(generation.generationId,mediaId);dao.deleteFaces(generation.generationId,mediaId);dao.deleteRun(generation.generationId,mediaId)
@@ -52,7 +54,7 @@ class OcrPeopleIndexWorker(context: Context, parameters: WorkerParameters) : Wor
                 }
                 val token=AiPublicationToken(row.mediaId,row.contentRevision,row.accessGrantEpoch,pipeline.fingerprint,generation.generationId)
                 val published=runCatching { when(feature){
-                    AiFeature.OCR->{val result=InferenceGate.run(priority){engine.ocr(profile,row.mediaId,row.contentRevision)};val regions=JSONArray(result.regions.map{r->JSONObject().put("left",r.box.left).put("top",r.box.top).put("right",r.box.right).put("bottom",r.box.bottom).put("text",r.text).put("confidence",r.confidence)}).toString()
+                    AiFeature.OCR->{val result=InferenceGate.run(priority){engine.ocr(profile,row.mediaId,row.contentRevision)};val regions=JSONArray(result.regions.map{r->JSONObject().put("points",JSONArray(r.quad.points.flatMap{listOf(it.x,it.y)})).put("left",r.box.left).put("top",r.box.top).put("right",r.box.right).put("bottom",r.box.bottom).put("text",r.text).put("confidence",r.confidence)}).toString()
                         dao.publishOcrRunIfCurrent(AiOcrResultRecord(generation.generationId,row.mediaId,row.contentRevision,row.accessGrantEpoch,pipeline.fingerprint,result.displayText,OcrText.searchKey(result.displayText),regions,result.confidence),AiFeatureMediaRunRecord(generation.generationId,row.mediaId,feature.name,row.contentRevision,row.accessGrantEpoch,null))}
                     AiFeature.PEOPLE->{val faces=InferenceGate.run(priority){engine.people(row.mediaId,row.contentRevision)}.mapIndexed{at,face->val anchor=FaceAnchor.from(row.mediaId,face.box);AiFaceDetectionRecord("${generation.generationId}:${row.mediaId}:$at",generation.generationId,row.mediaId,row.contentRevision,row.accessGrantEpoch,pipeline.fingerprint,anchor,face.box.left,face.box.top,face.box.right,face.box.bottom,face.landmarks.toBytes(),face.embedding.toBytes(),face.confidence,anchor)};dao.publishFacesIfCurrent(token,faces)}
                     else->error("UNSUPPORTED_FEATURE")
@@ -71,7 +73,7 @@ class OcrPeopleIndexWorker(context: Context, parameters: WorkerParameters) : Wor
         val cannot=dao.cannotLinks().map{ManualFacePair.ordered(it.leftAnchorId,it.rightAnchorId)}.toSet()
         FaceClusterer.cluster(dao.faces(generation).map{FaceVector(it.anchorId,it.embedding.toFloats())},FACE_THRESHOLD,cannot).forEach{anchors->dao.setCluster(generation,anchors,"auto:${anchors.first()}")}
     }
-    private fun publish(catalog:ModelCatalog,profile:ProfileId,feature:AiFeature,record:AiIndexGenerationRecord){catalog.generationReady(profile,feature,IndexGeneration(record.generationId,feature,record.pipelineFingerprint,true,record.completed,record.total))}
+    private fun publish(catalog:ModelCatalog,profile:ProfileId,feature:AiFeature,record:AiIndexGenerationRecord){val index=MediaDatabase.get(applicationContext).aiIndexes();var superseded=emptySet<String>();catalog.generationReady(profile,feature,IndexGeneration(record.generationId,feature,record.pipelineFingerprint,true,record.completed,record.total)){next->superseded=index.generations().filter{it.profileId==profile.wire&&it.feature==feature.name&&it.generationId !in next.generations}.map{it.generationId}.toSet();GenerationRetirement.journal(java.io.File(applicationContext.filesDir,"ai"),profile,superseded)};GenerationRetirement.drain(applicationContext,profile,superseded,catalog,MediaDatabase.get(applicationContext))}
 
     companion object{
         private const val PROFILE="profile";private const val MANUAL="manual";private const val ERROR="error";private const val FACE_THRESHOLD=.363f
@@ -80,8 +82,13 @@ class OcrPeopleIndexWorker(context: Context, parameters: WorkerParameters) : Wor
     }
 }
 
+internal object OcrSafeRead {
+    fun text(database:MediaDatabase,generation:String,mediaId:String,beforeFinalCheck:()->Unit={}):AiOcrResultRecord?{val first=database.ocrPeople().visibleOcr(generation,mediaId)?:return null;beforeFinalCheck();return database.ocrPeople().visibleOcr(generation,mediaId)?.takeIf{it==first}}
+    fun retainVisible(database:MediaDatabase,generation:String,rows:List<io.github.mesteriis.lik.catalog.MediaRecord>,beforeFinalCheck:()->Unit={}):List<io.github.mesteriis.lik.catalog.MediaRecord>{beforeFinalCheck();return rows.filter{row->database.ocrPeople().visibleOcr(generation,row.mediaId)?.let{it.contentRevision==row.contentRevision&&it.accessEpoch==row.accessGrantEpoch}==true}}
+}
+
 class OcrRepository(private val context:Context,private val catalog:ModelCatalog=ModelCatalog.get(context),private val database:MediaDatabase=MediaDatabase.get(context)){
-    fun text(mediaId:String):AiOcrResultRecord?{val state=catalog.snapshot();if(AiFeature.OCR !in state.enabledFeatures)return null;val generation=state.activeGenerations[AiFeature.OCR]?:return null;val result=database.ocrPeople().visibleOcr(generation,mediaId);return result.takeIf{catalog.snapshot().activeGenerations[AiFeature.OCR]==generation}}
-    fun search(query:String,limit:Int=60,offset:Int=0):List<io.github.mesteriis.lik.catalog.MediaRecord>{require(query.isNotBlank());val generation=catalog.snapshot().activeGenerations[AiFeature.OCR]?:return emptyList();return database.ocrPeople().searchOcr(generation,OcrText.searchKey(query),limit,offset)}
-    fun coverage():OcrCoverage{val generation=catalog.snapshot().activeGenerations[AiFeature.OCR];val dao=database.ocrPeople();return OcrCoverage(generation?.let(dao::currentOcrCount)?:0,dao.eligibleCount(),dao.quarantinedCount())}
+    fun text(mediaId:String,beforeFinalCheck:()->Unit={}):AiOcrResultRecord?{val state=catalog.snapshot();if(AiFeature.OCR !in state.enabledFeatures)return null;val generation=state.activeGenerations[AiFeature.OCR]?:return null;return GenerationUseCoordinator.read(generation){OcrSafeRead.text(database,generation,mediaId,beforeFinalCheck)?.takeIf{catalog.snapshot().activeGenerations[AiFeature.OCR]==generation}}}
+    fun search(query:String,limit:Int=60,offset:Int=0,beforeFinalCheck:()->Unit={}):List<io.github.mesteriis.lik.catalog.MediaRecord>{require(query.isNotBlank());val generation=catalog.snapshot().activeGenerations[AiFeature.OCR]?:return emptyList();return GenerationUseCoordinator.read(generation){val rows=database.ocrPeople().searchOcr(generation,OcrText.searchKey(query),limit,offset);val current=OcrSafeRead.retainVisible(database,generation,rows,beforeFinalCheck);current.takeIf{catalog.snapshot().activeGenerations[AiFeature.OCR]==generation}.orEmpty()}}
+    fun coverage():OcrCoverage{val generation=catalog.snapshot().activeGenerations[AiFeature.OCR];val dao=database.ocrPeople();val eligible=dao.eligibleCount();return OcrCoverage(generation?.let(dao::currentSafeRunCount)?:0,eligible,eligible>0)}
 }

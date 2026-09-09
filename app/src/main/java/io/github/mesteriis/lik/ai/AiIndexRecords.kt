@@ -66,6 +66,8 @@ interface AiIndexDao {
     @Query("SELECT COUNT(*) FROM media WHERE availability = 'AVAILABLE'") fun availableCount(): Int
     @Query("SELECT COUNT(*) FROM ai_embedding e JOIN media m ON m.mediaId = e.mediaId WHERE e.generationId = :generation AND m.availability = 'AVAILABLE' AND m.contentRevision = e.contentRevision AND m.accessGrantEpoch = e.accessEpoch")
     fun currentEmbeddingCount(generation: String): Int
+    @Query("SELECT COUNT(*) FROM ai_embedding e JOIN media m ON m.mediaId=e.mediaId JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE e.generationId=:generation AND m.availability='AVAILABLE' AND m.contentRevision=e.contentRevision AND m.accessGrantEpoch=e.accessEpoch AND x.exposure='SAFE'")
+    fun currentSafeEmbeddingCount(generation: String): Int
     @Query("SELECT * FROM media WHERE mediaId = :mediaId") fun currentMedia(mediaId: String): MediaRecord?
     @Query("DELETE FROM ai_embedding WHERE generationId = :generation AND mediaId = :mediaId") fun deleteEmbedding(generation: String, mediaId: String): Int
     @Query("SELECT e.mediaId FROM ai_embedding e LEFT JOIN media m ON m.mediaId = e.mediaId WHERE e.generationId = :generation AND (m.mediaId IS NULL OR m.availability != 'AVAILABLE' OR m.contentRevision != e.contentRevision OR m.accessGrantEpoch != e.accessEpoch)")

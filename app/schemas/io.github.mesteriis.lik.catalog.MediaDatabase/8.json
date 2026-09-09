@@ -1,0 +1,1280 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 8,
+    "identityHash": "39bb17486fd80341987b67b4cdea49f2",
+    "entities": [
+      {
+        "tableName": "media",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mediaId` TEXT NOT NULL, `source` TEXT NOT NULL, `sourceKey` TEXT NOT NULL, `volumeName` TEXT NOT NULL, `volumeVersion` TEXT NOT NULL, `generationAdded` INTEGER NOT NULL, `contentUri` TEXT, `privateFileId` TEXT, `displayName` TEXT, `mimeType` TEXT, `width` INTEGER, `height` INTEGER, `byteSize` INTEGER, `takenAt` INTEGER, `addedAt` INTEGER, `modifiedAt` INTEGER, `dateSource` TEXT NOT NULL, `dateOffsetSeconds` INTEGER, `bucketId` TEXT, `bucketName` TEXT, `relativePath` TEXT, `contentRevision` INTEGER NOT NULL, `availability` TEXT NOT NULL, `lastSeenAt` INTEGER NOT NULL, `accessGrantEpoch` INTEGER NOT NULL DEFAULT 1, `sortAt` INTEGER NOT NULL DEFAULT -9223372036854775808, `dayKey` TEXT NOT NULL DEFAULT 'undated', `weekKey` TEXT NOT NULL DEFAULT 'undated', `monthKey` TEXT NOT NULL DEFAULT 'undated', `yearKey` TEXT NOT NULL DEFAULT 'undated', `exifRevision` INTEGER, `exifOrientation` INTEGER, `scanMarker` TEXT NOT NULL DEFAULT '', `trashedAt` INTEGER, `displayNameSearch` TEXT NOT NULL DEFAULT '', PRIMARY KEY(`mediaId`))",
+        "fields": [
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceKey",
+            "columnName": "sourceKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "volumeName",
+            "columnName": "volumeName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "volumeVersion",
+            "columnName": "volumeVersion",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "generationAdded",
+            "columnName": "generationAdded",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentUri",
+            "columnName": "contentUri",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "privateFileId",
+            "columnName": "privateFileId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "displayName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "mimeType",
+            "columnName": "mimeType",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "width",
+            "columnName": "width",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "height",
+            "columnName": "height",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "byteSize",
+            "columnName": "byteSize",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "takenAt",
+            "columnName": "takenAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "addedAt",
+            "columnName": "addedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "modifiedAt",
+            "columnName": "modifiedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "dateSource",
+            "columnName": "dateSource",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dateOffsetSeconds",
+            "columnName": "dateOffsetSeconds",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "bucketId",
+            "columnName": "bucketId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "bucketName",
+            "columnName": "bucketName",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "relativePath",
+            "columnName": "relativePath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "contentRevision",
+            "columnName": "contentRevision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "availability",
+            "columnName": "availability",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSeenAt",
+            "columnName": "lastSeenAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accessGrantEpoch",
+            "columnName": "accessGrantEpoch",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "1"
+          },
+          {
+            "fieldPath": "sortAt",
+            "columnName": "sortAt",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "-9223372036854775808"
+          },
+          {
+            "fieldPath": "dayKey",
+            "columnName": "dayKey",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'undated'"
+          },
+          {
+            "fieldPath": "weekKey",
+            "columnName": "weekKey",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'undated'"
+          },
+          {
+            "fieldPath": "monthKey",
+            "columnName": "monthKey",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'undated'"
+          },
+          {
+            "fieldPath": "yearKey",
+            "columnName": "yearKey",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'undated'"
+          },
+          {
+            "fieldPath": "exifRevision",
+            "columnName": "exifRevision",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "exifOrientation",
+            "columnName": "exifOrientation",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "scanMarker",
+            "columnName": "scanMarker",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
+          },
+          {
+            "fieldPath": "trashedAt",
+            "columnName": "trashedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "displayNameSearch",
+            "columnName": "displayNameSearch",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mediaId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_media_source_sourceKey_volumeName_volumeVersion_generationAdded",
+            "unique": true,
+            "columnNames": [
+              "source",
+              "sourceKey",
+              "volumeName",
+              "volumeVersion",
+              "generationAdded"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_media_source_sourceKey_volumeName_volumeVersion_generationAdded` ON `${TABLE_NAME}` (`source`, `sourceKey`, `volumeName`, `volumeVersion`, `generationAdded`)"
+          },
+          {
+            "name": "index_media_source_availability",
+            "unique": false,
+            "columnNames": [
+              "source",
+              "availability"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_source_availability` ON `${TABLE_NAME}` (`source`, `availability`)"
+          },
+          {
+            "name": "index_media_takenAt_addedAt_mediaId",
+            "unique": false,
+            "columnNames": [
+              "takenAt",
+              "addedAt",
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_takenAt_addedAt_mediaId` ON `${TABLE_NAME}` (`takenAt`, `addedAt`, `mediaId`)"
+          },
+          {
+            "name": "index_media_availability_sortAt_mediaId",
+            "unique": false,
+            "columnNames": [
+              "availability",
+              "sortAt",
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_availability_sortAt_mediaId` ON `${TABLE_NAME}` (`availability`, `sortAt`, `mediaId`)"
+          },
+          {
+            "name": "index_media_availability_dayKey_sortAt_mediaId",
+            "unique": false,
+            "columnNames": [
+              "availability",
+              "dayKey",
+              "sortAt",
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_availability_dayKey_sortAt_mediaId` ON `${TABLE_NAME}` (`availability`, `dayKey`, `sortAt`, `mediaId`)"
+          },
+          {
+            "name": "index_media_availability_weekKey_sortAt_mediaId",
+            "unique": false,
+            "columnNames": [
+              "availability",
+              "weekKey",
+              "sortAt",
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_availability_weekKey_sortAt_mediaId` ON `${TABLE_NAME}` (`availability`, `weekKey`, `sortAt`, `mediaId`)"
+          },
+          {
+            "name": "index_media_availability_monthKey_sortAt_mediaId",
+            "unique": false,
+            "columnNames": [
+              "availability",
+              "monthKey",
+              "sortAt",
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_availability_monthKey_sortAt_mediaId` ON `${TABLE_NAME}` (`availability`, `monthKey`, `sortAt`, `mediaId`)"
+          },
+          {
+            "name": "index_media_availability_yearKey_sortAt_mediaId",
+            "unique": false,
+            "columnNames": [
+              "availability",
+              "yearKey",
+              "sortAt",
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_availability_yearKey_sortAt_mediaId` ON `${TABLE_NAME}` (`availability`, `yearKey`, `sortAt`, `mediaId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "volume_checkpoint",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`volume` TEXT NOT NULL, `version` TEXT NOT NULL, `generation` INTEGER NOT NULL, `fullAccess` INTEGER NOT NULL, PRIMARY KEY(`volume`))",
+        "fields": [
+          {
+            "fieldPath": "volume",
+            "columnName": "volume",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "generation",
+            "columnName": "generation",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fullAccess",
+            "columnName": "fullAccess",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "volume"
+          ]
+        }
+      },
+      {
+        "tableName": "album",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`albumId` TEXT NOT NULL, `name` TEXT NOT NULL, PRIMARY KEY(`albumId`))",
+        "fields": [
+          {
+            "fieldPath": "albumId",
+            "columnName": "albumId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "albumId"
+          ]
+        }
+      },
+      {
+        "tableName": "album_media",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`albumId` TEXT NOT NULL, `mediaId` TEXT NOT NULL, PRIMARY KEY(`albumId`, `mediaId`), FOREIGN KEY(`albumId`) REFERENCES `album`(`albumId`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`mediaId`) REFERENCES `media`(`mediaId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "albumId",
+            "columnName": "albumId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "albumId",
+            "mediaId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_album_media_mediaId",
+            "unique": false,
+            "columnNames": [
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_album_media_mediaId` ON `${TABLE_NAME}` (`mediaId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "album",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "albumId"
+            ],
+            "referencedColumns": [
+              "albumId"
+            ]
+          },
+          {
+            "table": "media",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "mediaId"
+            ],
+            "referencedColumns": [
+              "mediaId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "favorite",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mediaId` TEXT NOT NULL, PRIMARY KEY(`mediaId`), FOREIGN KEY(`mediaId`) REFERENCES `media`(`mediaId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mediaId"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "media",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "mediaId"
+            ],
+            "referencedColumns": [
+              "mediaId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "media_tag",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mediaId` TEXT NOT NULL, `tagKey` TEXT NOT NULL, `label` TEXT NOT NULL, PRIMARY KEY(`mediaId`, `tagKey`), FOREIGN KEY(`mediaId`) REFERENCES `media`(`mediaId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tagKey",
+            "columnName": "tagKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "label",
+            "columnName": "label",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mediaId",
+            "tagKey"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_media_tag_tagKey",
+            "unique": false,
+            "columnNames": [
+              "tagKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_media_tag_tagKey` ON `${TABLE_NAME}` (`tagKey`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "media",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "mediaId"
+            ],
+            "referencedColumns": [
+              "mediaId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "ai_index_generation",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`generationId` TEXT NOT NULL, `profileId` TEXT NOT NULL, `feature` TEXT NOT NULL, `pipelineFingerprint` TEXT NOT NULL, `status` TEXT NOT NULL, `completed` INTEGER NOT NULL, `total` INTEGER NOT NULL, `checkpointMediaId` TEXT, `error` TEXT, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`generationId`))",
+        "fields": [
+          {
+            "fieldPath": "generationId",
+            "columnName": "generationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "profileId",
+            "columnName": "profileId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "feature",
+            "columnName": "feature",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pipelineFingerprint",
+            "columnName": "pipelineFingerprint",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completed",
+            "columnName": "completed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "total",
+            "columnName": "total",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "checkpointMediaId",
+            "columnName": "checkpointMediaId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "error",
+            "columnName": "error",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "generationId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_ai_index_generation_pipelineFingerprint",
+            "unique": false,
+            "columnNames": [
+              "pipelineFingerprint"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_ai_index_generation_pipelineFingerprint` ON `${TABLE_NAME}` (`pipelineFingerprint`)"
+          }
+        ]
+      },
+      {
+        "tableName": "ai_embedding",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`generationId` TEXT NOT NULL, `mediaId` TEXT NOT NULL, `nativeKey` INTEGER NOT NULL, `contentRevision` INTEGER NOT NULL, `accessEpoch` INTEGER NOT NULL, `vector` BLOB NOT NULL, PRIMARY KEY(`generationId`, `mediaId`), FOREIGN KEY(`generationId`) REFERENCES `ai_index_generation`(`generationId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "generationId",
+            "columnName": "generationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nativeKey",
+            "columnName": "nativeKey",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentRevision",
+            "columnName": "contentRevision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accessEpoch",
+            "columnName": "accessEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vector",
+            "columnName": "vector",
+            "affinity": "BLOB",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "generationId",
+            "mediaId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_ai_embedding_generationId_nativeKey",
+            "unique": true,
+            "columnNames": [
+              "generationId",
+              "nativeKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_ai_embedding_generationId_nativeKey` ON `${TABLE_NAME}` (`generationId`, `nativeKey`)"
+          },
+          {
+            "name": "index_ai_embedding_mediaId",
+            "unique": false,
+            "columnNames": [
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_ai_embedding_mediaId` ON `${TABLE_NAME}` (`mediaId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "ai_index_generation",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "generationId"
+            ],
+            "referencedColumns": [
+              "generationId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "ai_sensitive_run",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mediaId` TEXT NOT NULL, `contentRevision` INTEGER NOT NULL, `pipelineFingerprint` TEXT NOT NULL, `status` TEXT NOT NULL, `rawOutput` BLOB, `error` TEXT, `evaluatedAt` INTEGER NOT NULL, PRIMARY KEY(`mediaId`, `contentRevision`, `pipelineFingerprint`))",
+        "fields": [
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentRevision",
+            "columnName": "contentRevision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pipelineFingerprint",
+            "columnName": "pipelineFingerprint",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rawOutput",
+            "columnName": "rawOutput",
+            "affinity": "BLOB"
+          },
+          {
+            "fieldPath": "error",
+            "columnName": "error",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "evaluatedAt",
+            "columnName": "evaluatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mediaId",
+            "contentRevision",
+            "pipelineFingerprint"
+          ]
+        }
+      },
+      {
+        "tableName": "ai_media_exposure",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mediaId` TEXT NOT NULL, `contentRevision` INTEGER NOT NULL, `exposure` TEXT NOT NULL, `decidedAt` INTEGER NOT NULL, PRIMARY KEY(`mediaId`, `contentRevision`))",
+        "fields": [
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentRevision",
+            "columnName": "contentRevision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "exposure",
+            "columnName": "exposure",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "decidedAt",
+            "columnName": "decidedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "mediaId",
+            "contentRevision"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_ai_media_exposure_exposure",
+            "unique": false,
+            "columnNames": [
+              "exposure"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_ai_media_exposure_exposure` ON `${TABLE_NAME}` (`exposure`)"
+          }
+        ]
+      },
+      {
+        "tableName": "ai_ocr_result",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`generationId` TEXT NOT NULL, `mediaId` TEXT NOT NULL, `contentRevision` INTEGER NOT NULL, `accessEpoch` INTEGER NOT NULL, `pipelineFingerprint` TEXT NOT NULL, `displayText` TEXT NOT NULL, `searchText` TEXT NOT NULL, `regionsJson` TEXT NOT NULL, `confidence` REAL NOT NULL, PRIMARY KEY(`generationId`, `mediaId`), FOREIGN KEY(`generationId`) REFERENCES `ai_index_generation`(`generationId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "generationId",
+            "columnName": "generationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentRevision",
+            "columnName": "contentRevision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accessEpoch",
+            "columnName": "accessEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pipelineFingerprint",
+            "columnName": "pipelineFingerprint",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayText",
+            "columnName": "displayText",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "searchText",
+            "columnName": "searchText",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "regionsJson",
+            "columnName": "regionsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "confidence",
+            "columnName": "confidence",
+            "affinity": "REAL",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "generationId",
+            "mediaId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_ai_ocr_result_mediaId",
+            "unique": false,
+            "columnNames": [
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_ai_ocr_result_mediaId` ON `${TABLE_NAME}` (`mediaId`)"
+          },
+          {
+            "name": "index_ai_ocr_result_searchText",
+            "unique": false,
+            "columnNames": [
+              "searchText"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_ai_ocr_result_searchText` ON `${TABLE_NAME}` (`searchText`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "ai_index_generation",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "generationId"
+            ],
+            "referencedColumns": [
+              "generationId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "ai_feature_media_run",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`generationId` TEXT NOT NULL, `mediaId` TEXT NOT NULL, `feature` TEXT NOT NULL, `contentRevision` INTEGER NOT NULL, `accessEpoch` INTEGER NOT NULL, `error` TEXT, PRIMARY KEY(`generationId`, `mediaId`), FOREIGN KEY(`generationId`) REFERENCES `ai_index_generation`(`generationId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "generationId",
+            "columnName": "generationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "feature",
+            "columnName": "feature",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentRevision",
+            "columnName": "contentRevision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accessEpoch",
+            "columnName": "accessEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "error",
+            "columnName": "error",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "generationId",
+            "mediaId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_ai_feature_media_run_mediaId",
+            "unique": false,
+            "columnNames": [
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_ai_feature_media_run_mediaId` ON `${TABLE_NAME}` (`mediaId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "ai_index_generation",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "generationId"
+            ],
+            "referencedColumns": [
+              "generationId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "ai_face_detection",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`detectionId` TEXT NOT NULL, `generationId` TEXT NOT NULL, `mediaId` TEXT NOT NULL, `contentRevision` INTEGER NOT NULL, `accessEpoch` INTEGER NOT NULL, `pipelineFingerprint` TEXT NOT NULL, `anchorId` TEXT NOT NULL, `left` REAL NOT NULL, `top` REAL NOT NULL, `right` REAL NOT NULL, `bottom` REAL NOT NULL, `landmarks` BLOB NOT NULL, `embedding` BLOB NOT NULL, `confidence` REAL NOT NULL, `computedClusterId` TEXT NOT NULL, PRIMARY KEY(`detectionId`), FOREIGN KEY(`generationId`) REFERENCES `ai_index_generation`(`generationId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "detectionId",
+            "columnName": "detectionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "generationId",
+            "columnName": "generationId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mediaId",
+            "columnName": "mediaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentRevision",
+            "columnName": "contentRevision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accessEpoch",
+            "columnName": "accessEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pipelineFingerprint",
+            "columnName": "pipelineFingerprint",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "anchorId",
+            "columnName": "anchorId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "left",
+            "columnName": "left",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "top",
+            "columnName": "top",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "right",
+            "columnName": "right",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bottom",
+            "columnName": "bottom",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "landmarks",
+            "columnName": "landmarks",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "embedding",
+            "columnName": "embedding",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "confidence",
+            "columnName": "confidence",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "computedClusterId",
+            "columnName": "computedClusterId",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "detectionId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_ai_face_detection_generationId",
+            "unique": false,
+            "columnNames": [
+              "generationId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_ai_face_detection_generationId` ON `${TABLE_NAME}` (`generationId`)"
+          },
+          {
+            "name": "index_ai_face_detection_mediaId",
+            "unique": false,
+            "columnNames": [
+              "mediaId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_ai_face_detection_mediaId` ON `${TABLE_NAME}` (`mediaId`)"
+          },
+          {
+            "name": "index_ai_face_detection_anchorId",
+            "unique": false,
+            "columnNames": [
+              "anchorId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_ai_face_detection_anchorId` ON `${TABLE_NAME}` (`anchorId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "ai_index_generation",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "generationId"
+            ],
+            "referencedColumns": [
+              "generationId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "person_identity",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`personId` TEXT NOT NULL, `name` TEXT, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`personId`))",
+        "fields": [
+          {
+            "fieldPath": "personId",
+            "columnName": "personId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "personId"
+          ]
+        }
+      },
+      {
+        "tableName": "person_face_decision",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`anchorId` TEXT NOT NULL, `decision` TEXT NOT NULL, `personId` TEXT, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`anchorId`))",
+        "fields": [
+          {
+            "fieldPath": "anchorId",
+            "columnName": "anchorId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "decision",
+            "columnName": "decision",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "personId",
+            "columnName": "personId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "anchorId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_person_face_decision_personId",
+            "unique": false,
+            "columnNames": [
+              "personId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_person_face_decision_personId` ON `${TABLE_NAME}` (`personId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "person_merge",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`fromPersonId` TEXT NOT NULL, `intoPersonId` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`fromPersonId`))",
+        "fields": [
+          {
+            "fieldPath": "fromPersonId",
+            "columnName": "fromPersonId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "intoPersonId",
+            "columnName": "intoPersonId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "fromPersonId"
+          ]
+        }
+      },
+      {
+        "tableName": "person_cannot_link",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`leftAnchorId` TEXT NOT NULL, `rightAnchorId` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL, `splitPersonId` TEXT, PRIMARY KEY(`leftAnchorId`, `rightAnchorId`))",
+        "fields": [
+          {
+            "fieldPath": "leftAnchorId",
+            "columnName": "leftAnchorId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rightAnchorId",
+            "columnName": "rightAnchorId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "splitPersonId",
+            "columnName": "splitPersonId",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "leftAnchorId",
+            "rightAnchorId"
+          ]
+        }
+      },
+      {
+        "tableName": "person_split",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`splitPersonId` TEXT NOT NULL, `fromPersonId` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`splitPersonId`))",
+        "fields": [
+          {
+            "fieldPath": "splitPersonId",
+            "columnName": "splitPersonId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fromPersonId",
+            "columnName": "fromPersonId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "splitPersonId"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '39bb17486fd80341987b67b4cdea49f2')"
+    ]
+  }
+}

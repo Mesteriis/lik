@@ -28,6 +28,29 @@ class OcrPeopleRulesTest {
         assertTrue(regions.single().left < regions.single().right)
     }
 
+    @Test fun productionDetectorOutputUsesBoundedBulkContract() {
+        val floats = 1024 * 960
+        assertTrue(FloatIpcContract.bytes(floats) > FloatIpcContract.BINDER_INLINE_LIMIT_BYTES)
+        assertTrue(floats <= FloatIpcContract.MAX_OUTPUT_FLOATS)
+    }
+
+    @Test fun detectorProducesSlantedDbQuadrilateralAndUnclipsIt() {
+        val width=20;val height=16;val map=FloatArray(width*height)
+        for(y in 3..9) for(x in (y-1)..(y+5)) map[y*width+x]=.92f
+        val quad=DbRegions.quadrilaterals(map,width,height).single()
+        assertEquals(4,quad.points.size)
+        assertTrue(quad.score>=.9f)
+        assertTrue(quad.points.zipWithNext().any { (a,b) -> kotlin.math.abs(a.y-b.y)>.01f && kotlin.math.abs(a.x-b.x)>.01f })
+        assertTrue((quad.box.right-quad.box.left) > 7f/width)
+    }
+
+    @Test fun fiveLandmarkSimilarityAlignmentUsesAllPinnedPoints() {
+        val target=floatArrayOf(38.2946f,51.6963f,73.5318f,51.5014f,56.0252f,71.7366f,41.5493f,92.3655f,70.7299f,92.2041f)
+        val source=FloatArray(10){i->if(i%2==0)(target[i]-7f)/1.2f else (target[i]+4f)/1.2f}
+        val transform=SimilarityTransform.estimate(source,target)
+        for(i in 0 until 5){val mapped=transform.map(source[i*2],source[i*2+1]);assertEquals(target[i*2],mapped.x,.001f);assertEquals(target[i*2+1],mapped.y,.001f)}
+    }
+
     @Test fun publicationRejectsRevisionEpochRevocationAndSensitiveQuarantine() {
         val token = AiPublicationToken("m", 7, 4, "pipe", "gen")
         assertTrue(token.matches("m", 7, 4, available = true, exposure = AiExposure.SAFE))

@@ -6,7 +6,7 @@ import org.json.JSONObject
 import java.io.File
 
 /** Sole durable source for profile selection, feature opt-in, installation and active generations. */
-class ModelCatalog private constructor(private val root: File, val trusted: TrustedModelCatalog) {
+class ModelCatalog private constructor(private val root: File, private val databaseFile: File, val trusted: TrustedModelCatalog) {
     private val stateFile = File(root, "catalog-state-v1.json")
     private val listeners = mutableSetOf<(CatalogSnapshot) -> Unit>()
     private val acceptedPipelineFingerprints: Map<AiFeature, Set<String>> by lazy {
@@ -141,6 +141,7 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
 
     private fun generationUsable(generation: IndexGeneration): Boolean {
         if (!generation.complete) return false
+        if (generation.feature != AiFeature.SEARCH) return RoomGenerationStorage.usable(databaseFile, generation)
         val directory = File(root, "indexes/${generation.id}.ready")
         val membership = runCatching { NativeMembership.read(directory) }.getOrNull() ?: return false
         if (membership.generationId != generation.id || membership.count != generation.total) return false
@@ -208,7 +209,33 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
         private val instances = mutableMapOf<String, ModelCatalog>()
         @Synchronized fun get(context: Context): ModelCatalog {
             val app = context.applicationContext
-            return instances.getOrPut(app.filesDir.absolutePath) { ModelCatalog(File(app.filesDir, "ai"), TrustedModelCatalog.load(app)) }
+            return instances.getOrPut(app.filesDir.absolutePath) { ModelCatalog(File(app.filesDir, "ai"), app.getDatabasePath("media.db"), TrustedModelCatalog.load(app)) }
         }
+        internal fun openForTests(root:File,databaseFile:File,trusted:TrustedModelCatalog)=ModelCatalog(root,databaseFile,trusted)
+    }
+}
+
+/** Read-only startup oracle for generation kinds whose durable payload is stored in Room. */
+internal object RoomGenerationStorage {
+    fun usable(databaseFile: File, generation: IndexGeneration): Boolean {
+        if (generation.feature == AiFeature.SEARCH || !databaseFile.isFile) return false
+        return runCatching {
+            android.database.sqlite.SQLiteDatabase.openDatabase(databaseFile.absolutePath, null,
+                android.database.sqlite.SQLiteDatabase.OPEN_READONLY).use { db ->
+                val metadataMatches = db.rawQuery("SELECT feature,pipelineFingerprint,status,completed,total FROM ai_index_generation WHERE generationId=?",
+                    arrayOf(generation.id)).use { row ->
+                    row.moveToFirst() && row.getString(0) == generation.feature.name &&
+                        row.getString(1) == generation.pipelineFingerprint && row.getString(2) == GenerationStatus.COMPLETE.name &&
+                        row.getInt(3) == generation.completed && row.getInt(4) == generation.total
+                }
+                if (!metadataMatches) return@use false
+                db.rawQuery("SELECT COUNT(*) FROM ai_feature_media_run r JOIN media m ON m.mediaId=r.mediaId " +
+                    "WHERE r.generationId=? AND r.feature=? AND r.error IS NULL AND m.availability='AVAILABLE' " +
+                    "AND m.contentRevision=r.contentRevision AND m.accessGrantEpoch=r.accessEpoch",
+                    arrayOf(generation.id, generation.feature.name)).use { count ->
+                    count.moveToFirst() && count.getInt(0) == generation.total
+                }
+            }
+        }.getOrDefault(false)
     }
 }

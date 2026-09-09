@@ -36,8 +36,44 @@ class OcrPeoplePersistenceTest {
         val next=face.copy(detectionId="new:d",generationId="new",accessEpoch=2)
         assertTrue(db.ocrPeople().publishFacesIfCurrent(AiPublicationToken("m",0,2,"face","new"),listOf(next)))
         assertEquals("Анна",repo.groups("new").single().name)
-        val split=repo.split(setOf("anchor"),person,"Аня");assertEquals("Аня",repo.groups("new").single{it.personId==split}.name)
+        val split=repo.split("new",setOf("anchor"),person,"Аня");assertEquals("Аня",repo.groups("new").single{it.personId==split}.name)
         db.media().trash(setOf("m"),4);assertTrue(repo.groups("new").isEmpty())
         assertEquals(2,db.ocrPeople().decisions().size)
+    }}
+
+    @Test fun finalPeopleReadRejectsAccessRace(){fixture{db->
+        val row=MediaRecord("race",MediaSource.DEVICE,"1",contentUri="content://race",lastSeenAt=1)
+        db.media().upsert(row);db.ocrPeople().saveExposure(AiMediaExposureRecord("race",0,AiExposure.SAFE,1))
+        db.aiIndexes().saveGeneration(AiIndexGenerationRecord("people","balanced-v1","PEOPLE","face",GenerationStatus.COMPLETE,1,1,"race",null,1))
+        val face=AiFaceDetectionRecord("d","people","race",0,1,"face","a",.1f,.1f,.4f,.4f,FloatArray(10).toBytes(),floatArrayOf(1f,0f).toBytes(),.99f,"auto")
+        assertTrue(db.ocrPeople().publishFacesIfCurrent(AiPublicationToken("race",0,1,"face","people"),listOf(face)))
+        val groups=PeopleRepository(db).groups("people"){db.media().markSource(MediaSource.DEVICE,MediaAvailability.INACCESSIBLE)}
+        assertTrue(groups.isEmpty())
+    }}
+
+    @Test fun finalOcrViewerAndSearchReadsRejectRevisionAndExposureRaces(){fixture{db->
+        val row=MediaRecord("ocr-race",MediaSource.DEVICE,"1",contentUri="content://ocr-race",contentRevision=3,lastSeenAt=1)
+        db.media().upsert(row);db.ocrPeople().saveExposure(AiMediaExposureRecord(row.mediaId,3,AiExposure.SAFE,1));db.aiIndexes().saveGeneration(AiIndexGenerationRecord("ocr-race-g","balanced-v1","OCR","pipe",GenerationStatus.COMPLETE,1,1,row.mediaId,null,1))
+        val result=AiOcrResultRecord("ocr-race-g",row.mediaId,3,1,"pipe","Ёлка","ёлка","[]",.9f);db.ocrPeople().publishOcrRunIfCurrent(result,AiFeatureMediaRunRecord("ocr-race-g",row.mediaId,"OCR",3,1,null))
+        assertNull(OcrSafeRead.text(db,"ocr-race-g",row.mediaId){db.media().upsert(row.copy(contentRevision=4))})
+        db.media().upsert(row);val found=db.ocrPeople().searchOcr("ocr-race-g","ёлка",10,0)
+        assertTrue(OcrSafeRead.retainVisible(db,"ocr-race-g",found){db.ocrPeople().saveExposure(AiMediaExposureRecord(row.mediaId,3,AiExposure.SENSITIVE,2))}.isEmpty())
+    }}
+
+    @Test fun compatibleGenerationCopiesOnlyCurrentRows(){fixture{db->
+        val current=MediaRecord("current",MediaSource.DEVICE,"1",contentUri="content://current",lastSeenAt=1)
+        val changed=MediaRecord("changed",MediaSource.DEVICE,"2",contentUri="content://changed",lastSeenAt=1)
+        db.media().upsert(current);db.media().upsert(changed)
+        listOf("old","new").forEach{db.aiIndexes().saveGeneration(AiIndexGenerationRecord(it,"balanced-v1","OCR","pipe",GenerationStatus.PREPARING,0,2,null,null,1))}
+        val dao=db.ocrPeople();listOf(current,changed).forEach{row->dao.publishOcrRunIfCurrent(AiOcrResultRecord("old",row.mediaId,0,1,"pipe",row.mediaId,row.mediaId,"[]",.9f),AiFeatureMediaRunRecord("old",row.mediaId,"OCR",0,1,null))}
+        db.media().upsert(changed.copy(contentRevision=2))
+        assertEquals(1,dao.copyCurrentGeneration("old","new","OCR","pipe"));assertNotNull(dao.run("new","current"));assertNull(dao.run("new","changed"))
+    }}
+
+    @Test fun undoSplitRemovesOnlyItsCannotLinksAndSurvivesRecluster(){fixture{db->
+        val row=MediaRecord("m",MediaSource.DEVICE,"1",contentUri="content://m",lastSeenAt=1);db.media().upsert(row);db.ocrPeople().saveExposure(AiMediaExposureRecord("m",0,AiExposure.SAFE,1));db.aiIndexes().saveGeneration(AiIndexGenerationRecord("g","balanced-v1","PEOPLE","face",GenerationStatus.COMPLETE,1,1,"m",null,1))
+        val faces=listOf("a","b").mapIndexed{i,a->AiFaceDetectionRecord("d$i","g","m",0,1,"face",a,.1f+i*.2f,.1f,.2f+i*.2f,.3f,FloatArray(10).toBytes(),floatArrayOf(1f,0f).toBytes(),.99f,"original")};db.ocrPeople().publishFacesIfCurrent(AiPublicationToken("m",0,1,"face","g"),faces)
+        val repo=PeopleRepository(db);val original=repo.create("Original");faces.forEach{repo.move(it.anchorId,original)};val split=repo.split("g",setOf("a"),original,"Split");assertNotNull(repo.splitSource(split));assertEquals(1,db.ocrPeople().cannotLinks().count{it.splitPersonId==split})
+        assertEquals(1,repo.undoSplit(split));assertNull(repo.splitSource(split));assertTrue(db.ocrPeople().cannotLinks().none{it.splitPersonId==split});assertEquals(setOf(original),repo.groups("g").map{it.personId}.toSet())
     }}
 }

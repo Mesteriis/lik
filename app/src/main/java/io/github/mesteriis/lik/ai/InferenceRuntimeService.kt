@@ -13,6 +13,9 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.nio.ByteOrder
 import java.nio.LongBuffer
+import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.sqrt
 
 /** Private isolated process. Its single executor is the process-level one-heavy-task gate. */
@@ -21,7 +24,16 @@ class InferenceRuntimeService : Service() {
     private var createdSessions = 0
     private data class ResidentSession(val session: ai.onnxruntime.OrtSession, val modelBytes: Long)
     private val sessions = LinkedHashMap<String, ResidentSession>(8, .75f, true)
+    private val activeRuns = ConcurrentHashMap<Long, ai.onnxruntime.OrtSession.RunOptions>()
+    private val cancelledRuns = ConcurrentHashMap.newKeySet<Long>()
+    private data class SharedOutput(val floats: Int, val sha256: String)
     private val incoming = Messenger(Handler(Looper.getMainLooper()) { message ->
+        if (message.what == MSG_CANCEL) {
+            val requestId = message.data.getLong(REQUEST_ID)
+            cancelledRuns += requestId
+            activeRuns[requestId]?.setTerminate(true)
+            return@Handler true
+        }
         if (message.what !in setOf(MSG_VALIDATE, MSG_EMBED_IMAGE, MSG_EMBED_TEXT, MSG_RUN_FLOAT, MSG_RUN_FLOAT_MULTI, MSG_RUN_SMOKE, MSG_STATS, MSG_EVICT)) return@Handler false
         val requestCode = message.what
         val reply = message.replyTo
@@ -40,12 +52,19 @@ class InferenceRuntimeService : Service() {
             } }
             result.exceptionOrNull()?.let { android.util.Log.e("LikAiRuntime", "Inference request failed", it) }
             descriptors.forEach { runCatching { it.close() } }
+            payload.getParcelable(OUTPUT_MEMORY, SharedMemory::class.java)?.let { runCatching { it.close() } }
             val response = Message.obtain(null, MSG_RESULT).apply {
                 data = Bundle().apply { putBoolean(OK, result.isSuccess); putString(ERROR, result.exceptionOrNull()?.let { "${it.javaClass.simpleName}: ${it.message.orEmpty()}" })
-                    result.getOrNull()?.let { putFloatArray(VECTOR, it) }
+                    when (val value = result.getOrNull()) {
+                        is FloatArray -> putFloatArray(VECTOR, value)
+                        is SharedOutput -> { putInt(OUTPUT_FLOATS, value.floats); putString(OUTPUT_SHA256, value.sha256) }
+                    }
                     putStringArrayList(SESSIONS, ArrayList(sessions.keys)) }
             }
-            runCatching { reply.send(response) }
+            try { reply.send(response) } catch (error: RemoteException) {
+                android.util.Log.e("LikAiRuntime", "Inference reply failed; terminating isolated runtime", error)
+                Process.killProcess(Process.myPid())
+            }
         }
         true
     })
@@ -149,7 +168,7 @@ class InferenceRuntimeService : Service() {
         } finally { descriptor.close() }
     }
 
-    private fun runFloat(data: Bundle): FloatArray {
+    private fun runFloat(data: Bundle): SharedOutput {
         val descriptor = data.getParcelable(MODEL, ParcelFileDescriptor::class.java)!!
         val memory = data.getParcelable(MEMORY, SharedMemory::class.java)!!
         val shape = data.getIntArray(SHAPE)!!.map(Int::toLong).toLongArray()
@@ -158,18 +177,18 @@ class InferenceRuntimeService : Service() {
             val environment = ai.onnxruntime.OrtEnvironment.getEnvironment()
             session(data, descriptor).let { session ->
                 ai.onnxruntime.OnnxTensor.createTensor(environment, mapped.asFloatBuffer(), shape).use { tensor ->
-                    session.run(mapOf(requireNotNull(data.getString(INPUT)) to tensor)).use { output ->
+                    withRunOptions(data.getLong(REQUEST_ID)) { options -> session.run(mapOf(requireNotNull(data.getString(INPUT)) to tensor), options) }.use { output ->
                         val name = data.getString(OUTPUT) ?: session.outputNames.first()
                         val values = (output.get(name).get() as ai.onnxruntime.OnnxTensor).floatBuffer.toArray()
                         require(values.isNotEmpty() && values.all(Float::isFinite))
-                        values
+                        writeOutput(data, values)
                     }
                 }
             }
         } finally { SharedMemory.unmap(mapped); memory.close(); descriptor.close() }
     }
 
-    private fun runFloatMulti(data: Bundle): FloatArray {
+    private fun runFloatMulti(data: Bundle): SharedOutput {
         val descriptor = data.getParcelable(MODEL, ParcelFileDescriptor::class.java)!!
         val memory = data.getParcelable(MEMORY, SharedMemory::class.java)!!
         val shape = data.getIntArray(SHAPE)!!.map(Int::toLong).toLongArray()
@@ -178,14 +197,36 @@ class InferenceRuntimeService : Service() {
             val environment = ai.onnxruntime.OrtEnvironment.getEnvironment()
             session(data, descriptor).let { session ->
                 ai.onnxruntime.OnnxTensor.createTensor(environment, mapped.asFloatBuffer(), shape).use { tensor ->
-                    session.run(mapOf(requireNotNull(data.getString(INPUT)) to tensor)).use { output ->
-                        data.getStringArrayList(OUTPUT_NAMES).orEmpty().flatMap { name ->
+                    withRunOptions(data.getLong(REQUEST_ID)) { options -> session.run(mapOf(requireNotNull(data.getString(INPUT)) to tensor), options) }.use { output ->
+                        val values = data.getStringArrayList(OUTPUT_NAMES).orEmpty().flatMap { name ->
                             (output.get(name).get() as ai.onnxruntime.OnnxTensor).floatBuffer.toArray().asIterable()
                         }.toFloatArray().also { require(it.isNotEmpty() && it.all(Float::isFinite)) }
+                        writeOutput(data, values)
                     }
                 }
             }
         } finally { SharedMemory.unmap(mapped); memory.close(); descriptor.close() }
+    }
+
+    private fun writeOutput(data: Bundle, values: FloatArray): SharedOutput {
+        val capacity = data.getInt(OUTPUT_CAPACITY_FLOATS)
+        require(capacity in 1..FloatIpcContract.MAX_OUTPUT_FLOATS && values.size <= capacity) { "OUTPUT_TOO_LARGE:${values.size}/$capacity" }
+        val memory = requireNotNull(data.getParcelable(OUTPUT_MEMORY, SharedMemory::class.java))
+        val mapped = memory.mapReadWrite().order(ByteOrder.nativeOrder())
+        return try {
+            mapped.asFloatBuffer().put(values)
+            SharedOutput(values.size, FloatIpcContract.digest(mapped, values.size * Float.SIZE_BYTES))
+        } finally { SharedMemory.unmap(mapped); memory.close() }
+    }
+
+    private fun <T> withRunOptions(requestId: Long, block: (ai.onnxruntime.OrtSession.RunOptions) -> T): T {
+        require(requestId > 0)
+        if (cancelledRuns.remove(requestId)) throw InterruptedException("RUNTIME_CANCELLED")
+        ai.onnxruntime.OrtSession.RunOptions().use { options ->
+            activeRuns[requestId] = options
+            if (cancelledRuns.remove(requestId)) options.setTerminate(true)
+            return try { block(options) } finally { activeRuns.remove(requestId, options); cancelledRuns.remove(requestId) }
+        }
     }
 
     private fun runSmoke(data: Bundle): FloatArray {
@@ -256,6 +297,7 @@ class InferenceRuntimeService : Service() {
         const val MSG_EVICT = 7
         const val MSG_RUN_SMOKE = 8
         const val MSG_RUN_FLOAT_MULTI = 9
+        const val MSG_CANCEL = 10
         const val FDS = "fds"
         const val OK = "ok"
         const val ERROR = "error"
@@ -277,8 +319,28 @@ class InferenceRuntimeService : Service() {
         const val INPUT_PATTERNS = "input-patterns"
         const val SESSIONS = "sessions"
         const val EVICT = "evict"
+        const val REQUEST_ID = "request-id"
+        const val OUTPUT_MEMORY = "output-memory"
+        const val OUTPUT_CAPACITY_FLOATS = "output-capacity-floats"
+        const val OUTPUT_FLOATS = "output-floats"
+        const val OUTPUT_SHA256 = "output-sha256"
         private const val MAX_RESIDENT_SESSIONS = 8
         private const val MAX_RESIDENT_MODEL_BYTES = 1024L * 1024L * 1024L
+    }
+}
+
+/** Bounded bulk-output contract. Binder carries only this metadata; tensor bytes stay in SharedMemory. */
+object FloatIpcContract {
+    const val MAX_OUTPUT_FLOATS = 1_100_000
+    const val BINDER_INLINE_LIMIT_BYTES = 1024 * 1024
+    fun bytes(floats: Int): Int {
+        require(floats in 1..MAX_OUTPUT_FLOATS)
+        return Math.multiplyExact(floats, Float.SIZE_BYTES)
+    }
+    fun digest(buffer: java.nio.ByteBuffer, bytes: Int): String {
+        require(bytes in 1..buffer.capacity())
+        val view = buffer.duplicate().apply { position(0); limit(bytes) }
+        return MessageDigest.getInstance("SHA-256").apply { update(view) }.digest().joinToString("") { "%02x".format(it) }
     }
 }
 
@@ -322,14 +384,15 @@ class IsolatedRuntimeClient(context: Context, private val leases: RuntimeLeases 
             projection?.let { putParcelable(InferenceRuntimeService.PROJECTION, ParcelFileDescriptor.open(it, ParcelFileDescriptor.MODE_READ_ONLY)) }
         })
 
-    fun runFloat(model: File, inputName: String, shape: IntArray, values: FloatArray, outputName: String? = null): Result<FloatArray> {
+    fun runFloat(model: File, inputName: String, shape: IntArray, values: FloatArray, outputName: String? = null,
+                 outputCapacityFloats: Int = FloatIpcContract.MAX_OUTPUT_FLOATS): Result<FloatArray> {
         require(shape.fold(1L) { product, value -> Math.multiplyExact(product, value.toLong()) } == values.size.toLong())
         val memory = SharedMemory.create("lik-smoke-tensor", values.size * 4)
         val mapped = memory.mapReadWrite().order(ByteOrder.nativeOrder())
         mapped.asFloatBuffer().put(values)
         SharedMemory.unmap(mapped)
         memory.setProtect(android.system.OsConstants.PROT_READ)
-        return requestVector(InferenceRuntimeService.MSG_RUN_FLOAT, setOf(model), Bundle().apply {
+        return requestSharedVector(InferenceRuntimeService.MSG_RUN_FLOAT, setOf(model), outputCapacityFloats, Bundle().apply {
             putParcelable(InferenceRuntimeService.MODEL, ParcelFileDescriptor.open(model, ParcelFileDescriptor.MODE_READ_ONLY))
             putString(InferenceRuntimeService.MODEL_ID, artifactDigest(model))
             putParcelable(InferenceRuntimeService.MEMORY, memory)
@@ -339,14 +402,15 @@ class IsolatedRuntimeClient(context: Context, private val leases: RuntimeLeases 
         }).also { memory.close() }
     }
 
-    fun runFloatMulti(model: File, inputName: String, shape: IntArray, values: FloatArray, outputNames: List<String>): Result<FloatArray> {
+    fun runFloatMulti(model: File, inputName: String, shape: IntArray, values: FloatArray, outputNames: List<String>,
+                      outputCapacityFloats: Int = FloatIpcContract.MAX_OUTPUT_FLOATS): Result<FloatArray> {
         require(outputNames.isNotEmpty())
         require(shape.fold(1L) { product, value -> Math.multiplyExact(product, value.toLong()) } == values.size.toLong())
         val memory = SharedMemory.create("lik-inference-tensor", values.size * 4)
         val mapped = memory.mapReadWrite().order(ByteOrder.nativeOrder())
         mapped.asFloatBuffer().put(values); SharedMemory.unmap(mapped)
         memory.setProtect(android.system.OsConstants.PROT_READ)
-        return requestVector(InferenceRuntimeService.MSG_RUN_FLOAT_MULTI, setOf(model), Bundle().apply {
+        return requestSharedVector(InferenceRuntimeService.MSG_RUN_FLOAT_MULTI, setOf(model), outputCapacityFloats, Bundle().apply {
             putParcelable(InferenceRuntimeService.MODEL, ParcelFileDescriptor.open(model, ParcelFileDescriptor.MODE_READ_ONLY))
             putString(InferenceRuntimeService.MODEL_ID, artifactDigest(model))
             putParcelable(InferenceRuntimeService.MEMORY, memory)
@@ -384,6 +448,25 @@ class IsolatedRuntimeClient(context: Context, private val leases: RuntimeLeases 
     private fun requestVector(code: Int, files: Set<File>, payload: Bundle): Result<FloatArray> =
         try { requestBundle(code, files, payload, 180).mapCatching { requireNotNull(it.getFloatArray(InferenceRuntimeService.VECTOR)) } }
         finally { payload.closeDescriptors() }
+
+    private fun requestSharedVector(code: Int, files: Set<File>, capacityFloats: Int, payload: Bundle): Result<FloatArray> {
+        val memory = SharedMemory.create("lik-inference-output", FloatIpcContract.bytes(capacityFloats))
+        payload.putParcelable(InferenceRuntimeService.OUTPUT_MEMORY, memory)
+        payload.putInt(InferenceRuntimeService.OUTPUT_CAPACITY_FLOATS, capacityFloats)
+        return try {
+            requestBundle(code, files, payload, 180).mapCatching { response ->
+                val count = response.getInt(InferenceRuntimeService.OUTPUT_FLOATS)
+                require(count in 1..capacityFloats) { "INVALID_OUTPUT_SIZE:$count/$capacityFloats" }
+                val mapped = memory.mapReadOnly().order(ByteOrder.nativeOrder())
+                try {
+                    val bytes = FloatIpcContract.bytes(count)
+                    val actual = FloatIpcContract.digest(mapped, bytes)
+                    require(MessageDigest.isEqual(actual.toByteArray(), requireNotNull(response.getString(InferenceRuntimeService.OUTPUT_SHA256)).toByteArray())) { "OUTPUT_DIGEST_MISMATCH" }
+                    FloatArray(count).also { mapped.asFloatBuffer().get(it) }
+                } finally { SharedMemory.unmap(mapped) }
+            }
+        } finally { memory.close(); payload.closeDescriptors() }
+    }
 
     private fun requestBundle(code: Int, files: Set<File>, payload: Bundle, timeoutSeconds: Long): Result<Bundle> {
         val lease = leases.acquire(files.map(::artifactDigest).toSet())
@@ -427,6 +510,7 @@ private class PersistentRuntimeTransport(
     @Volatile private var residents: Set<String> = emptySet()
     private var binding = false
     private var bound = false
+    private val requestIds = AtomicLong()
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
@@ -452,20 +536,28 @@ private class PersistentRuntimeTransport(
             if (message.what == InferenceRuntimeService.MSG_RESULT) { response = Bundle(message.data); latch.countDown() }
             true
         })
+        val requestId = requestIds.incrementAndGet()
+        payload.putLong(InferenceRuntimeService.REQUEST_ID, requestId)
         return runCatching {
             try { remote.send(Message.obtain(null, code).apply { replyTo = callback; data = payload }) }
             catch (dead: RemoteException) { lost(); throw dead }
             val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds)
             while (!latch.await(250, TimeUnit.MILLISECONDS)) {
                 if (generation != startGeneration) error("RUNTIME_DIED")
-                if (Thread.currentThread().isInterrupted) throw InterruptedException()
-                if (System.nanoTime() >= deadline) error("RUNTIME_TIMEOUT")
+                if (Thread.currentThread().isInterrupted) { cancel(remote, requestId); throw InterruptedException() }
+                if (System.nanoTime() >= deadline) { cancel(remote, requestId); error("RUNTIME_TIMEOUT") }
             }
             val result = requireNotNull(response)
             residents = result.getStringArrayList(InferenceRuntimeService.SESSIONS).orEmpty().toSet()
             if (!result.getBoolean(InferenceRuntimeService.OK)) error(result.getString(InferenceRuntimeService.ERROR) ?: "RUNTIME_ERROR")
             result
         }
+    }
+
+    private fun cancel(remote: Messenger, requestId: Long) {
+        try { remote.send(Message.obtain(null, InferenceRuntimeService.MSG_CANCEL).apply {
+            data = Bundle().apply { putLong(InferenceRuntimeService.REQUEST_ID, requestId) }
+        }) } catch (dead: RemoteException) { lost() }
     }
 
     fun connectionGeneration(): Long = generation
