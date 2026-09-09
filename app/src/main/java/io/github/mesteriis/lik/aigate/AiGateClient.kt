@@ -14,6 +14,7 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 data class AiGateHealth(val running: Boolean, val port: Int, val version: String?, val modelCount: Int?)
 data class AiGateReply(val requestId: Long, val text: String, val model: String?)
@@ -141,13 +142,55 @@ class AiGateClient(
             Thread(task, "lik-aigate-deadlines").apply { isDaemon = true }
         }
 
-        fun discover(onClient: (AiGateClient?) -> Unit = {}): Pair<AiGateEndpoint, AiGateHealth>? =
-            AiGateEndpoint.discoveryPorts().firstNotNullOfOrNull { port ->
-                val endpoint = AiGateEndpoint(port); val client = AiGateClient(endpoint); onClient(client)
-                try { runCatching { endpoint to client.health().also { health ->
-                    require(health.running) { "AIGATE_NOT_RUNNING" }; client.models()
-                } }.getOrNull() } finally { onClient(null) }
-            }
+    }
+}
+
+/** Owns one Settings connectivity attempt, including every fallback discovery port. */
+class AiGateRequestOwner {
+    private val generation = AtomicLong()
+    @Volatile private var active: AiGateClient? = null
+
+    @Synchronized fun begin(): Long {
+        active?.cancel(); active = null
+        return generation.incrementAndGet()
+    }
+
+    @Synchronized fun attach(token: Long, client: AiGateClient): Boolean {
+        if (token != generation.get()) { client.cancel(); return false }
+        active?.cancel(); active = client
+        return true
+    }
+
+    @Synchronized fun release(token: Long, client: AiGateClient) {
+        if (token == generation.get() && active === client) active = null
+    }
+
+    fun isCurrent(token: Long): Boolean = token == generation.get()
+
+    @Synchronized fun cancel() {
+        generation.incrementAndGet()
+        active?.cancel(); active = null
+    }
+}
+
+class AiGateDiscovery(
+    private val endpoints: List<AiGateEndpoint> = AiGateEndpoint.discoveryPorts().map(::AiGateEndpoint),
+    private val probe: (AiGateEndpoint, AiGateClient) -> Pair<AiGateEndpoint, AiGateHealth>? = { endpoint, client ->
+        runCatching { endpoint to client.health().also { health ->
+            require(health.running) { "AIGATE_NOT_RUNNING" }; client.models()
+        } }.getOrNull()
+    },
+) {
+    fun discover(owner: AiGateRequestOwner, token: Long): Pair<AiGateEndpoint, AiGateHealth>? {
+        for (endpoint in endpoints) {
+            if (!owner.isCurrent(token)) return null
+            val client = AiGateClient(endpoint)
+            if (!owner.attach(token, client)) return null
+            val result = try { probe(endpoint, client) } finally { owner.release(token, client) }
+            if (!owner.isCurrent(token)) return null
+            if (result != null) return result
+        }
+        return null
     }
 }
 

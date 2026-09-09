@@ -74,17 +74,19 @@ class AiRuntimeTest {
 
             val part = store.sharedPart(digest).apply { writeBytes(expected.copyOf(5)) }
             val ledger = DownloadReservationLedger(root)
-            val first = ledger.acquire("compact", listOf(spec to part.length()), 1_000, 10)
+            val first = ledger.acquire("compact", listOf(spec to 5L), expected.size - 5L + 10L, 10)
             assertEquals(expected.size - 5L + 10L, first.requiredBytes)
-            assertEquals(first.requiredBytes, ledger.reservedBytes("compact"))
+            assertEquals(expected.size.toLong(), part.length())
+            assertTrue(android.system.Os.stat(part.absolutePath).st_blocks * 512 >= expected.size)
+            assertEquals(10L, ledger.reservedBytes("compact"))
             assertEquals("compact", ledger.owner(digest))
             ledger.update("compact", digest, 3)
-            assertEquals(13L, ledger.reservedBytes("compact"))
-            assertEquals(13L, DownloadReservationLedger(root).reservedBytes("compact"))
+            assertEquals(10L, ledger.reservedBytes("compact"))
+            assertEquals(10L, DownloadReservationLedger(root).reservedBytes("compact"))
             assertThrows(IllegalArgumentException::class.java) {
                 ledger.acquire("no-space", listOf(spec to 0), 0, 10)
             }
-            ledger.acquire("balanced", listOf(spec to part.length()), 1_000, 10)
+            ledger.acquire("balanced", listOf(spec to 5L), 1_000, 10)
             assertEquals("balanced", ledger.owner(digest))
             assertEquals(10L, ledger.reservedBytes("compact"))
             ledger.release("compact")
@@ -253,6 +255,49 @@ class AiRuntimeTest {
             assertFalse(model.visionKnown)
             assertTrue(server.request.startsWith("GET /v1/models"))
         }
+    }
+
+    @Test fun aiGateOptOutCancelsProbeWithoutLateSettingsWrite() {
+        val settings = AiGateSettings(context)
+        val originalEnabled = settings.enabled
+        val originalPort = settings.port
+        settings.enabled = false
+        settings.port = 54_321
+        try {
+            FakeAiGate("{\"service\":\"aigate\",\"running\":true,\"port\":1,\"models_count\":1}",
+                responseDelayMillis = 1_000).use { server ->
+                ActivityScenario.launch(AiSettingsActivity::class.java).use { scenario ->
+                    scenario.onActivity { activity ->
+                        val enabled = activity.findViewById<android.widget.Switch>(R.id.aigate_enabled)
+                        enabled.isChecked = true
+                        activity.findViewById<android.widget.EditText>(R.id.aigate_port).setText(server.port.toString())
+                        activity.findViewById<android.widget.Button>(R.id.aigate_check).performClick()
+                        enabled.isChecked = false
+                    }
+                    Thread.sleep(1_200)
+                    assertEquals(54_321, settings.port)
+                    assertFalse(settings.enabled)
+                }
+            }
+        } finally {
+            settings.port = originalPort
+            settings.enabled = originalEnabled
+        }
+    }
+
+    @Test fun aiGateDiscoveryCancellationStopsBeforeNextPort() {
+        val owner = AiGateRequestOwner()
+        val token = owner.begin()
+        val attempted = mutableListOf<Int>()
+        val discovery = AiGateDiscovery(listOf(AiGateEndpoint(8_889), AiGateEndpoint(8_890))) { endpoint, _ ->
+            attempted += endpoint.port
+            owner.cancel()
+            null
+        }
+
+        assertNull(discovery.discover(owner, token))
+        assertEquals(listOf(8_889), attempted)
+        assertFalse(owner.isCurrent(token))
     }
 
     @Test fun aiGateRejectsRedirectsAndHttpErrorsAndHonorsTimeoutAndCancel() {

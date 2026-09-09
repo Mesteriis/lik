@@ -78,10 +78,18 @@ class DownloadReservationLedger(private val root: File) {
             }
         }
         reservations[operation] = plan.remainingByDigest + (MARGIN to safetyMargin)
-        val currentReservation = reservationFile(operation).takeIf(File::isFile)?.length() ?: 0L
-        require(availableBytes >= (plan.requiredBytes - currentReservation).coerceAtLeast(0)) { "LOW_SPACE" }
+        val currentReservation = allocatedBytes(reservationFile(operation)).coerceAtMost(safetyMargin)
+        val transferGrowth = files.sumOf { (spec, _) ->
+            (spec.size - allocatedBytes(sharedPart(spec.sha256)).coerceAtMost(spec.size)).coerceAtLeast(0)
+        }
+        val physicalGrowth = Math.addExact((safetyMargin - currentReservation).coerceAtLeast(0), transferGrowth)
+        require(availableBytes >= physicalGrowth) { "LOW_SPACE" }
         write(owners, reservations.filterValues { it.isNotEmpty() })
-        reservations.keys.forEach { resizeReservation(it, reservations.getValue(it).values.sum()) }
+        resizeReservation(operation, safetyMargin)
+        files.forEach { (spec, _) -> reserveTransfer(spec) }
+        reservations.keys.filter { it != operation }.forEach { other ->
+            resizeReservation(other, reservations.getValue(other)[MARGIN] ?: 0L)
+        }
         return plan
     }
 
@@ -92,7 +100,7 @@ class DownloadReservationLedger(private val root: File) {
         if (remaining == 0L) files.remove(digest) else files[digest] = remaining
         reservations[operation] = files
         write(state.first, reservations.filterValues { it.isNotEmpty() })
-        resizeReservation(operation, files.values.sum())
+        resizeReservation(operation, files[MARGIN] ?: 0L)
     }
 
     fun release(operation: String) {
@@ -105,6 +113,8 @@ class DownloadReservationLedger(private val root: File) {
     }
 
     fun owner(digest: String): String? = read().first[digest]
+
+    fun remaining(operation: String, digest: String): Long? = read().second[operation]?.get(digest)
 
     fun reservedBytes(operation: String): Long = reservationFile(operation).takeIf(File::isFile)?.length() ?: 0
 
@@ -126,6 +136,24 @@ class DownloadReservationLedger(private val root: File) {
         require(stat.st_size == bytes && stat.st_blocks * 512 >= bytes) { "SPACE_RESERVATION_NOT_ALLOCATED" }
         DurableAiFiles.syncDirectory(reservationDirectory)
     }
+
+    private fun sharedPart(digest: String) = File(root, "staging/shared/$digest.part")
+
+    private fun reserveTransfer(spec: ArtifactSpec) {
+        val target = sharedPart(spec.sha256)
+        target.parentFile?.mkdirs()
+        RandomAccessFile(target, "rw").use { transfer ->
+            if (allocatedBytes(target) < spec.size) Os.posix_fallocate(transfer.fd, 0, spec.size)
+            transfer.setLength(spec.size)
+            transfer.fd.sync()
+        }
+        val stat = Os.stat(target.absolutePath)
+        require(stat.st_size == spec.size && stat.st_blocks * 512 >= spec.size) { "TRANSFER_CAPACITY_NOT_ALLOCATED" }
+        DurableAiFiles.syncDirectory(requireNotNull(target.parentFile))
+    }
+
+    private fun allocatedBytes(target: File): Long = if (!target.isFile) 0L else
+        runCatching { Math.multiplyExact(Os.stat(target.absolutePath).st_blocks, 512L) }.getOrDefault(0L)
 
     private fun read(): Pair<Map<String, String>, Map<String, Map<String, Long>>> = runCatching {
         if (!file.isFile) return@runCatching emptyMap<String, String>() to emptyMap()

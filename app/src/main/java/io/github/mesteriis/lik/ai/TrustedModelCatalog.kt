@@ -2,12 +2,34 @@ package io.github.mesteriis.lik.ai
 
 import android.content.Context
 import org.json.JSONObject
+import java.io.File
 import java.net.URI
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.security.MessageDigest
 
 data class PipelineSpec(val feature: AiFeature, val fingerprint: String, val dimension: Int?)
-data class SmokeReferenceSpec(val comparison: String, val minimumCosine: Float, val atol: Float, val rtol: Float)
-data class GraphSmokeSpec(val artifactPath: String, val inputName: String, val shape: IntArray,
+data class SmokeReferenceSpec(
+    val file: String,
+    val size: Long,
+    val sha256: String,
+    val format: String,
+    val comparison: String,
+    val minimumCosine: Float,
+    val atol: Float,
+    val rtol: Float,
+) {
+    init {
+        require(file.isNotBlank() && '/' !in file && file != "." && file != "..")
+        require(size > 0 && size % Float.SIZE_BYTES == 0L)
+        require(sha256.matches(Regex("[a-f0-9]{64}")))
+        require(format == "little-endian-float32-output-order")
+    }
+}
+data class GraphSmokeSpec(val artifactPath: String, val inputName: String, val inputType: String,
+                          val shape: IntArray, val smokeFill: Float,
                           val outputName: String, val outputShape: IntArray,
+                          val referenceOffsetFloats: Int,
                           val reference: SmokeReferenceSpec)
 data class ComponentSpec(
     val id: String,
@@ -62,11 +84,19 @@ class TrustedModelCatalog private constructor(
                         val shape = input.getJSONArray("smokeShape").let { values -> IntArray(values.length()) { values.getInt(it) } }
                         val output = graph.optString("primaryOutput").takeIf(String::isNotBlank)
                             ?: graph.getJSONArray("outputs").getJSONObject(0).getString("name")
-                        val outputDescriptor = graph.getJSONArray("outputs").objects().single { it.getString("name") == output }
+                        val outputs = graph.getJSONArray("outputs").objects()
+                        val outputDescriptor = outputs.single { it.getString("name") == output }
                         val outputShape = outputDescriptor.getJSONArray("smokeShape").let { values -> IntArray(values.length()) { values.getInt(it) } }
+                        val referenceOffset = outputs.takeWhile { it.getString("name") != output }.sumOf { descriptor ->
+                            descriptor.getJSONArray("smokeShape").let { values ->
+                                (0 until values.length()).fold(1) { count, at -> Math.multiplyExact(count, values.getInt(at)) }
+                            }
+                        }
                         val reference = graph.getJSONObject("smokeReference")
-                        GraphSmokeSpec(file.getString("path"), input.getString("name"), shape, output, outputShape,
-                            SmokeReferenceSpec(reference.getString("comparison"), reference.getDouble("minimumCosine").toFloat(),
+                        GraphSmokeSpec(file.getString("path"), input.getString("name"), input.getString("type"),
+                            shape, input.getDouble("smokeFill").toFloat(), output, outputShape, referenceOffset,
+                            SmokeReferenceSpec(reference.getString("file"), reference.getLong("size"), reference.getString("sha256"),
+                                reference.getString("format"), reference.getString("comparison"), reference.getDouble("minimumCosine").toFloat(),
                                 reference.getDouble("atol").toFloat(), reference.getDouble("rtol").toFloat()))
                     }
                     check(put(id, ComponentSpec(id, contract.getString("sourceRepo"), value.getString("fingerprint"), roles, artifacts, smoke)) == null)
@@ -104,4 +134,27 @@ class TrustedModelCatalog private constructor(
             return PipelineSpec(feature, value.getString("fingerprint"), value.optInt("dimension").takeIf { value.has("dimension") })
         }
     }
+}
+
+object SmokeReferenceVerifier {
+    fun matches(reference: SmokeReferenceSpec, actual: FloatArray, file: File, offsetFloats: Int = 0): Boolean = runCatching {
+        if (!file.isFile || java.nio.file.Files.isSymbolicLink(file.toPath()) || file.length() != reference.size) return@runCatching false
+        val bytes = file.readBytes()
+        val digest = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        if (digest != reference.sha256) return@runCatching false
+        val values = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+        if (offsetFloats < 0 || offsetFloats + actual.size > values.remaining() || !actual.all(Float::isFinite)) return@runCatching false
+        values.position(offsetFloats)
+        val expected = FloatArray(actual.size).also(values::get)
+        when (reference.comparison) {
+            "allclose" -> actual.indices.all { kotlin.math.abs(actual[it] - expected[it]) <=
+                reference.atol + reference.rtol * kotlin.math.abs(expected[it]) }
+            "cosine" -> {
+                var dot = 0.0; var left = 0.0; var right = 0.0
+                actual.indices.forEach { dot += actual[it] * expected[it]; left += actual[it] * actual[it]; right += expected[it] * expected[it] }
+                left > 0 && right > 0 && dot / kotlin.math.sqrt(left * right) >= reference.minimumCosine
+            }
+            else -> false
+        }
+    }.getOrDefault(false)
 }

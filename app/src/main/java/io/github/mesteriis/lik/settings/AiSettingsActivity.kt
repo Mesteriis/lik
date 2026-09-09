@@ -36,7 +36,7 @@ class AiSettingsActivity : Activity() {
     private val featureViews = mutableMapOf<AiFeature, Switch>()
     private var subscription: AutoCloseable? = null
     private val io = Executors.newSingleThreadExecutor()
-    @Volatile private var aiGateClient: AiGateClient? = null
+    private val aiGateRequests = AiGateRequestOwner()
     private var applyingState = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,7 +66,7 @@ class AiSettingsActivity : Activity() {
 
     override fun onDestroy() {
         subscription?.close()
-        aiGateClient?.cancel()
+        aiGateRequests.cancel()
         io.shutdownNow()
         super.onDestroy()
     }
@@ -235,7 +235,7 @@ class AiSettingsActivity : Activity() {
             value.isChecked = settings.enabled
             value.setOnCheckedChangeListener { _, checked ->
                 settings.enabled = checked
-                if (!checked) { aiGateClient?.cancel(); aiGateClient = null }
+                if (!checked) aiGateRequests.cancel()
             }
             content.addView(value)
         }
@@ -250,19 +250,21 @@ class AiSettingsActivity : Activity() {
             if (!settings.enabled) { Toast.makeText(this, R.string.aigate_enable_first, Toast.LENGTH_LONG).show(); return@button }
             val configured = aiGatePort.text.toString().toIntOrNull()?.takeIf { it in 1..65535 }
             if (configured == null) { aiGatePort.error = getString(R.string.aigate_invalid_port); return@button }
-            settings.port = configured
+            val token = aiGateRequests.begin()
             io.execute {
                 val result = runCatching {
                     val endpoint = AiGateEndpoint(configured)
                     val client = AiGateClient(endpoint)
-                    aiGateClient = client
-                    val health = client.health()
-                    require(health.running) { "AIGATE_NOT_RUNNING" }
-                    client.models()
-                    endpoint to health
-                }.getOrNull() ?: AiGateClient.discover { aiGateClient = it }
+                    if (!aiGateRequests.attach(token, client)) return@runCatching null
+                    try {
+                        val health = client.health()
+                        require(health.running) { "AIGATE_NOT_RUNNING" }
+                        client.models()
+                        endpoint to health
+                    } finally { aiGateRequests.release(token, client) }
+                }.getOrNull() ?: AiGateDiscovery().discover(aiGateRequests, token)
                 runOnUiThread {
-                    aiGateClient = null
+                    if (!aiGateRequests.isCurrent(token) || !settings.enabled || isDestroyed) return@runOnUiThread
                     if (result == null) Toast.makeText(this, R.string.aigate_unavailable, Toast.LENGTH_LONG).show()
                     else {
                         settings.port = result.first.port

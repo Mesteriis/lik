@@ -3,7 +3,7 @@ package io.github.mesteriis.lik.ai
 import android.content.Context
 import org.json.JSONObject
 import java.io.File
-import java.io.FileOutputStream
+import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.atomic.AtomicBoolean
@@ -46,18 +46,22 @@ class ModelDownloader(
             already = specs.filter { installed.getValue(it) }.sumOf { it.size }
             completed = already
             catalog.operationPhase(profile, ProfilePhase.DOWNLOADING, completed, total)
-            ledger.acquire(operationId, missing.map { it to store.sharedPart(it.sha256).length().coerceAtMost(it.size) },
+            missing.forEach { spec ->
+                val journal = store.sharedJournal(spec.sha256)
+                if (journal.isFile && !journalMatches(journal, spec)) {
+                    store.sharedPart(spec.sha256).delete(); journal.delete()
+                }
+            }
+            val resumeBytes = missing.associateWith { recoveredBytes(operationId, it, ledger) }
+            ledger.acquire(operationId, missing.map { it to resumeBytes.getValue(it) },
                 store.availableBytes(), SAFETY_MARGIN)
             for (spec in missing) {
                 checkControl()
                 val part = store.sharedPart(spec.sha256)
                 val journal = store.sharedJournal(spec.sha256)
-                if (journal.isFile && !journalMatches(journal, spec)) {
-                    part.delete()
-                    journal.delete()
-                }
-                if (part.length() != spec.size) {
-                    download(spec, part, journal) { fileBytes ->
+                val resumed = resumeBytes.getValue(spec)
+                if (resumed != spec.size) {
+                    download(spec, part, journal, resumed) { fileBytes ->
                         ledger.update(operationId, spec.sha256, (spec.size - fileBytes).coerceAtLeast(0))
                         val current = completed + fileBytes
                         catalog.operationPhase(profile, ProfilePhase.DOWNLOADING, current, total)
@@ -94,7 +98,9 @@ class ModelDownloader(
             releaseReservation = true
         } catch (pause: DownloadPaused) {
             catalog.operationPhase(profile, ProfilePhase.PAUSED,
-                already + missing.sumOf { store.sharedPart(it.sha256).length() }, total)
+                already + missing.sumOf { spec ->
+                    spec.size - (ledger.remaining(operationId, spec.sha256) ?: 0L)
+                }, total)
             return
         } catch (cancel: DownloadCancelled) {
             releaseReservation = true
@@ -129,10 +135,26 @@ class ModelDownloader(
         store.cleanup(ArtifactRetention.retained(installed, emptyList(), emptySet(), IsolatedRuntimeClient.liveArtifactDigests()))
     }
 
-    private fun download(spec: ArtifactSpec, part: File, journal: File, report: (Long) -> Unit) {
+    private fun recoveredBytes(operation: String, spec: ArtifactSpec, ledger: DownloadReservationLedger): Long {
+        ledger.remaining(operation, spec.sha256)?.let { remaining ->
+            if (remaining in 0..spec.size) return spec.size - remaining
+        }
+        val journal = store.sharedJournal(spec.sha256)
+        if (journalMatches(journal, spec)) {
+            val value = JSONObject(journal.readText()).getLong("bytes")
+            if (value in 0..spec.size) return value
+        }
+        val part = store.sharedPart(spec.sha256)
+        if (part.length() in 1 until spec.size) return part.length()
+        if (part.length() == spec.size && runCatching { ArtifactStore.sha256(part, ::checkControl) == spec.sha256 }.getOrDefault(false))
+            return spec.size
+        return 0L
+    }
+
+    private fun download(spec: ArtifactSpec, part: File, journal: File, initialOffset: Long, report: (Long) -> Unit) {
         part.parentFile?.mkdirs()
-        var offset = part.length().coerceAtMost(spec.size)
-        if (part.length() > spec.size) { part.delete(); offset = 0 }
+        var offset = initialOffset
+        require(offset in 0 until spec.size && part.length() == spec.size)
         writeJournal(journal, spec, DownloadJournalStage.DOWNLOADING, offset)
         var redirects = 0
         var current = spec.url
@@ -159,8 +181,11 @@ class ModelDownloader(
                 val decision = DownloadProtocol.response(spec, offset, code,
                     connection.getHeaderField("Content-Range"), connection.contentLengthLong, current)
                 require(decision != DownloadDecision.REJECT) { "INVALID_RANGE_RESPONSE" }
-                if (decision == DownloadDecision.RESTART) { offset = 0; part.delete() }
-                FileOutputStream(part, offset > 0).use { output ->
+                if (decision == DownloadDecision.RESTART) {
+                    offset = 0; writeJournal(journal, spec, DownloadJournalStage.DOWNLOADING, offset); report(offset)
+                }
+                RandomAccessFile(part, "rw").use { output ->
+                    output.seek(offset)
                     connection.inputStream.use { input ->
                         val buffer = ByteArray(BUFFER_SIZE)
                         var sinceSync = 0L
@@ -254,17 +279,29 @@ class ModelSelfTest(private val store: ArtifactStore, private val runtime: Isola
             ProfileId.BALANCED -> setOf("siglip2-base-v1/image.onnx", "siglip2-base-v1/text.onnx")
             ProfileId.EXTENDED -> setOf("siglip2-large-v1/image.onnx", "siglip2-large-v1/text.onnx")
         }
+        val referenceRoot = File(requireNotNull(store.root.parentFile), "model-probe")
+        val pinnedReferencesPresent = referenceRoot.isDirectory
         trusted.smokeGraphs(profile).filter { it.artifactPath !in searchPaths }.forEach { graph ->
             checkControl()
+            require(graph.inputType == "float32") { "COMPONENT_SELF_TEST_INPUT_TYPE:${graph.artifactPath}" }
             val count = graph.shape.fold(1) { product, value -> Math.multiplyExact(product, value) }
             val input = representativeInput(graph.artifactPath, graph.shape, count)
             val result = runtime.runFloat(file(graph.artifactPath), graph.inputName, graph.shape, input, graph.outputName).getOrThrow()
-            checkControl()
-            val repeated = runtime.runFloat(file(graph.artifactPath), graph.inputName, graph.shape, input, graph.outputName).getOrThrow()
             val outputCount = graph.outputShape.fold(1) { product, value -> Math.multiplyExact(product, value) }
-            require(result.size == outputCount && result.all(Float::isFinite) &&
-                smokeMatches(result, repeated, graph.reference) && semanticOutput(graph.artifactPath, result)) {
-                "COMPONENT_SELF_TEST_FAILED:${graph.artifactPath}"
+            val referenceFile = File(referenceRoot,
+                graph.artifactPath.substringBeforeLast('/') + "/" + graph.reference.file)
+            val pinnedMatch = if (!pinnedReferencesPresent) true else {
+                checkControl()
+                val smokeInput = FloatArray(count) { graph.smokeFill }
+                val smokeResult = runtime.runFloat(file(graph.artifactPath), graph.inputName, graph.shape,
+                    smokeInput, graph.outputName).getOrThrow()
+                SmokeReferenceVerifier.matches(graph.reference, smokeResult, referenceFile, graph.referenceOffsetFloats)
+            }
+            val outputShapeValid = result.size == outputCount
+            val finite = result.all(Float::isFinite)
+            val semantic = semanticOutput(graph.artifactPath, result)
+            require(outputShapeValid && finite && pinnedMatch && semantic) {
+                "COMPONENT_SELF_TEST_FAILED:${graph.artifactPath}:shape=$outputShapeValid:finite=$finite:pinned=$pinnedMatch:semantic=$semantic"
             }
         }
     }
@@ -283,20 +320,6 @@ class ModelSelfTest(private val store: ArtifactStore, private val runtime: Isola
                 path.startsWith("ocr-cyrillic") || path.startsWith("sensitive") -> pixel / 127.5f - 1f
                 else -> pixel // YuNet/SFace contracts consume BGR/RGB byte-range tensors.
             }
-        }
-    }
-
-    private fun smokeMatches(actual: FloatArray, repeated: FloatArray, reference: SmokeReferenceSpec): Boolean {
-        if (actual.size != repeated.size) return false
-        return when (reference.comparison) {
-            "allclose" -> actual.indices.all { kotlin.math.abs(actual[it] - repeated[it]) <=
-                reference.atol + reference.rtol * kotlin.math.abs(repeated[it]) }
-            "cosine" -> {
-                var dot = 0.0; var left = 0.0; var right = 0.0
-                actual.indices.forEach { dot += actual[it] * repeated[it]; left += actual[it] * actual[it]; right += repeated[it] * repeated[it] }
-                left > 0 && right > 0 && dot / kotlin.math.sqrt(left * right) >= reference.minimumCosine
-            }
-            else -> false
         }
     }
 

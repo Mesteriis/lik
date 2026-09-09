@@ -33,6 +33,12 @@ interface MediaDao {
     @Query("UPDATE media SET availability = :availability WHERE source = :source AND availability NOT IN ('TRASHED', 'PURGING')")
     fun markSource(source: MediaSource, availability: MediaAvailability)
 
+    @Query("UPDATE media SET availability = 'MISSING' WHERE source = 'GOOGLE_IMPORT' AND availability NOT IN ('TRASHED', 'PURGING') AND (scanMarker IS NULL OR scanMarker != :stamp)")
+    fun reconcileImports(stamp: String)
+
+    @Query("UPDATE media SET accessGrantEpoch = CASE WHEN availability != 'AVAILABLE' THEN accessGrantEpoch + 1 ELSE accessGrantEpoch END, availability = 'AVAILABLE', lastSeenAt = :now, scanMarker = :stamp WHERE mediaId = :id AND source = 'GOOGLE_IMPORT' AND availability NOT IN ('TRASHED', 'PURGING')")
+    fun markImportSeen(id: String, now: Long, stamp: String)
+
     @Query("UPDATE media SET accessGrantEpoch = CASE WHEN availability != 'AVAILABLE' THEN accessGrantEpoch + 1 ELSE accessGrantEpoch END, availability = 'AVAILABLE', lastSeenAt = :now WHERE mediaId = :id AND availability NOT IN ('TRASHED', 'PURGING')")
     fun markSeen(id: String, now: Long)
 

@@ -59,20 +59,25 @@ class MediaCatalogTest {
         File(directory, "interrupted.part").writeText("partial")
         val store = PhotoStore(directory, 100) { error("Must not decode") }
         repository.reconcileImports(store, 10)
+        assertEquals(1L, database.media().get(sha)!!.accessGrantEpoch)
         database.media().upsert(database.media().get(sha)!!.copy(displayName = "Preserved", takenAt = 5))
         repository.reconcileImports(store, 20)
         assertEquals(1, database.media().all().size)
         assertEquals("Preserved", repository.available().single().displayName)
         assertEquals(5L, repository.available().single().takenAt)
         assertEquals(20L, repository.available().single().lastSeenAt)
+        assertEquals(1L, repository.available().single().accessGrantEpoch)
+        assertEquals(1L, repository.viewerWindow(sha).single().accessGrantEpoch)
         assertArrayEquals(byteArrayOf(9, 8, 7), file.readBytes())
         store.deletePhoto(sha)
         repository.reconcileImports(store, 30)
         assertTrue(repository.available().isEmpty())
         assertEquals(MediaAvailability.MISSING, database.media().get(sha)!!.availability)
+        assertEquals(1L, database.media().get(sha)!!.accessGrantEpoch)
         file.writeBytes(byteArrayOf(9, 8, 7))
         repository.reconcileImports(store, 40)
         assertEquals("Preserved", repository.available().single().displayName)
+        assertEquals(2L, repository.available().single().accessGrantEpoch)
     }
 
     @Test fun failedMigrationTransactionLeavesPreviousCatalogUntouchedAndRetryCompletes() {

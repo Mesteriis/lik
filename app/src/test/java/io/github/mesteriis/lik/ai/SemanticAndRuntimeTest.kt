@@ -2,8 +2,27 @@ package io.github.mesteriis.lik.ai
 
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.security.MessageDigest
 
 class SemanticAndRuntimeTest {
+    @Test fun pinnedSmokeReferenceRejectsWrongDeterministicOutput() {
+        val bytes = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN)
+            .putFloat(.25f).putFloat(.75f).array()
+        val file = File.createTempFile("lik-smoke", ".f32").apply { writeBytes(bytes) }
+        val sha = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        val reference = SmokeReferenceSpec("model.onnx.smoke.f32", bytes.size.toLong(), sha,
+            "little-endian-float32-output-order", "allclose", .98f, .0001f, .001f)
+        try {
+            assertTrue(SmokeReferenceVerifier.matches(reference, floatArrayOf(.25f, .75f), file))
+            assertFalse(SmokeReferenceVerifier.matches(reference, floatArrayOf(.30f, .70f), file))
+            file.writeBytes(ByteArray(bytes.size))
+            assertFalse(SmokeReferenceVerifier.matches(reference, floatArrayOf(.25f, .75f), file))
+        } finally { file.delete() }
+    }
+
     @Test fun exactSearchUsesCosineAndStableMediaIdTies() {
         val index = ExactVectorIndex(2)
         index.upsert("z", floatArrayOf(1f, 0f))

@@ -13,7 +13,7 @@ class MediaRepository(private val database: MediaDatabase) {
         // Hold PhotoStore's writer monitor through commit: import/delete cannot invalidate this inventory.
         synchronized(store) {
             database.runInTransaction {
-                dao.markSource(MediaSource.GOOGLE_IMPORT, MediaAvailability.MISSING)
+                val stamp = "import:${java.util.UUID.randomUUID()}"
                 ImportedCatalogMigration.migrate(store, now) { record ->
                     dao.insertIfAbsent(record.withPeriods(zone))
                     var current = requireNotNull(dao.get(record.mediaId))
@@ -30,8 +30,9 @@ class MediaRepository(private val database: MediaDatabase) {
                     if (current.dayKey == "undated" && (current.takenAt != null || current.addedAt != null)) {
                         dao.upsert(current.withPeriods(zone))
                     }
-                    dao.markSeen(record.mediaId, now)
+                    dao.markImportSeen(record.mediaId, now, stamp)
                 }
+                dao.reconcileImports(stamp)
             }
         }
     }
