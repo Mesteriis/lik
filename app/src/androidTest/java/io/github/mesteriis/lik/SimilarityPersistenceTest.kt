@@ -13,6 +13,55 @@ import java.io.IOException
 import android.util.Base64
 
 class SimilarityPersistenceTest {
+    @Test fun durablePauseBlocksEveryOrdinaryRunUntilExplicitManualResume()=fixture{db->
+        val a=row("pause-a",MediaSource.DEVICE);val b=row("pause-b",MediaSource.DEVICE);safe(db,a);safe(db,b)
+        db.similarity().publishIfCurrent(fingerprint(a,"a",ByteArray(8)));db.similarity().publishIfCurrent(fingerprint(b,"b",ByteArray(8).also{it[0]=1}))
+        db.similarity().pauseNow();val before=db.similarity().checkpoint()!!
+        repeat(25){assertEquals(SimilarityRunOutcome.PAUSED_BUDGET,SimilarityProcessor(db,FingerprintCalculator{_,_->throw AssertionError("paused")},{false}).run())}
+        val still=db.similarity().checkpoint()!!;assertEquals(before.comparisons,still.comparisons);assertEquals(before.continuations,still.continuations);assertEquals(SimilarityWorkStatus.PAUSED,still.status)
+        SimilarityProcessor(db,FingerprintCalculator{_,_->throw AssertionError("fingerprinted")},{false},newTranche=true).run();assertTrue(db.similarity().checkpoint()!!.status!=SimilarityWorkStatus.PAUSED)
+    }
+
+    @Test fun pauseRaceAfterFingerprintStopsBeforeComparisonReservation()=fixture{db->
+        val a=row("race-a",MediaSource.DEVICE);val b=row("race-b",MediaSource.DEVICE);safe(db,a);safe(db,b)
+        db.similarity().publishIfCurrent(fingerprint(b,"b",ByteArray(8).also{it[0]=1}))
+        val outcome=SimilarityProcessor(db,FingerprintCalculator{row,_->db.similarity().pauseNow();CalculatedFingerprint(row.mediaId,ByteArray(8))},{false}).run()
+        assertEquals(SimilarityRunOutcome.PAUSED_BUDGET,outcome);assertEquals(0,db.similarity().checkpoint()!!.comparisons);assertEquals(0,db.similarity().relationCount());assertEquals(SimilarityWorkStatus.PAUSED,db.similarity().checkpoint()!!.status)
+    }
+
+    @Test fun durablePauseIsCheckedBeforeEveryCandidatePage()=fixture{db->
+        val owner=row("page-000",MediaSource.DEVICE);safe(db,owner);db.similarity().publishIfCurrent(fingerprint(owner,"owner",ByteArray(8)))
+        repeat(140){index->val peer=row("page-${(index+100).toString().padStart(3,'0')}",MediaSource.DEVICE);safe(db,peer);val value=(index+1).toLong() shl 4;val bits=ByteArray(8){offset->(value ushr(offset*8)).toByte()};db.similarity().publishIfCurrent(fingerprint(peer,"peer-$index",bits))}
+        var checks=0;var interrupted=false
+        try{SimilarityRelationScanner.step(db,owner.mediaId,SimilarityBudgets.CANDIDATES_PER_ITEM_STEP){checks++;if(checks==2){db.similarity().pauseNow();true}else false}}catch(_:InterruptedException){interrupted=true}
+        assertTrue(interrupted);assertEquals(2,checks);assertEquals(SimilarityWorkStatus.PAUSED,db.similarity().checkpoint()!!.status);assertEquals(SimilarityBudgets.CANDIDATE_PAGE,db.similarity().scan(owner.mediaId)!!.examined);assertTrue(db.similarity().relationCount()<=SimilarityBudgets.TOP_K)
+    }
+
+    @Test fun pausedCheckpointSurvivesDatabaseReopenAndStillHardStops(){
+        val context=ApplicationProvider.getApplicationContext<Context>();val name="similarity-pause-${System.nanoTime()}.db"
+        fun open()=Room.databaseBuilder(context,MediaDatabase::class.java,name).build()
+        try{
+            val first=open();try{first.similarity().ensureLibraryState();first.similarity().saveCheckpoint(SimilarityCheckpoint(checkpointMediaId="kept",completed=3,total=9,status=SimilarityWorkStatus.RUNNING,updatedAt=1,libraryRevision=first.similarity().libraryRevision(),comparisons=41,continuations=2));first.similarity().pauseNow()}finally{first.close()}
+            val reopened=open();try{assertEquals(SimilarityRunOutcome.PAUSED_BUDGET,SimilarityProcessor(reopened,FingerprintCalculator{_,_->throw AssertionError("paused")},{false}).run());val kept=reopened.similarity().checkpoint()!!;assertEquals(41,kept.comparisons);assertEquals(2,kept.continuations);assertEquals("kept",kept.checkpointMediaId)}finally{reopened.close()}
+        }finally{context.deleteDatabase(name)}
+    }
+
+    @Test fun libraryDomainChangeHidesAndRecomputesOwnerTopEightWithoutDeletingExactGroups()=fixture{db->
+        val owner=row("domain-a",MediaSource.DEVICE);safe(db,owner);db.similarity().publishIfCurrent(fingerprint(owner,"owner",ByteArray(8)))
+        ('b'..'j').forEachIndexed{index,char->val peer=row("domain-$char",MediaSource.DEVICE);safe(db,peer);db.similarity().publishIfCurrent(fingerprint(peer,"peer-$char",ByteArray(8).also{it[index/8]=(1 shl(index%8)).toByte()}))}
+        val exact1=row("exact-domain-1",MediaSource.DEVICE);val exact2=row("exact-domain-2",MediaSource.DEVICE);safe(db,exact1);safe(db,exact2);db.similarity().publishIfCurrent(fingerprint(exact1,"exact-kept",ByteArray(8){0x55}));db.similarity().publishIfCurrent(fingerprint(exact2,"exact-kept",ByteArray(8){0x55}))
+        scanEveryPending(db);assertEquals(('b'..'i').map{"domain-$it"},db.similarity().ownerRelationIds(owner.mediaId));val oldSafeRelation=db.similarity().visibleRelations(100,0).first{it.leftMediaId==owner.mediaId&&it.rightMediaId=="domain-c"};assertEquals(1,db.similarity().exactGroups(10,0).size)
+        db.ocrPeople().saveExposure(AiMediaExposureRecord("domain-b",0,AiExposure.SENSITIVE,2));db.similarity().advanceLibraryRevision()
+        assertTrue(db.similarity().visibleRelations(100,0).isEmpty());assertFalse(SimilarityPublicationGuard.visible(db,oldSafeRelation));assertFalse(db.similarity().progress().complete);assertEquals(1,db.similarity().exactGroups(10,0).size)
+        scanEveryPending(db);assertEquals(('c'..'j').map{"domain-$it"},db.similarity().ownerRelationIds(owner.mediaId));assertTrue(db.similarity().progress().complete)
+    }
+
+    @Test fun partialCursorRestartsWhenLibraryRevisionChanges()=fixture{db->
+        val owner=row("cursor-000",MediaSource.DEVICE);safe(db,owner);db.similarity().publishIfCurrent(fingerprint(owner,"owner",ByteArray(8)))
+        repeat(40){index->val peer=row("cursor-${(index+100).toString().padStart(3,'0')}",MediaSource.DEVICE);safe(db,peer);db.similarity().publishIfCurrent(fingerprint(peer,"peer-$index",ByteArray(8).also{it[index/8]=(1 shl(index%8)).toByte()}))}
+        db.similarity().prepareTranche(false);assertFalse(SimilarityRelationScanner.step(db,owner.mediaId,17).complete);val old=db.similarity().scan(owner.mediaId)!!;assertEquals(17,old.examined)
+        db.similarity().advanceLibraryRevision();assertFalse(SimilarityRelationScanner.step(db,owner.mediaId,17).complete);val restarted=db.similarity().scan(owner.mediaId)!!;assertTrue(restarted.libraryRevision>old.libraryRevision);assertEquals(17,restarted.examined)
+    }
     private fun fixture(block:(MediaDatabase)->Unit) {
         val context=ApplicationProvider.getApplicationContext<Context>()
         val db=Room.inMemoryDatabaseBuilder(context,MediaDatabase::class.java).build()
@@ -76,7 +125,7 @@ class SimilarityPersistenceTest {
         val a=row("a",MediaSource.DEVICE);val b=row("b",MediaSource.DEVICE);val c=row("c",MediaSource.DEVICE)
         listOf(a,b,c).forEach{safe(db,it)}
         val left=ByteArray(8);val near=left.copyOf().also{it[0]=0x3f};val far=ByteArray(8){0xff.toByte()}
-        listOf(fingerprint(a,"a",left),fingerprint(b,"b",near),fingerprint(c,"c",far)).forEach{assertTrue(db.similarity().publishIfCurrent(it));while(!SimilarityRelationScanner.step(db,it.mediaId,100).complete){}}
+        listOf(fingerprint(a,"a",left),fingerprint(b,"b",near),fingerprint(c,"c",far)).forEach{assertTrue(db.similarity().publishIfCurrent(it))};scanEveryPending(db)
         val relations=db.similarity().visibleRelations(20,0)
         assertEquals(listOf(SimilarityKind.VISUAL),relations.map{it.kind})
         assertEquals(6,relations.single().distance)
@@ -116,7 +165,8 @@ class SimilarityPersistenceTest {
         assertEquals(17,first.examined);assertFalse(first.complete);assertNotNull(db.similarity().scan(current.mediaId));assertTrue(db.similarity().relationCount()<=SimilarityBudgets.TOP_K)
         while(!SimilarityRelationScanner.step(db,current.mediaId,17).complete){}
         assertNull(db.similarity().scan(current.mediaId));assertTrue(db.similarity().relationCount()<=SimilarityBudgets.TOP_K)
-        assertEquals(SimilarityBudgets.TOP_K,db.similarity().visibleRelations(100,0).size)
+        scanEveryPending(db)
+        assertEquals(SimilarityBudgets.TOP_K,db.similarity().visibleRelations(1_000,0).count{it.leftMediaId==current.mediaId})
     }
 
     @Test fun exhaustedLibraryTranchePausesWithoutClaimingCompleteAndManualTrancheResumes()=fixture{db->
@@ -139,8 +189,7 @@ class SimilarityPersistenceTest {
     @Test fun visibleVisualRelationsRequireBothCurrentVersionFingerprints()=fixture{db->
         val a=row("version-a",MediaSource.DEVICE);val b=row("version-b",MediaSource.DEVICE);safe(db,a);safe(db,b)
         db.similarity().publishIfCurrent(fingerprint(a,"a",ByteArray(8)));db.similarity().publishIfCurrent(fingerprint(b,"b",ByteArray(8)))
-        val relation=SimilarityRelationRecord(a.mediaId,b.mediaId,a.contentRevision,b.contentRevision,a.accessGrantEpoch,b.accessGrantEpoch,SimilarityKind.VISUAL,PerceptualFingerprintV2.VERSION,1,1)
-        db.similarity().saveRelation(relation)
+        scanEveryPending(db);val relation=db.similarity().visibleRelations(10,0).single()
         assertEquals(1,db.similarity().visibleRelations(10,0).size)
         val oldRelation=relation.copy(fingerprintVersion=PerceptualFingerprintV2.VERSION-1)
         db.similarity().saveRelation(oldRelation)
@@ -183,4 +232,5 @@ class SimilarityPersistenceTest {
     private fun row(id:String,source:MediaSource,revision:Long=0,epoch:Long=1,privateId:String?=null)=MediaRecord(id,source,id,contentUri=if(source==MediaSource.DEVICE)"content://$id" else null,privateFileId=privateId,contentRevision=revision,accessGrantEpoch=epoch,lastSeenAt=1)
     private fun safe(db:MediaDatabase,row:MediaRecord){db.media().upsert(row);db.ocrPeople().saveExposure(AiMediaExposureRecord(row.mediaId,row.contentRevision,AiExposure.SAFE,1))}
     private fun fingerprint(row:MediaRecord,sha:String,bits:ByteArray)=ContentFingerprintRecord(row.mediaId,row.contentRevision,row.accessGrantEpoch,sha,PerceptualFingerprintV2.VERSION,bits,1)
+    private fun scanEveryPending(db:MediaDatabase){db.similarity().prepareTranche(false);while(true){val row=db.similarity().pendingSafe(null,1).firstOrNull()?:return;while(!SimilarityRelationScanner.step(db,row.mediaId,512).complete){}}}
 }

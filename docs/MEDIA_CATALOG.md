@@ -1,6 +1,6 @@
 # Persistent media catalog
 
-Tasks 5–8 and 12 implement the Room 2.8.4 metadata catalog, Paging 3.5.1 feed, organization/search, share/export, trash, and derived duplicate/similarity records in the single `:app` module. KSP 2.3.9 generates the DAO implementation; schemas 1–13 are checked into `app/schemas/`, with explicit non-destructive migrations. This is original Lik code using official Android/Room/Paging/WorkManager APIs, with no code copied from gallery references. These are Apache-2.0 dependencies, unrelated to model licenses.
+Tasks 5–8 and 12 implement the Room 2.8.4 metadata catalog, Paging 3.5.1 feed, organization/search, share/export, trash, and derived duplicate/similarity records in the single `:app` module. KSP 2.3.9 generates the DAO implementation; schemas 1–14 are checked into `app/schemas/`, with explicit non-destructive migrations. This is original Lik code using official Android/Room/Paging/WorkManager APIs, with no code copied from gallery references. These are Apache-2.0 dependencies, unrelated to model licenses.
 
 ## Ownership and identity
 

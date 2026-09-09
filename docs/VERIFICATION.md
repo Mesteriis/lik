@@ -379,3 +379,15 @@ Exact groups and visual pairs now have independent saved offsets and Next/Previo
 - The reviewed compiler receipt is byte-identical to a fresh candidate. Policy SHA-256: `2a20a99774a54a8bdc7f95baba039d1a06033b0742c902f44b40498c828bfcab`; source fingerprint: `fe4ef6320cee3c56790a8e904430a78c61a816f9a5a78f0bc8536e8e5f3ebc72`. Debug/release/androidTest APK sizes are 61,401,375 / 48,561,421 / 1,494,862 bytes; all report metadata-only delivery with zero ONNX/tokenizer payloads.
 
 No physical device, model payload, automatic merge/delete or destructive MediaStore operation was used.
+
+### Task 12 review fix round 3 · 9 September 2026
+
+A durable `PAUSED` checkpoint is now a hard admission gate. Startup, periodic and eligibility invalidation cannot open or append a one-shot chain while it remains paused; pause is committed before cancellation, workers check it before each comparison reservation and candidate page, and only explicit manual resume opens a new bounded tranche. The control path runs on one serialized background executor, including application startup, so admission never performs a Room read on the main thread. RED/GREEN device regressions cover 25 ordinary processor admissions, pause after fingerprinting, pause between 128-bucket pages, crash/reopen persistence and explicit resume.
+
+Room v14 binds fingerprint relation readiness, scan cursors and visual rows to the trigger-maintained eligible-library revision. A media, access, trash, revision or SAFE-domain change immediately hides the former visual generation and marks non-paused progress incomplete. Each affected owner restarts its bounded scan and replaces only its own outgoing top eight; a regression with neighbors B–I plus ninth J verifies that hiding B promotes J. Exact SHA rows/groups survive revision invalidation and the v13→v14 migration. Both UI surfaces observe the library-state table, and the comparison publication guard requires the exact relation revision as well as current endpoint readiness.
+
+- Final `./gradlew lint testDebugUnitTest assembleDebug assembleRelease assembleDebugAndroidTest` — **PASS**, 144 JVM tests with zero failures/errors/skips. Debug, unsigned release and debugAndroidTest APKs are 62,029,895 / 48,561,421 / 2,030,729 bytes; all three report metadata-only delivery and zero ONNX/tokenizer payloads.
+- Full API 37 suite on `emulator-5580` — **PASS**, XML total 155: 149 passed and six expected external-model probes skipped. The target reports 16,384-byte pages. After the final library-state observer and exact relation-revision guard, the focused T12 persistence/migration/UI run passed **28/28**. An earlier full attempt exposed five stale schema-version assertions (`13` instead of `14`); all corresponding migration classes passed focused before the green full run.
+- The final compiler-only candidate is the checked-in receipt. Policy SHA-256: `d652c789d24aefb163a3d1a971451c0998f3f2babb35170f74754539baa6a036`; Android source fingerprint: `96df0c4cf70c2d2acd7434553825aead38c1990a85dba192d38d2b8f13615941`.
+
+No physical device, downloaded/bundled model payload, automatic merge/delete or destructive MediaStore action was used.

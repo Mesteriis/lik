@@ -11,6 +11,7 @@ import io.github.mesteriis.lik.catalog.MediaRecord
 import io.github.mesteriis.lik.catalog.MediaSource
 import io.github.mesteriis.lik.imports.PhotoLibrary
 import java.io.InputStream
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 data class CalculatedFingerprint(val sha256:String,val perceptualBits:ByteArray)
@@ -61,12 +62,15 @@ class SimilarityProcessor(
 ) {
     fun run():SimilarityRunOutcome {
         val dao=database.similarity();val prepared=dao.prepareTranche(newTranche);var fingerprintsLeft=SimilarityBudgets.FINGERPRINTS_PER_RUN
+        if(prepared.status==SimilarityWorkStatus.PAUSED&&!newTranche)return SimilarityRunOutcome.PAUSED_BUDGET
         var candidatesLeft=minOf(SimilarityBudgets.CANDIDATES_PER_RUN,SimilarityBudgets.COMPARISONS_PER_TRANCHE-prepared.comparisons);var checkpoint=prepared.checkpointMediaId
         dao.commitProgress(checkpoint)
         try{
             while(fingerprintsLeft>0||candidatesLeft>0){
+                if(dao.isPaused())return SimilarityRunOutcome.PAUSED_BUDGET
                 if(stopped())throw InterruptedException("Similarity indexing cancelled")
-                val row=dao.pendingSafe(null,1).firstOrNull()?:break
+                val missingFingerprint=dao.pendingFingerprint(1).firstOrNull()
+                val row=missingFingerprint?:dao.pendingSafe(null,1).firstOrNull()?:break
                 val token=FingerprintToken(row.mediaId,row.contentRevision,row.accessGrantEpoch)
                 var current=dao.fingerprint(row.mediaId)?.takeIf{it.contentRevision==token.contentRevision&&it.accessEpoch==token.accessEpoch&&it.perceptualVersion==PerceptualFingerprintV2.VERSION}
                 if(current==null){
@@ -79,12 +83,16 @@ class SimilarityProcessor(
                         dao.failIfCurrent(FingerprintFailureRecord(row.mediaId,row.contentRevision,row.accessGrantEpoch,PerceptualFingerprintV2.VERSION,error.javaClass.simpleName.take(80),System.currentTimeMillis()))
                     }
                     fingerprintsLeft--
+                    checkpoint=row.mediaId
+                    val live=dao.commitProgress(checkpoint);progress(live.completed,live.eligible)
+                    continue
                 }
-                if(current!=null&&!current.relationsReady){
+                if(dao.isPaused())return SimilarityRunOutcome.PAUSED_BUDGET
+                if(!current.relationsReady||current.relationsRevision!=dao.libraryRevision()){
                     if(candidatesLeft==0)break
                     val allowance=minOf(SimilarityBudgets.CANDIDATES_PER_ITEM_STEP,candidatesLeft)
-                    if(dao.reserveComparisons(prepared.libraryRevision,allowance)==0)break
-                    val scanned=SimilarityRelationScanner.step(database,row.mediaId,allowance,stopped)
+                    if(dao.reserveComparisons(prepared.libraryRevision,allowance)==0){if(dao.isPaused())return SimilarityRunOutcome.PAUSED_BUDGET else break}
+                    val scanned=SimilarityRelationScanner.step(database,row.mediaId,allowance){stopped()||dao.isPaused()}
                     if(scanned.comparisons<allowance)dao.releaseComparisons(prepared.libraryRevision,allowance-scanned.comparisons)
                     candidatesLeft-=scanned.examined
                     if(!scanned.complete&&scanned.examined==0)break
@@ -106,16 +114,17 @@ class SimilarityWorker(context:Context,parameters:WorkerParameters):Worker(conte
     override fun doWork():Result{
         val manual=inputData.getBoolean(MANUAL,false);val continuation=inputData.getBoolean(CONTINUATION,false)
         if(!manual&&applicationContext.getSystemService(PowerManager::class.java).currentThermalStatus>=PowerManager.THERMAL_STATUS_SEVERE)return Result.retry()
-        return synchronized(PROCESS_LOCK){runCatching{SimilarityProcessor(MediaDatabase.get(applicationContext),SimilarityFingerprintEngine(applicationContext),{isStopped},{done,total->setProgressAsync(workDataOf(COMPLETED to done,TOTAL to total))},newTranche=manual&&!continuation).run()}.fold({outcome->
+        return synchronized(PROCESS_LOCK){runCatching{SimilarityProcessor(MediaDatabase.get(applicationContext),SimilarityFingerprintEngine(applicationContext),{isStopped},{done,total->setProgressAsync(workDataOf(COMPLETED to done,TOTAL to total))}).run()}.fold({outcome->
             if(outcome==SimilarityRunOutcome.MORE_WORK){val dao=MediaDatabase.get(applicationContext).similarity();if(dao.claimContinuation()>0)enqueue(applicationContext,manual,continuation=true)else dao.commitProgress(dao.checkpoint()?.checkpointMediaId,paused=true)}
             Result.success()
         },{if(it is InterruptedException)Result.retry()else Result.failure(workDataOf(ERROR to it.javaClass.simpleName.take(80)))})}
     }
     companion object{
         private val PROCESS_LOCK=Any()
+        private val CONTROL=Executors.newSingleThreadExecutor{r->Thread(r,"lik-similarity-control")}
         private const val MANUAL="manual";private const val CONTINUATION="continuation";private const val COMPLETED="completed";private const val TOTAL="total";private const val ERROR="error";private const val WORK="photo-similarity"
-        fun enqueue(context:Context,manual:Boolean=false,continuation:Boolean=false){val constraints=Constraints.Builder().setRequiresStorageNotLow(true).setRequiresBatteryNotLow(true).apply{if(!manual)setRequiresCharging(true)}.build();val request=OneTimeWorkRequestBuilder<SimilarityWorker>().setInputData(workDataOf(MANUAL to manual,CONTINUATION to continuation)).setConstraints(constraints).build();val policy=when{continuation->ExistingWorkPolicy.APPEND_OR_REPLACE;manual->ExistingWorkPolicy.REPLACE;else->ExistingWorkPolicy.KEEP};WorkManager.getInstance(context).enqueueUniqueWork(WORK,policy,request)}
-        fun pause(context:Context)=WorkManager.getInstance(context).cancelUniqueWork(WORK)
+        fun enqueue(context:Context,manual:Boolean=false,continuation:Boolean=false){val app=context.applicationContext;CONTROL.execute{val dao=MediaDatabase.get(app).similarity();if(!manual&&dao.isPaused())return@execute;if(manual&&!continuation)dao.prepareTranche(true);val constraints=Constraints.Builder().setRequiresStorageNotLow(true).setRequiresBatteryNotLow(true).apply{if(!manual)setRequiresCharging(true)}.build();val request=OneTimeWorkRequestBuilder<SimilarityWorker>().setInputData(workDataOf(MANUAL to manual,CONTINUATION to continuation)).setConstraints(constraints).build();val policy=when{continuation->ExistingWorkPolicy.APPEND_OR_REPLACE;manual->ExistingWorkPolicy.REPLACE;else->ExistingWorkPolicy.KEEP};WorkManager.getInstance(app).enqueueUniqueWork(WORK,policy,request)}}
+        fun pause(context:Context){val app=context.applicationContext;CONTROL.execute{MediaDatabase.get(app).similarity().pauseNow();WorkManager.getInstance(app).cancelUniqueWork(WORK)}}
         fun schedule(context:Context){enqueue(context);val constraints=Constraints.Builder().setRequiresCharging(true).setRequiresBatteryNotLow(true).setRequiresStorageNotLow(true).build();WorkManager.getInstance(context).enqueueUniquePeriodicWork("$WORK-periodic",ExistingPeriodicWorkPolicy.KEEP,PeriodicWorkRequestBuilder<SimilarityWorker>(24,TimeUnit.HOURS).setConstraints(constraints).build())}
     }
 }

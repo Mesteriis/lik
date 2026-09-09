@@ -20,7 +20,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     io.github.mesteriis.lik.similarity.SimilarityRelationRecord::class,
     io.github.mesteriis.lik.similarity.SimilarityScanRecord::class,
     io.github.mesteriis.lik.similarity.SimilarityCheckpoint::class,
-    io.github.mesteriis.lik.similarity.SimilarityLibraryState::class], version = 13, exportSchema = true)
+    io.github.mesteriis.lik.similarity.SimilarityLibraryState::class], version = 14, exportSchema = true)
 abstract class MediaDatabase : RoomDatabase() {
     abstract fun media(): MediaDao
     abstract fun organization(): OrganizationDao
@@ -33,7 +33,7 @@ abstract class MediaDatabase : RoomDatabase() {
 
         fun get(context: Context): MediaDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MediaDatabase::class.java, "media.db")
-                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
                 .addCallback(SIMILARITY_CALLBACK)
                 .build().also { instance = it }
         }
@@ -47,7 +47,9 @@ abstract class MediaDatabase : RoomDatabase() {
             db.execSQL("INSERT OR IGNORE INTO similarity_library_state(stateId,revision) VALUES('default',0)")
             listOf("media" to "media","ai_media_exposure" to "exposure").forEach{(table,label)->
                 listOf("INSERT","UPDATE","DELETE").forEach{operation->
-                    db.execSQL("CREATE TRIGGER IF NOT EXISTS similarity_${label}_${operation.lowercase()} AFTER $operation ON $table BEGIN UPDATE similarity_library_state SET revision=revision+1 WHERE stateId='default'; END")
+                    val name="similarity_${label}_${operation.lowercase()}"
+                    db.execSQL("DROP TRIGGER IF EXISTS $name")
+                    db.execSQL("CREATE TRIGGER $name AFTER $operation ON $table BEGIN UPDATE similarity_library_state SET revision=revision+1 WHERE stateId='default'; UPDATE similarity_checkpoint SET checkpointMediaId=NULL,completed=0,total=0,status=CASE WHEN status='PAUSED' THEN 'PAUSED' ELSE 'IDLE' END,updatedAt=CAST(strftime('%s','now') AS INTEGER)*1000,error=NULL,libraryRevision=(SELECT revision FROM similarity_library_state WHERE stateId='default') WHERE checkpointId='default'; END")
                 }
             }
         }
@@ -61,6 +63,20 @@ abstract class MediaDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE similarity_checkpoint ADD COLUMN comparisons INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE similarity_checkpoint ADD COLUMN continuations INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("UPDATE similarity_checkpoint SET status='IDLE',checkpointMediaId=NULL,completed=0,total=0,error=NULL")
+                ensureSimilarityLibraryState(db)
+            }
+        }
+
+        val MIGRATION_13_14=object:Migration(13,14){
+            override fun migrate(db:SupportSQLiteDatabase){
+                db.execSQL("ALTER TABLE content_fingerprint ADD COLUMN relationsRevision INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE similarity_scan ADD COLUMN libraryRevision INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE similarity_relation ADD COLUMN libraryRevision INTEGER NOT NULL DEFAULT 0")
+                // Visual edges and cursors are regenerable. SHA rows remain available to exact groups.
+                db.execSQL("DELETE FROM similarity_relation")
+                db.execSQL("DELETE FROM similarity_scan")
+                db.execSQL("UPDATE content_fingerprint SET relationsReady=0,relationsRevision=0")
+                db.execSQL("UPDATE similarity_checkpoint SET status='IDLE',completed=0,total=0,checkpointMediaId=NULL,error=NULL")
                 ensureSimilarityLibraryState(db)
             }
         }

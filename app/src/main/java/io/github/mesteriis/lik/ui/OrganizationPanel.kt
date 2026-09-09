@@ -47,7 +47,7 @@ class OrganizationPanel(
     private var similarityExactOffset=0
     private var similarityVisualOffset=0
     private var content: LinearLayout = container
-    private val privacyInvalidation=object:androidx.room.InvalidationTracker.Observer("media","ai_media_exposure","ai_ocr_result","ai_face_detection","content_fingerprint","fingerprint_failure","fingerprint_band","similarity_relation","similarity_scan","similarity_checkpoint"){
+    private val privacyInvalidation=object:androidx.room.InvalidationTracker.Observer("media","ai_media_exposure","ai_ocr_result","ai_face_detection","content_fingerprint","fingerprint_failure","fingerprint_band","similarity_relation","similarity_scan","similarity_checkpoint","similarity_library_state"){
         override fun onInvalidated(tables:Set<String>){activity.runOnUiThread{refresh()}}
     }
     init { MediaDatabase.get(activity).invalidationTracker.addObserver(privacyInvalidation) }

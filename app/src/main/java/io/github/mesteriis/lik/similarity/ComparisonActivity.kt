@@ -22,7 +22,7 @@ class ComparisonActivity:Activity(){
     private lateinit var repository:SimilarityRepository
     private lateinit var database:MediaDatabase
     @Volatile private var shown:ComparisonPair?=null
-    private val invalidation=object:InvalidationTracker.Observer("media","ai_media_exposure","content_fingerprint","fingerprint_failure","fingerprint_band","similarity_relation","similarity_scan","similarity_checkpoint"){
+    private val invalidation=object:InvalidationTracker.Observer("media","ai_media_exposure","content_fingerprint","fingerprint_failure","fingerprint_band","similarity_relation","similarity_scan","similarity_checkpoint","similarity_library_state"){
         override fun onInvalidated(tables:Set<String>){
             val current=shown?:return
             val fresh=repository.pair(current.relation.leftMediaId,current.relation.rightMediaId)
@@ -42,7 +42,7 @@ class ComparisonActivity:Activity(){
     override fun onResume(){super.onResume();revalidate()}
 
     private fun revalidate(){val current=shown;if(current==null)load() else if(!SimilarityPublicationGuard.visible(database,current.relation)){unavailable();load()}}
-    private fun samePublication(left:ComparisonPair,right:ComparisonPair)=listOf(left.relation.leftMediaId,left.relation.rightMediaId,left.relation.leftRevision,left.relation.rightRevision,left.relation.leftAccessEpoch,left.relation.rightAccessEpoch,left.relation.kind,left.relation.fingerprintVersion,left.relation.distance)==listOf(right.relation.leftMediaId,right.relation.rightMediaId,right.relation.leftRevision,right.relation.rightRevision,right.relation.leftAccessEpoch,right.relation.rightAccessEpoch,right.relation.kind,right.relation.fingerprintVersion,right.relation.distance)
+    private fun samePublication(left:ComparisonPair,right:ComparisonPair)=listOf(left.relation.leftMediaId,left.relation.rightMediaId,left.relation.leftRevision,left.relation.rightRevision,left.relation.leftAccessEpoch,left.relation.rightAccessEpoch,left.relation.kind,left.relation.fingerprintVersion,left.relation.distance,left.relation.libraryRevision)==listOf(right.relation.leftMediaId,right.relation.rightMediaId,right.relation.leftRevision,right.relation.rightRevision,right.relation.leftAccessEpoch,right.relation.rightAccessEpoch,right.relation.kind,right.relation.fingerprintVersion,right.relation.distance,right.relation.libraryRevision)
     private fun load(){
         if(loading)return
         loading=true
