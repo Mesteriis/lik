@@ -40,6 +40,16 @@
         android:textSize="18sp" android:visibility="gone" />
   </FrameLayout>
 
+  <LinearLayout android:id="@+id/viewer_ocr_panel" android:layout_width="match_parent"
+      android:layout_height="wrap_content" android:orientation="vertical" android:padding="12dp" android:visibility="gone">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="@string/ocr_text_title" android:textColor="@color/lik_viewer_text" android:textSize="16sp" android:textStyle="bold" />
+    <TextView android:id="@+id/viewer_ocr_text" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textColor="@color/lik_viewer_text" android:textIsSelectable="true" android:textSize="15sp" />
+    <Button android:id="@+id/viewer_copy_ocr" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:minHeight="48dp" android:text="@string/copy_ocr_text" android:textAllCaps="false" />
+  </LinearLayout>
+
   <TextView android:id="@+id/photo_details" android:layout_width="match_parent"
       android:layout_height="wrap_content" android:padding="12dp" android:textColor="@color/lik_viewer_text"
       android:textSize="14sp" android:visibility="gone" />

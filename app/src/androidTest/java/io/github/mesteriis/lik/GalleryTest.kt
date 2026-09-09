@@ -56,7 +56,13 @@ class GalleryTest {
     }
 
     private fun addPhoto(color: Int): String {
-        val bitmap = Bitmap.createBitmap(24, 16, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
+        val nonce = System.nanoTime()
+        val bitmap = Bitmap.createBitmap(24, 16, Bitmap.Config.ARGB_8888).apply {
+            eraseColor(color)
+            // Tests share one persistent Room database. Keep fixtures byte-distinct so a repeated
+            // display color cannot reuse an old SHA-256 identity and its stale catalog sort date.
+            setPixel(0, 0, Color.rgb((nonce ushr 16).toInt() and 255, (nonce ushr 8).toInt() and 255, nonce.toInt() and 255))
+        }
         val bytes = ByteArrayOutputStream().use { output ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
             output.toByteArray()

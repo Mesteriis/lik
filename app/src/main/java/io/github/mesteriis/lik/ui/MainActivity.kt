@@ -342,12 +342,12 @@ open class MainActivity : ComponentActivity() {
 
     private fun renderSection() {
         val feed = ui.section == GallerySection.FEED
-        if (ui.section !in setOf(GallerySection.ALBUMS, GallerySection.SEARCH, GallerySection.MORE)) organization.hide()
+        if (ui.section !in setOf(GallerySection.ALBUMS, GallerySection.SEARCH, GallerySection.PEOPLE, GallerySection.MORE)) organization.hide()
         findViewById<View>(R.id.timeline_level_scroll).visibility = if (feed) View.VISIBLE else View.GONE
         recycler.visibility = if (feed) View.VISIBLE else View.GONE
         findViewById<View>(R.id.section_placeholder).visibility = if (feed) View.GONE else View.VISIBLE
         if (!feed) {
-            if (ui.section in setOf(GallerySection.ALBUMS, GallerySection.SEARCH, GallerySection.MORE)) organization.show(ui.section)
+            if (ui.section in setOf(GallerySection.ALBUMS, GallerySection.SEARCH, GallerySection.PEOPLE, GallerySection.MORE)) organization.show(ui.section)
             else findViewById<android.widget.LinearLayout>(R.id.section_placeholder).apply {
                 removeAllViews()
                 addView(TextView(this@MainActivity).apply {

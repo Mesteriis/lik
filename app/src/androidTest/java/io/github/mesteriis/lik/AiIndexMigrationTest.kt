@@ -39,14 +39,14 @@ class AiIndexMigrationTest {
                 sqlite.version = 4
             }
             val db = Room.databaseBuilder(context, MediaDatabase::class.java, name)
-                .addMigrations(MediaDatabase.MIGRATION_4_5, MediaDatabase.MIGRATION_5_6).build()
+                .addMigrations(MediaDatabase.MIGRATION_4_5, MediaDatabase.MIGRATION_5_6, MediaDatabase.MIGRATION_6_7).build()
             try {
                 assertEquals("Семья", db.organization().albums().single().name)
                 val generation = AiIndexGenerationRecord("g", "compact-v1", "SEARCH", "pipeline",
                     GenerationStatus.PREPARING, 0, 3, null, null, 1)
                 db.aiIndexes().saveGeneration(generation)
                 assertNotNull(db.aiIndexes().generation("g"))
-                assertEquals(6, db.openHelper.writableDatabase.version)
+                assertEquals(7, db.openHelper.writableDatabase.version)
             } finally { db.close() }
         } finally { context.deleteDatabase(name) }
     }
@@ -73,7 +73,7 @@ class AiIndexMigrationTest {
                 sqlite.execSQL("INSERT INTO ai_embedding VALUES('g','m',1,7,999,X'00000000')")
                 sqlite.version = 5
             }
-            val db = Room.databaseBuilder(context, MediaDatabase::class.java, name).addMigrations(MediaDatabase.MIGRATION_5_6).build()
+            val db = Room.databaseBuilder(context, MediaDatabase::class.java, name).addMigrations(MediaDatabase.MIGRATION_5_6, MediaDatabase.MIGRATION_6_7).build()
             try {
                 assertEquals(1L, db.media().get("m")!!.accessGrantEpoch)
                 assertEquals(1L, db.aiIndexes().embedding("g", "m")!!.accessEpoch)

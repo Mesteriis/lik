@@ -8,6 +8,7 @@ import android.widget.*
 import io.github.mesteriis.lik.R
 import io.github.mesteriis.lik.ai.*
 import io.github.mesteriis.lik.aigate.*
+import io.github.mesteriis.lik.catalog.MediaDatabase
 import io.github.mesteriis.lik.ui.applySystemBarInsets
 import java.util.Locale
 import java.util.concurrent.Executors
@@ -38,13 +39,11 @@ class AiSettingsActivity : Activity() {
     private val io = Executors.newSingleThreadExecutor()
     private val aiGateRequests = AiGateRequestOwner()
     private var applyingState = false
+    private var coverageRequest = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         catalog = ModelCatalog.get(this)
-        // OCR and People are intentionally visible but unavailable until Task 11 supplies real generations.
-        FeatureAvailability.unavailableRequested(catalog.snapshot(), setOf(AiFeature.OCR, AiFeature.PEOPLE))
-            .forEach { feature -> catalog.setFeature(feature, false) }
         content = LinearLayout(this).apply {
             id = R.id.ai_settings_content
             orientation = LinearLayout.VERTICAL
@@ -95,15 +94,15 @@ class AiSettingsActivity : Activity() {
         }
         heading(getString(R.string.ai_features), 22f)
         featureSwitch(AiFeature.SEARCH, R.string.ai_feature_search, R.id.ai_feature_search, available = true)
-        featureSwitch(AiFeature.OCR, R.string.ai_feature_ocr, R.id.ai_feature_ocr, available = false)
-        featureSwitch(AiFeature.PEOPLE, R.string.ai_feature_people, R.id.ai_feature_people, available = false)
+        featureSwitch(AiFeature.OCR, R.string.ai_feature_ocr, R.id.ai_feature_ocr, available = true)
+        featureSwitch(AiFeature.PEOPLE, R.string.ai_feature_people, R.id.ai_feature_people, available = true)
         indexCoverage = label("")
         indexActions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; content.addView(this) }
         processIndex = actionButton(indexActions, getString(R.string.ai_process_now)) {
-            catalog.snapshot().active?.let { AiIndexWorker.enqueue(this, it, manual = true) }
+            catalog.snapshot().active?.let { enqueueFeatures(it, manual = true) }
         }
         pauseIndex = actionButton(indexActions, getString(R.string.ai_pause_indexing)) {
-            catalog.snapshot().active?.let { AiIndexWorker.pause(this, it) }
+            catalog.snapshot().active?.let { AiIndexWorker.pause(this, it); OcrPeopleIndexWorker.pause(this, it) }
         }
         buildAiGate(savedState)
     }
@@ -115,14 +114,38 @@ class AiSettingsActivity : Activity() {
             val requestedFeatures = snapshot.pending?.enabled ?: snapshot.enabledFeatures
             featureViews.forEach { (feature, view) -> view.isChecked = feature in requestedFeatures }
             val active = snapshot.active
-            val visible = active != null && AiFeature.SEARCH in snapshot.enabledFeatures
+            val visible = active != null && snapshot.enabledFeatures.intersect(setOf(AiFeature.SEARCH,AiFeature.OCR,AiFeature.PEOPLE)).isNotEmpty()
             indexCoverage.visibility = if (visible) View.VISIBLE else View.GONE
             indexActions.visibility = if (visible) View.VISIBLE else View.GONE
             active?.takeIf { visible }?.let {
-                val generation = snapshot.activeGenerations[AiFeature.SEARCH]?.let(snapshot.generations::get)
-                indexCoverage.text = getString(R.string.ai_index_coverage, generation?.completed ?: 0, generation?.total ?: 0)
+                val search = snapshot.activeGenerations[AiFeature.SEARCH]?.let(snapshot.generations::get)
+                val ocr = snapshot.activeGenerations[AiFeature.OCR]?.let(snapshot.generations::get)
+                val people = snapshot.activeGenerations[AiFeature.PEOPLE]?.let(snapshot.generations::get)
+                indexCoverage.text = getString(R.string.ai_all_index_coverage,
+                    search?.completed ?: 0, search?.total ?: 0, ocr?.completed ?: 0, ocr?.total ?: 0,
+                    people?.completed ?: 0, people?.total ?: 0)
+                updateLiveCoverage(snapshot)
             }
         } finally { applyingState = false }
+    }
+
+    private fun updateLiveCoverage(snapshot: CatalogSnapshot) {
+        val request = ++coverageRequest
+        val ids = snapshot.activeGenerations
+        io.execute {
+            val db = MediaDatabase.get(this)
+            val available = db.aiIndexes().availableCount()
+            val search = ids[AiFeature.SEARCH]?.let(db.aiIndexes()::currentEmbeddingCount) ?: 0
+            val ocr = ids[AiFeature.OCR]?.let(db.ocrPeople()::currentRunCount) ?: 0
+            val people = ids[AiFeature.PEOPLE]?.let(db.ocrPeople()::currentRunCount) ?: 0
+            runOnUiThread {
+                if (request != coverageRequest || isDestroyed || catalog.snapshot().activeGenerations != ids) return@runOnUiThread
+                indexCoverage.text = getString(R.string.ai_all_index_coverage,
+                    search, if (AiFeature.SEARCH in snapshot.enabledFeatures) available else 0,
+                    ocr, if (AiFeature.OCR in snapshot.enabledFeatures) available else 0,
+                    people, if (AiFeature.PEOPLE in snapshot.enabledFeatures) available else 0)
+            }
+        }
     }
 
     private fun applyProfile(profile: ProfileId, snapshot: CatalogSnapshot) {
@@ -189,15 +212,15 @@ class AiSettingsActivity : Activity() {
                 val requested = next.pending?.enabled ?: next.enabledFeatures
                 if (next.profile(profile).phase == ProfilePhase.SELF_TESTING) {
                     ProfileDownloadWorker.enqueueValidation(this, profile)
-                } else if (next.pending != null && AiFeature.SEARCH in requested) {
-                    AiIndexWorker.enqueue(this, profile, manual = true)
+                } else if (next.pending != null && requested.intersect(setOf(AiFeature.SEARCH,AiFeature.OCR,AiFeature.PEOPLE)).isNotEmpty()) {
+                    enqueueFeatures(profile, manual = true)
                 }
             }
             ProfileAction.REMOVE -> io.execute {
                 val bytes = ModelMaintenance.removeInactive(this, profile)
                 runOnUiThread { Toast.makeText(this, getString(R.string.ai_freed_space, formatBytes(bytes)), Toast.LENGTH_LONG).show() }
             }
-            ProfileAction.PROCESS -> AiIndexWorker.enqueue(this, profile, manual = true)
+            ProfileAction.PROCESS -> enqueueFeatures(profile, manual = true)
         }
     }
 
@@ -220,13 +243,20 @@ class AiSettingsActivity : Activity() {
                 if (applyingState || !available || enabled == (feature in requested)) return@setOnCheckedChangeListener
                 val next = catalog.setFeature(feature, enabled)
                 val profile = next.pending?.profile ?: next.active ?: next.selected
-                if (enabled && feature == AiFeature.SEARCH && next.profile(profile).phase != ProfilePhase.NOT_INSTALLED) {
-                    AiIndexWorker.enqueue(this, profile, manual = true)
+                if (enabled && feature in setOf(AiFeature.SEARCH,AiFeature.OCR,AiFeature.PEOPLE) && next.profile(profile).phase != ProfilePhase.NOT_INSTALLED) {
+                    enqueueFeatures(profile, manual = true)
                 }
             }
             featureViews[feature] = value
             content.addView(value, LinearLayout.LayoutParams(-1, -2))
         }
+    }
+
+    private fun enqueueFeatures(profile: ProfileId, manual: Boolean) {
+        val requested = catalog.snapshot().let { it.pending?.takeIf { pending -> pending.profile == profile }?.enabled
+            ?: it.enabledFeatures.takeIf { _ -> it.active == profile }.orEmpty() }
+        if (AiFeature.SEARCH in requested) AiIndexWorker.enqueue(this, profile, manual)
+        if (requested.intersect(setOf(AiFeature.OCR, AiFeature.PEOPLE)).isNotEmpty()) OcrPeopleIndexWorker.enqueue(this, profile, manual)
     }
 
     private fun buildAiGate(savedState: Bundle?) {

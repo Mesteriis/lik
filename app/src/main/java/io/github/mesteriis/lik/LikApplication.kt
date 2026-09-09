@@ -19,6 +19,8 @@ class LikApplication : Application() {
             val requested = state.pending?.enabled ?: state.enabledFeatures
             val profile = state.pending?.profile ?: state.active
             if (AiFeature.SEARCH in requested) profile?.let { AiIndexWorker.enqueue(this, it, manual = false) }
+            if (requested.intersect(setOf(AiFeature.OCR, AiFeature.PEOPLE)).isNotEmpty())
+                profile?.let { OcrPeopleIndexWorker.enqueue(this, it, manual = false) }
         }, "lik-ai-recovery").start()
     }
 }

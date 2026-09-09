@@ -9,19 +9,45 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(entities = [MediaRecord::class, VolumeCheckpoint::class, Album::class, AlbumMedia::class, Favorite::class, MediaTag::class,
     io.github.mesteriis.lik.ai.AiIndexGenerationRecord::class, io.github.mesteriis.lik.ai.AiEmbeddingRecord::class,
-    io.github.mesteriis.lik.ai.AiSensitiveRunRecord::class], version = 6, exportSchema = true)
+    io.github.mesteriis.lik.ai.AiSensitiveRunRecord::class, io.github.mesteriis.lik.ai.AiMediaExposureRecord::class,
+    io.github.mesteriis.lik.ai.AiOcrResultRecord::class, io.github.mesteriis.lik.ai.AiFeatureMediaRunRecord::class,
+    io.github.mesteriis.lik.ai.AiFaceDetectionRecord::class,
+    io.github.mesteriis.lik.ai.PersonIdentityRecord::class, io.github.mesteriis.lik.ai.PersonFaceDecisionRecord::class,
+    io.github.mesteriis.lik.ai.PersonMergeRecord::class, io.github.mesteriis.lik.ai.PersonCannotLinkRecord::class], version = 7, exportSchema = true)
 abstract class MediaDatabase : RoomDatabase() {
     abstract fun media(): MediaDao
     abstract fun organization(): OrganizationDao
     abstract fun aiIndexes(): io.github.mesteriis.lik.ai.AiIndexDao
+    abstract fun ocrPeople(): io.github.mesteriis.lik.ai.OcrPeopleDao
 
     companion object {
         @Volatile private var instance: MediaDatabase? = null
 
         fun get(context: Context): MediaDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MediaDatabase::class.java, "media.db")
-                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .build().also { instance = it }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS ai_media_exposure (mediaId TEXT NOT NULL, contentRevision INTEGER NOT NULL, exposure TEXT NOT NULL, decidedAt INTEGER NOT NULL, PRIMARY KEY(mediaId,contentRevision))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_media_exposure_exposure ON ai_media_exposure(exposure)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS ai_ocr_result (generationId TEXT NOT NULL, mediaId TEXT NOT NULL, contentRevision INTEGER NOT NULL, accessEpoch INTEGER NOT NULL, pipelineFingerprint TEXT NOT NULL, displayText TEXT NOT NULL, searchText TEXT NOT NULL, regionsJson TEXT NOT NULL, confidence REAL NOT NULL, PRIMARY KEY(generationId,mediaId), FOREIGN KEY(generationId) REFERENCES ai_index_generation(generationId) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_ocr_result_mediaId ON ai_ocr_result(mediaId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_ocr_result_searchText ON ai_ocr_result(searchText)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS ai_feature_media_run (generationId TEXT NOT NULL, mediaId TEXT NOT NULL, feature TEXT NOT NULL, contentRevision INTEGER NOT NULL, accessEpoch INTEGER NOT NULL, error TEXT, PRIMARY KEY(generationId,mediaId), FOREIGN KEY(generationId) REFERENCES ai_index_generation(generationId) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_feature_media_run_mediaId ON ai_feature_media_run(mediaId)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS ai_face_detection (detectionId TEXT NOT NULL PRIMARY KEY, generationId TEXT NOT NULL, mediaId TEXT NOT NULL, contentRevision INTEGER NOT NULL, accessEpoch INTEGER NOT NULL, pipelineFingerprint TEXT NOT NULL, anchorId TEXT NOT NULL, `left` REAL NOT NULL, `top` REAL NOT NULL, `right` REAL NOT NULL, `bottom` REAL NOT NULL, landmarks BLOB NOT NULL, embedding BLOB NOT NULL, confidence REAL NOT NULL, computedClusterId TEXT NOT NULL, FOREIGN KEY(generationId) REFERENCES ai_index_generation(generationId) ON UPDATE NO ACTION ON DELETE CASCADE)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_face_detection_generationId ON ai_face_detection(generationId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_face_detection_mediaId ON ai_face_detection(mediaId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_face_detection_anchorId ON ai_face_detection(anchorId)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS person_identity (personId TEXT NOT NULL PRIMARY KEY, name TEXT, createdAt INTEGER NOT NULL)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS person_face_decision (anchorId TEXT NOT NULL PRIMARY KEY, decision TEXT NOT NULL, personId TEXT, updatedAt INTEGER NOT NULL)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_person_face_decision_personId ON person_face_decision(personId)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS person_merge (fromPersonId TEXT NOT NULL PRIMARY KEY, intoPersonId TEXT NOT NULL, updatedAt INTEGER NOT NULL)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS person_cannot_link (leftAnchorId TEXT NOT NULL, rightAnchorId TEXT NOT NULL, updatedAt INTEGER NOT NULL, PRIMARY KEY(leftAnchorId,rightAnchorId))")
+            }
         }
 
         val MIGRATION_4_5 = object : Migration(4, 5) {

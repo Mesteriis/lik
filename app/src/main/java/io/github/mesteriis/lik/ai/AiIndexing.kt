@@ -394,19 +394,29 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
 
         fun discardPreparation(context: Context, profile: ProfileId) {
             pause(context, profile)
+            OcrPeopleIndexWorker.pause(context, profile)
             val catalog = ModelCatalog.get(context)
             val pipeline = catalog.trusted.profiles.getValue(profile).pipelines.getValue(AiFeature.SEARCH)
             IndexRunCoordinator.run(pipeline.fingerprint, { false }) {
-                val database = MediaDatabase.get(context)
-                val ids = database.aiIndexes().generations().filter {
-                    it.profileId == profile.wire && it.status != GenerationStatus.COMPLETE
-                }.map { it.generationId }.toSet()
-                if (catalog.snapshot().pending?.profile == profile) catalog.cancelPreparation(profile)
-                if (ids.isNotEmpty()) {
-                    catalog.discardGenerations(ids)
-                    database.runInTransaction { database.aiIndexes().deleteGenerations(ids) }
-                    ids.forEach { NativeIndexFiles.remove(context, it) }
+                val featurePipelines = listOf(AiFeature.OCR, AiFeature.PEOPLE).map {
+                    catalog.trusted.profiles.getValue(profile).pipelines.getValue(it).fingerprint
                 }
+                fun cleanup(at: Int) {
+                    if (at < featurePipelines.size) IndexRunCoordinator.run(featurePipelines[at], { false }) { cleanup(at + 1) }
+                    else {
+                        val database = MediaDatabase.get(context)
+                        val ids = database.aiIndexes().generations().filter {
+                            it.profileId == profile.wire && it.status != GenerationStatus.COMPLETE
+                        }.map { it.generationId }.toSet()
+                        if (catalog.snapshot().pending?.profile == profile) catalog.cancelPreparation(profile)
+                        if (ids.isNotEmpty()) {
+                            catalog.discardGenerations(ids)
+                            database.runInTransaction { database.aiIndexes().deleteGenerations(ids) }
+                            ids.forEach { NativeIndexFiles.remove(context, it) }
+                        }
+                    }
+                }
+                cleanup(0)
             }
         }
     }

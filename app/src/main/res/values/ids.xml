@@ -11,6 +11,7 @@
   <item name="search_until" type="id" />
   <item name="search_source" type="id" />
   <item name="search_submit" type="id" />
+  <item name="search_ocr" type="id" />
   <item name="icon_classic" type="id" />
   <item name="icon_emerald" type="id" />
   <item name="icon_amethyst" type="id" />

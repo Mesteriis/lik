@@ -244,7 +244,7 @@ class AiRuntimeTest {
                 assertNotNull(activity.findViewById<android.view.View>(R.id.aigate_enabled))
                 val ocr = activity.findViewById<android.widget.Switch>(R.id.ai_feature_ocr)
                 val people = activity.findViewById<android.widget.Switch>(R.id.ai_feature_people)
-                assertFalse(ocr.isEnabled); assertFalse(people.isEnabled)
+                assertTrue(ocr.isEnabled); assertTrue(people.isEnabled)
                 activity.findViewById<android.widget.EditText>(R.id.aigate_port).setText("4567")
                 ModelCatalog.get(activity).update { it.copy(revision = it.revision + 1) }
                 assertSame(heading, activity.findViewById<android.view.View>(R.id.ai_profile_compact))
@@ -257,7 +257,7 @@ class AiRuntimeTest {
         }
     }
 
-    @Test fun aiSettingsRemovesTask11FeaturesFromPendingRequest() {
+    @Test fun aiSettingsPreservesTask11FeaturesInPendingRequest() {
         val catalog = ModelCatalog.get(context)
         val before = catalog.snapshot()
         catalog.update { state -> state.copy(
@@ -274,11 +274,11 @@ class AiRuntimeTest {
             ActivityScenario.launch(AiSettingsActivity::class.java).use { scenario ->
                 scenario.onActivity {
                     val state = catalog.snapshot()
-                    assertNull(state.pending)
-                    assertFalse(AiFeature.OCR in state.enabledFeatures)
-                    assertFalse(AiFeature.PEOPLE in state.enabledFeatures)
-                    assertFalse(it.findViewById<android.widget.Switch>(R.id.ai_feature_ocr).isChecked)
-                    assertFalse(it.findViewById<android.widget.Switch>(R.id.ai_feature_people).isChecked)
+                    assertNotNull(state.pending)
+                    assertTrue(AiFeature.OCR in state.pending!!.enabled)
+                    assertTrue(AiFeature.PEOPLE in state.pending!!.enabled)
+                    assertTrue(it.findViewById<android.widget.Switch>(R.id.ai_feature_ocr).isChecked)
+                    assertTrue(it.findViewById<android.widget.Switch>(R.id.ai_feature_people).isChecked)
                 }
             }
         } finally {

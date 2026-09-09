@@ -23,6 +23,7 @@ import io.github.mesteriis.lik.catalog.MediaDatabase
 import io.github.mesteriis.lik.catalog.MediaSource
 import io.github.mesteriis.lik.imports.PhotoLibrary
 import java.util.concurrent.Executors
+import io.github.mesteriis.lik.ai.OcrRepository
 
 class PhotoViewerActivity : ComponentActivity() {
     private lateinit var model: PhotoViewerViewModel
@@ -30,9 +31,11 @@ class PhotoViewerActivity : ComponentActivity() {
     private var shownBitmap: android.graphics.Bitmap? = null
     private val aiGateConsent = PhotoSendConsent()
     private val aiGateIo = Executors.newSingleThreadExecutor()
+    private val ocrIo = Executors.newSingleThreadExecutor()
     private var currentMediaId: String? = null
     private var currentRevision: Long = -1
     private var aiGateRequest = 0L
+    private var ocrRequest = 0L
     @Volatile private var aiGateClient: AiGateClient? = null
     private var aiGateSettingsSubscription: AutoCloseable? = null
 
@@ -53,6 +56,11 @@ class PhotoViewerActivity : ComponentActivity() {
         }
         findViewById<View>(R.id.viewer_delete).setOnClickListener { confirmDelete() }
         findViewById<View>(R.id.viewer_aigate).setOnClickListener { sendToAiGate() }
+        findViewById<View>(R.id.viewer_copy_ocr).setOnClickListener {
+            val value=findViewById<TextView>(R.id.viewer_ocr_text).text
+            getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(android.content.ClipData.newPlainText(getString(R.string.ocr_text_title),value))
+            Toast.makeText(this,R.string.ocr_text_copied,Toast.LENGTH_SHORT).show()
+        }
         aiGateSettingsSubscription = AiGateSettings(this).observeEnabled { enabled ->
             if (!enabled) { aiGateRequest++; aiGateConsent.clear(); aiGateClient?.cancel(); aiGateClient = null }
         }
@@ -74,7 +82,8 @@ class PhotoViewerActivity : ComponentActivity() {
         }
         val currentId = state.cursor?.current?.id
         val nextRevision = state.cursor?.current?.sourceRevision ?: -1
-        if (currentMediaId != currentId || currentRevision != nextRevision) {
+        val changedPhoto = currentMediaId != currentId || currentRevision != nextRevision
+        if (changedPhoto) {
             aiGateRequest++
             aiGateConsent.clear()
             aiGateClient?.cancel()
@@ -82,6 +91,7 @@ class PhotoViewerActivity : ComponentActivity() {
         }
         currentMediaId = currentId
         currentRevision = nextRevision
+        if (changedPhoto) loadOcr(currentId,nextRevision)
         if (image.tag != currentId || shownBitmap !== state.bitmap) {
             image.tag = currentId
             shownBitmap = state.bitmap
@@ -100,7 +110,18 @@ class PhotoViewerActivity : ComponentActivity() {
         aiGateClient?.cancel()
         aiGateSettingsSubscription?.close()
         aiGateIo.shutdownNow()
+        ocrRequest++
+        ocrIo.shutdownNow()
         super.onDestroy()
+    }
+
+    private fun loadOcr(mediaId:String?, revision:Long){
+        val panel=findViewById<View>(R.id.viewer_ocr_panel);val text=findViewById<TextView>(R.id.viewer_ocr_text)
+        panel.visibility=View.GONE;text.text="";val id=mediaId?:return;val request=++ocrRequest
+        ocrIo.execute { val result=runCatching{OcrRepository(this).text(id)}.getOrNull();runOnUiThread{
+            if(request!=ocrRequest||currentMediaId!=id||currentRevision!=revision||isDestroyed)return@runOnUiThread
+            val value=result?.takeIf{it.contentRevision==revision}?.displayText.orEmpty();text.text=value;panel.visibility=if(value.isBlank())View.GONE else View.VISIBLE
+        }}
     }
 
     override fun onStop() {

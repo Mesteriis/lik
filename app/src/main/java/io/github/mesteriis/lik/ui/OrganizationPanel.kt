@@ -10,6 +10,7 @@ import android.widget.*
 import io.github.mesteriis.lik.R
 import io.github.mesteriis.lik.catalog.*
 import io.github.mesteriis.lik.gallery.PhotoViewerActivity
+import io.github.mesteriis.lik.ai.*
 import kotlinx.coroutines.*
 import java.time.LocalDate
 import java.time.Instant
@@ -34,9 +35,10 @@ class OrganizationPanel(
     private var resultTitle = ""
     private var form: List<EditText> = emptyList()
     private var source: Spinner? = null
-    private var drafts = listOf("", "", "", "")
+    private var drafts = listOf("", "", "", "", "")
     private var sourceIndex = 0
     private var semanticText = ""
+    private var personId: String? = null
     private var content: LinearLayout = container
 
     fun restore(state: Bundle?) {
@@ -46,6 +48,7 @@ class OrganizationPanel(
         drafts = state.getStringArrayList("organization.drafts") ?: drafts
         sourceIndex = state.getInt("organization.source")
         resultTitle = state.getString("organization.title").orEmpty()
+        personId = state.getString("organization.person")
         offset = state.getInt("organization.offset")
         val folder = state.getString("organization.volume")?.let {
             DeviceFolder(it, state.getString("organization.bucket").orEmpty(), state.getString("organization.path").orEmpty(), null, 0)
@@ -55,7 +58,8 @@ class OrganizationPanel(
             until = state.getLong("organization.until").takeIf { state.containsKey("organization.until") },
             tag = state.getString("organization.tag").orEmpty(), albumId = state.getString("organization.album"),
             source = state.getString("organization.filterSource")?.let(MediaSource::valueOf),
-            favorites = state.getBoolean("organization.favorites"), folder = folder)
+            favorites = state.getBoolean("organization.favorites"), folder = folder,
+            ocrText = state.getString("organization.ocr").orEmpty(), ocrGenerationId = state.getString("organization.ocrGeneration"))
     }
 
     fun save(state: Bundle) {
@@ -65,6 +69,7 @@ class OrganizationPanel(
         state.putStringArrayList("organization.drafts", ArrayList(drafts))
         state.putInt("organization.source", sourceIndex)
         state.putString("organization.title", resultTitle)
+        state.putString("organization.person", personId)
         state.putInt("organization.offset", offset)
         state.putString("organization.name", query.name)
         query.from?.let { state.putLong("organization.from", it) }
@@ -73,6 +78,8 @@ class OrganizationPanel(
         state.putString("organization.album", query.albumId)
         state.putString("organization.filterSource", query.source?.name)
         state.putBoolean("organization.favorites", query.favorites)
+        state.putString("organization.ocr", query.ocrText)
+        state.putString("organization.ocrGeneration", query.ocrGenerationId)
         query.folder?.let {
             state.putString("organization.volume", it.volumeName)
             state.putString("organization.bucket", it.bucketId)
@@ -85,7 +92,7 @@ class OrganizationPanel(
         if (section != value) {
             captureDrafts()
             section = value
-            screen = when (value) { GallerySection.ALBUMS -> "albums"; GallerySection.SEARCH -> "search"; else -> "more" }
+            screen = when (value) { GallerySection.ALBUMS -> "albums"; GallerySection.SEARCH -> "search"; GallerySection.PEOPLE -> "people"; else -> "more" }
         }
         render()
     }
@@ -143,6 +150,8 @@ class OrganizationPanel(
             "search" -> search()
             "results" -> results()
             "semantic_results" -> semanticResults()
+            "people" -> people()
+            "person" -> person()
             "trash" -> trash()
             "ai" -> {
                 activity.startActivity(Intent(activity, io.github.mesteriis.lik.settings.AiSettingsActivity::class.java))
@@ -220,11 +229,11 @@ class OrganizationPanel(
 
     private fun search() {
         root(text(R.string.search_title))
-        val fields = listOf(R.string.search_name, R.string.search_tag, R.string.search_from, R.string.search_until)
+        val fields = listOf(R.string.search_name, R.string.search_tag, R.string.search_from, R.string.search_until, R.string.search_ocr_text)
         form = fields.mapIndexed { index, hint ->
             label(text(hint))
             EditText(activity).also {
-                it.id = listOf(R.id.search_name, R.id.search_tag, R.id.search_from, R.id.search_until)[index]
+                it.id = listOf(R.id.search_name, R.id.search_tag, R.id.search_from, R.id.search_until, R.id.search_ocr)[index]
                 it.hint = text(hint); it.inputType = InputType.TYPE_CLASS_TEXT
                 it.setText(drafts.getOrElse(index) { "" })
                 content.addView(it, LinearLayout.LayoutParams(-1, -2))
@@ -246,10 +255,14 @@ class OrganizationPanel(
                 fun date(value: String, end: Boolean): Long? = value.trim().takeIf(String::isNotEmpty)?.let {
                     LocalDate.parse(it).let { day -> if (end) day.plusDays(1) else day }.atStartOfDay(zone).toInstant().toEpochMilli()
                 }
+                val ocrGeneration = ModelCatalog.get(activity).snapshot().activeGenerations[AiFeature.OCR]
+                if (drafts[4].isNotBlank() && ocrGeneration == null) throw IllegalStateException("OCR_NOT_READY")
                 open(CatalogSearch(name = drafts[0], tag = drafts[1], from = date(drafts[2], false), until = date(drafts[3], true),
-                    source = when (sourceIndex) { 1 -> MediaSource.DEVICE; 2 -> MediaSource.GOOGLE_IMPORT; else -> null }), text(R.string.search_results))
+                    source = when (sourceIndex) { 1 -> MediaSource.DEVICE; 2 -> MediaSource.GOOGLE_IMPORT; else -> null },
+                    ocrText = drafts[4], ocrGenerationId = ocrGeneration), text(R.string.search_results))
             } catch (_: IllegalArgumentException) { Toast.makeText(activity, R.string.invalid_search_date, Toast.LENGTH_LONG).show() }
             catch (_: java.time.DateTimeException) { Toast.makeText(activity, R.string.invalid_search_date, Toast.LENGTH_LONG).show() }
+            catch (_: IllegalStateException) { Toast.makeText(activity, R.string.ocr_not_ready, Toast.LENGTH_LONG).show() }
         }
         label(text(R.string.semantic_search_title), true)
         val semantic = EditText(activity).also {
@@ -260,6 +273,98 @@ class OrganizationPanel(
             semanticText = semantic.text.toString().trim()
             if (semanticText.isEmpty()) semantic.error = text(R.string.name_required)
             else { screen = "semantic_results"; render() }
+        }
+    }
+
+    private fun people() {
+        root(text(R.string.people_title))
+        val state = ModelCatalog.get(activity).snapshot()
+        val generation = state.activeGenerations[AiFeature.PEOPLE]
+        if (AiFeature.PEOPLE !in state.enabledFeatures || generation == null) {
+            label(text(R.string.people_not_ready)); button(text(R.string.ai_settings_title)) { activity.startActivity(Intent(activity, io.github.mesteriis.lik.settings.AiSettingsActivity::class.java)) }
+            return
+        }
+        val repository = PeopleRepository(MediaDatabase.get(activity))
+        load({ repository.groups(generation) to repository.excluded(generation) }) { (groups, excluded) ->
+            if (ModelCatalog.get(activity).snapshot().activeGenerations[AiFeature.PEOPLE] != generation) {
+                render()
+                return@load
+            }
+            if (groups.isEmpty() && excluded.isEmpty()) label(text(R.string.people_empty))
+            groups.forEach { group -> button(activity.resources.getQuantityString(R.plurals.person_group_count, group.faces.size, group.name ?: text(R.string.unnamed_person), group.faces.size)) {
+                personId = group.personId; screen = "person"; render()
+            } }
+            if (excluded.isNotEmpty()) {
+                label(text(R.string.excluded_faces), true)
+                excluded.forEach { face ->
+                    button(activity.getString(R.string.restore_excluded_face, face.mediaId.takeLast(16))) {
+                        mutate { repository.clear(face.anchorId) }
+                    }.setOnLongClickListener {
+                        activity.startActivity(Intent(activity, PhotoViewerActivity::class.java)
+                            .putExtra(PhotoViewerActivity.EXTRA_PHOTO_ID, face.mediaId))
+                        true
+                    }
+                }
+            }
+        }
+    }
+
+    private fun person() {
+        val selectedPerson = personId ?: run { screen="people"; render(); return }
+        root(text(R.string.person_details)); button(text(R.string.back)) { screen="people"; render() }
+        val state=ModelCatalog.get(activity).snapshot();val generation=state.activeGenerations[AiFeature.PEOPLE] ?: run { label(text(R.string.people_not_ready)); return }
+        val people=PeopleRepository(MediaDatabase.get(activity))
+        load({ people.groups(generation).firstOrNull{it.personId==selectedPerson} to people.mergedSources(selectedPerson) }) { (group, mergedSources) ->
+            if (ModelCatalog.get(activity).snapshot().activeGenerations[AiFeature.PEOPLE] != generation) {
+                render()
+                return@load
+            }
+            if(group==null){label(text(R.string.people_empty));return@load}
+            label(group.name ?: text(R.string.unnamed_person),true)
+            button(text(R.string.rename_person)){prompt(R.string.rename_person,group.name.orEmpty()){name->mutate{people.name(selectedPerson,name)}}}
+            button(text(R.string.merge_person)){choosePerson(generation,selectedPerson,R.string.merge_person){target->screen="people";mutate{people.merge(selectedPerson,target)}}}
+            if (mergedSources.isNotEmpty()) {
+                label(text(R.string.merged_people), true)
+                mergedSources.forEach { source -> button(activity.getString(R.string.undo_person_merge_named, source.name ?: text(R.string.unnamed_person))) {
+                    mutate { people.unmerge(source.personId) }
+                } }
+            }
+            group.faces.forEach { face ->
+                val row=button("${face.mediaId.takeLast(16)} · ${face.anchorId.take(8)}") { activity.startActivity(Intent(activity,PhotoViewerActivity::class.java).putExtra(PhotoViewerActivity.EXTRA_PHOTO_ID,face.mediaId)) }
+                row.setOnLongClickListener {
+                    AlertDialog.Builder(activity).setTitle(R.string.correct_person).setItems(arrayOf(text(R.string.move_face),text(R.string.split_face),text(R.string.exclude_face),text(R.string.clear_person_correction))){_,which->when(which){
+                        0->choosePerson(generation,selectedPerson,R.string.move_face){target->mutate{people.move(face.anchorId,target)}}
+                        1->prompt(R.string.split_face){name->mutate{people.split(setOf(face.anchorId),selectedPerson,name)}}
+                        2->mutate{people.exclude(face.anchorId)}
+                        else->mutate{people.clear(face.anchorId)}
+                    }}.show();true
+                }
+            }
+        }
+    }
+
+    private fun choosePerson(generation: String, excludedPerson: String, title: Int, action: (String) -> Unit) {
+        val people = PeopleRepository(MediaDatabase.get(activity))
+        load({ people.groups(generation).filterNot { it.personId == excludedPerson } }) { groups ->
+            if (ModelCatalog.get(activity).snapshot().activeGenerations[AiFeature.PEOPLE] != generation) {
+                render()
+                return@load
+            }
+            if (groups.isEmpty()) {
+                Toast.makeText(activity, R.string.people_empty, Toast.LENGTH_SHORT).show()
+                return@load
+            }
+            val labels = groups.map { group ->
+                activity.resources.getQuantityString(
+                    R.plurals.person_group_count,
+                    group.faces.size,
+                    group.name ?: text(R.string.unnamed_person),
+                    group.faces.size,
+                )
+            }
+            AlertDialog.Builder(activity).setTitle(title).setItems(labels.toTypedArray()) { _, which ->
+                action(groups[which].personId)
+            }.show()
         }
     }
 
@@ -288,6 +393,9 @@ class OrganizationPanel(
         button(text(R.string.back)) { screen = if (section == GallerySection.ALBUMS) "albums" else "search"; render() }
         label(text(R.string.results_help))
         load({ repository.dao.search(query.query(61, offset)).map { it to repository.dao.tags(it.mediaId) } }) { rows ->
+            if (query.ocrText.isNotBlank() && ModelCatalog.get(activity).snapshot().activeGenerations[AiFeature.OCR] != query.ocrGenerationId) {
+                label(text(R.string.ocr_results_changed)); return@load
+            }
             if (rows.isEmpty()) label(text(R.string.search_empty))
             rows.take(60).forEach { (row, tags) ->
                 val date = (row.takenAt ?: row.addedAt)?.let {

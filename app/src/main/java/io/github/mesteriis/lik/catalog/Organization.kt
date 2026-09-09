@@ -41,6 +41,7 @@ data class CatalogSearch(
     val name: String = "", val from: Long? = null, val until: Long? = null,
     val source: MediaSource? = null, val tag: String = "", val albumId: String? = null,
     val favorites: Boolean = false, val folder: DeviceFolder? = null,
+    val ocrText: String = "", val ocrGenerationId: String? = null,
 ) {
     init { require(from == null || until == null || from < until) }
 
@@ -55,6 +56,11 @@ data class CatalogSearch(
         until?.let { condition("COALESCE(m.takenAt, m.addedAt) < ?", it) }
         source?.let { condition("m.source = ?", it.name) }
         if (tag.isNotBlank()) condition("EXISTS (SELECT 1 FROM media_tag t WHERE t.mediaId = m.mediaId AND t.tagKey = ?)", searchKey(tag.trim()))
+        if (ocrText.isNotBlank()) {
+            require(!ocrGenerationId.isNullOrBlank())
+            condition("EXISTS (SELECT 1 FROM ai_ocr_result o JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE o.mediaId=m.mediaId AND o.generationId=? AND o.contentRevision=m.contentRevision AND o.accessEpoch=m.accessGrantEpoch AND x.exposure='SAFE' AND instr(o.searchText,?)>0)", ocrGenerationId)
+            args += io.github.mesteriis.lik.ai.OcrText.searchKey(ocrText)
+        }
         albumId?.let { condition("EXISTS (SELECT 1 FROM album_media a WHERE a.mediaId = m.mediaId AND a.albumId = ?)", it) }
         if (favorites) clauses += "EXISTS (SELECT 1 FROM favorite f WHERE f.mediaId = m.mediaId)"
         folder?.let {

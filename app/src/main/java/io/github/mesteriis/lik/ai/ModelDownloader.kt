@@ -95,6 +95,8 @@ class ModelDownloader(
                     ?: emptySet()
             }
             if (AiFeature.SEARCH in requested) AiIndexWorker.enqueue(context, profile, manual = false)
+            if (requested.intersect(setOf(AiFeature.OCR, AiFeature.PEOPLE)).isNotEmpty())
+                OcrPeopleIndexWorker.enqueue(context, profile, manual = false)
             operation.deleteRecursively()
             operation.parentFile?.let(DurableAiFiles::syncDirectory)
             releaseReservation = true

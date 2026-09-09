@@ -22,7 +22,7 @@ class InferenceRuntimeService : Service() {
     private data class ResidentSession(val session: ai.onnxruntime.OrtSession, val modelBytes: Long)
     private val sessions = LinkedHashMap<String, ResidentSession>(8, .75f, true)
     private val incoming = Messenger(Handler(Looper.getMainLooper()) { message ->
-        if (message.what !in setOf(MSG_VALIDATE, MSG_EMBED_IMAGE, MSG_EMBED_TEXT, MSG_RUN_FLOAT, MSG_RUN_SMOKE, MSG_STATS, MSG_EVICT)) return@Handler false
+        if (message.what !in setOf(MSG_VALIDATE, MSG_EMBED_IMAGE, MSG_EMBED_TEXT, MSG_RUN_FLOAT, MSG_RUN_FLOAT_MULTI, MSG_RUN_SMOKE, MSG_STATS, MSG_EVICT)) return@Handler false
         val requestCode = message.what
         val reply = message.replyTo
         val payload = Bundle(message.data)
@@ -33,6 +33,7 @@ class InferenceRuntimeService : Service() {
                 MSG_EMBED_IMAGE -> embedImage(payload)
                 MSG_EMBED_TEXT -> embedText(payload)
                 MSG_RUN_FLOAT -> runFloat(payload)
+                MSG_RUN_FLOAT_MULTI -> runFloatMulti(payload)
                 MSG_RUN_SMOKE -> runSmoke(payload)
                 MSG_EVICT -> { payload.getStringArrayList(EVICT).orEmpty().forEach { sessions.remove(it)?.session?.close() }; null }
                 else -> floatArrayOf(sessions.size.toFloat(), createdSessions.toFloat())
@@ -168,6 +169,25 @@ class InferenceRuntimeService : Service() {
         } finally { SharedMemory.unmap(mapped); memory.close(); descriptor.close() }
     }
 
+    private fun runFloatMulti(data: Bundle): FloatArray {
+        val descriptor = data.getParcelable(MODEL, ParcelFileDescriptor::class.java)!!
+        val memory = data.getParcelable(MEMORY, SharedMemory::class.java)!!
+        val shape = data.getIntArray(SHAPE)!!.map(Int::toLong).toLongArray()
+        val mapped = memory.mapReadOnly().order(ByteOrder.nativeOrder())
+        return try {
+            val environment = ai.onnxruntime.OrtEnvironment.getEnvironment()
+            session(data, descriptor).let { session ->
+                ai.onnxruntime.OnnxTensor.createTensor(environment, mapped.asFloatBuffer(), shape).use { tensor ->
+                    session.run(mapOf(requireNotNull(data.getString(INPUT)) to tensor)).use { output ->
+                        data.getStringArrayList(OUTPUT_NAMES).orEmpty().flatMap { name ->
+                            (output.get(name).get() as ai.onnxruntime.OnnxTensor).floatBuffer.toArray().asIterable()
+                        }.toFloatArray().also { require(it.isNotEmpty() && it.all(Float::isFinite)) }
+                    }
+                }
+            }
+        } finally { SharedMemory.unmap(mapped); memory.close(); descriptor.close() }
+    }
+
     private fun runSmoke(data: Bundle): FloatArray {
         val descriptor = data.getParcelable(MODEL, ParcelFileDescriptor::class.java)!!
         val names = data.getStringArrayList(INPUT_NAMES).orEmpty()
@@ -235,6 +255,7 @@ class InferenceRuntimeService : Service() {
         const val MSG_STATS = 6
         const val MSG_EVICT = 7
         const val MSG_RUN_SMOKE = 8
+        const val MSG_RUN_FLOAT_MULTI = 9
         const val FDS = "fds"
         const val OK = "ok"
         const val ERROR = "error"
@@ -246,6 +267,7 @@ class InferenceRuntimeService : Service() {
         const val IDS = "ids"
         const val MASK = "mask"
         const val OUTPUT = "output"
+        const val OUTPUT_NAMES = "output-names"
         const val PROJECTION = "projection"
         const val NORMALIZE = "normalize"
         const val INPUT = "input"
@@ -314,6 +336,23 @@ class IsolatedRuntimeClient(context: Context, private val leases: RuntimeLeases 
             putIntArray(InferenceRuntimeService.SHAPE, shape)
             putString(InferenceRuntimeService.INPUT, inputName)
             outputName?.let { putString(InferenceRuntimeService.OUTPUT, it) }
+        }).also { memory.close() }
+    }
+
+    fun runFloatMulti(model: File, inputName: String, shape: IntArray, values: FloatArray, outputNames: List<String>): Result<FloatArray> {
+        require(outputNames.isNotEmpty())
+        require(shape.fold(1L) { product, value -> Math.multiplyExact(product, value.toLong()) } == values.size.toLong())
+        val memory = SharedMemory.create("lik-inference-tensor", values.size * 4)
+        val mapped = memory.mapReadWrite().order(ByteOrder.nativeOrder())
+        mapped.asFloatBuffer().put(values); SharedMemory.unmap(mapped)
+        memory.setProtect(android.system.OsConstants.PROT_READ)
+        return requestVector(InferenceRuntimeService.MSG_RUN_FLOAT_MULTI, setOf(model), Bundle().apply {
+            putParcelable(InferenceRuntimeService.MODEL, ParcelFileDescriptor.open(model, ParcelFileDescriptor.MODE_READ_ONLY))
+            putString(InferenceRuntimeService.MODEL_ID, artifactDigest(model))
+            putParcelable(InferenceRuntimeService.MEMORY, memory)
+            putIntArray(InferenceRuntimeService.SHAPE, shape)
+            putString(InferenceRuntimeService.INPUT, inputName)
+            putStringArrayList(InferenceRuntimeService.OUTPUT_NAMES, ArrayList(outputNames))
         }).also { memory.close() }
     }
 
