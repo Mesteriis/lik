@@ -15,6 +15,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.mesteriis.lik.gallery.PhotoViewerActivity
 import io.github.mesteriis.lik.gallery.PhotoViewerViewModel
+import io.github.mesteriis.lik.gallery.GalleryCatalog
 import io.github.mesteriis.lik.imports.PhotoLibrary
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -32,9 +33,10 @@ class PhotoViewerTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
     private val library = File(context.filesDir, "imported_photos")
+    private lateinit var privacy:LegacyVisibleFixture
 
-    @Before fun clearLibrary() { library.deleteRecursively() }
-    @After fun cleanLibrary() { library.deleteRecursively() }
+    @Before fun clearLibrary() { library.deleteRecursively();privacy=LegacyVisibleFixture(context) }
+    @After fun cleanLibrary() { privacy.close();library.deleteRecursively() }
 
     private fun addPhoto(width: Int = 32, height: Int = 20): String {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.MAGENTA) }
@@ -43,7 +45,9 @@ class PhotoViewerTest {
             output.toByteArray()
         }
         bitmap.recycle()
-        return io.github.mesteriis.lik.catalog.TrashRepository(io.github.mesteriis.lik.catalog.MediaDatabase.get(context), PhotoLibrary.store(context)).importPhoto(bytes.inputStream()).photo.id
+        val id=io.github.mesteriis.lik.catalog.TrashRepository(io.github.mesteriis.lik.catalog.MediaDatabase.get(context), PhotoLibrary.store(context)).importPhoto(bytes.inputStream()).photo.id
+        privacy.markCurrentSafe()
+        return id
     }
 
     private fun addOrientedJpeg(orientation: Int): String {
@@ -55,7 +59,9 @@ class PhotoViewerTest {
             setAttribute(ExifInterface.TAG_ORIENTATION, orientation.toString())
             saveAttributes()
         }
-        return PhotoLibrary.store(context).importPhoto(fixture.inputStream()).photo.id
+        val id=PhotoLibrary.store(context).importPhoto(fixture.inputStream()).photo.id
+        GalleryCatalog.load(context,false);privacy.markCurrentSafe()
+        return id
     }
 
     @Test fun viewerRestoresPhotoAndShowsDimensions() {
@@ -171,6 +177,7 @@ class PhotoViewerTest {
         val id = "f".repeat(64)
         library.mkdirs()
         File(library, "$id.image").writeBytes(byteArrayOf(1, 2, 3))
+        GalleryCatalog.load(context,false);privacy.markCurrentSafe()
         val intent = Intent(context, PhotoViewerActivity::class.java)
             .putExtra(PhotoViewerActivity.EXTRA_PHOTO_ID, id)
         ActivityScenario.launch<PhotoViewerActivity>(intent).use { scenario ->

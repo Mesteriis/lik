@@ -67,7 +67,7 @@ class MediaCatalogTest {
         assertEquals(5L, repository.available().single().takenAt)
         assertEquals(20L, repository.available().single().lastSeenAt)
         assertEquals(1L, repository.available().single().accessGrantEpoch)
-        assertEquals(1L, repository.viewerWindow(sha).single().accessGrantEpoch)
+        assertEquals(1L, repository.viewerWindow(sha,true).single().accessGrantEpoch)
         assertArrayEquals(byteArrayOf(9, 8, 7), file.readBytes())
         store.deletePhoto(sha)
         repository.reconcileImports(store, 30)

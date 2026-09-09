@@ -39,7 +39,7 @@ class CatalogPagingTest {
                 override fun onChanged(position: Int, count: Int, payload: Any?) = Unit
             })
             val job = launch(Dispatchers.Main) {
-                CatalogPaging(db.media(), context.getString(R.string.timeline_undated)) { File(context.cacheDir, it) }.flow(TimelineLevel.PHOTO, anchor, 0)
+                CatalogPaging(db.media(), context.getString(R.string.timeline_undated), true) { File(context.cacheDir, it) }.flow(TimelineLevel.PHOTO, anchor, 0)
                     .collectLatest { differ.submitData(it) }
             }
             try {

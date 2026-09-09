@@ -76,6 +76,7 @@ class OcrPeoplePersistenceTest {
         val trusted=TrustedModelCatalog.load(context);val catalog=ModelCatalog.openForTests(root,context.getDatabasePath(name),trusted);val pipeline=trusted.profiles.getValue(ProfileId.BALANCED).pipelines.getValue(AiFeature.OCR).fingerprint
         try{
             listOf("a","b").forEach{id->db.media().upsert(MediaRecord(id,MediaSource.DEVICE,id,contentUri="content://$id",lastSeenAt=1))}
+            listOf("a","b").forEach{id->db.ocrPeople().saveExposure(AiMediaExposureRecord(id,0,AiExposure.SAFE,1))}
             db.aiIndexes().saveGeneration(AiIndexGenerationRecord("atomic","balanced-v1","OCR",pipeline,GenerationStatus.COMPLETE,2,2,"b",null,1));listOf("a","b").forEach{id->db.ocrPeople().saveRun(AiFeatureMediaRunRecord("atomic",id,"OCR",0,1,null))}
             catalog.saveGeneration(IndexGeneration("atomic",AiFeature.OCR,pipeline,true,2,2));db.openHelper.writableDatabase.execSQL("DELETE FROM media WHERE mediaId='b'")
             val complete=catalog.completeRoomGeneration(db,ProfileId.BALANCED,AiFeature.OCR,"atomic")!!
@@ -94,6 +95,7 @@ class OcrPeoplePersistenceTest {
             var db=Room.databaseBuilder(context,MediaDatabase::class.java,name).build();var catalog=ModelCatalog.openForTests(root,context.getDatabasePath(name),trusted)
             try{
                 val media=MediaRecord("m",MediaSource.DEVICE,"1",contentUri="content://m",lastSeenAt=1);db.media().upsert(media)
+                db.ocrPeople().saveExposure(AiMediaExposureRecord("m",0,AiExposure.SAFE,1))
                 listOf("old","new").forEach{id->db.aiIndexes().saveGeneration(AiIndexGenerationRecord(id,if(id=="old")ProfileId.BALANCED.wire else ProfileId.COMPACT.wire,AiFeature.OCR.name,pipeline,if(id=="old")GenerationStatus.COMPLETE else GenerationStatus.PREPARING,1,1,"m",null,1));db.ocrPeople().saveRun(AiFeatureMediaRunRecord(id,"m",AiFeature.OCR.name,0,1,null))}
                 val profiles=ProfileId.entries.associateWith{id->ProfileState(when(id){ProfileId.BALANCED->ProfilePhase.ACTIVE;ProfileId.COMPACT->ProfilePhase.PREPARING;else->ProfilePhase.NOT_INSTALLED})}
                 val oldGeneration=IndexGeneration("old",AiFeature.OCR,pipeline,true,1,1)
@@ -114,6 +116,7 @@ class OcrPeoplePersistenceTest {
         val current=MediaRecord("current",MediaSource.DEVICE,"1",contentUri="content://current",lastSeenAt=1)
         val changed=MediaRecord("changed",MediaSource.DEVICE,"2",contentUri="content://changed",lastSeenAt=1)
         db.media().upsert(current);db.media().upsert(changed)
+        db.ocrPeople().saveExposure(AiMediaExposureRecord("current",0,AiExposure.SAFE,1));db.ocrPeople().saveExposure(AiMediaExposureRecord("changed",0,AiExposure.SAFE,1))
         listOf("old","new").forEach{db.aiIndexes().saveGeneration(AiIndexGenerationRecord(it,"balanced-v1","OCR","pipe",GenerationStatus.PREPARING,0,2,null,null,1))}
         val dao=db.ocrPeople();listOf(current,changed).forEach{row->dao.publishOcrRunIfCurrent(AiOcrResultRecord("old",row.mediaId,0,1,"pipe",row.mediaId,row.mediaId,"[]",.9f),AiFeatureMediaRunRecord("old",row.mediaId,"OCR",0,1,null))}
         db.media().upsert(changed.copy(contentRevision=2))

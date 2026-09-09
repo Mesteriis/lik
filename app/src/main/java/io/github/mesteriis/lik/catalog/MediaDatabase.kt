@@ -20,20 +20,24 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     io.github.mesteriis.lik.similarity.SimilarityRelationRecord::class,
     io.github.mesteriis.lik.similarity.SimilarityScanRecord::class,
     io.github.mesteriis.lik.similarity.SimilarityCheckpoint::class,
-    io.github.mesteriis.lik.similarity.SimilarityLibraryState::class], version = 14, exportSchema = true)
+    io.github.mesteriis.lik.similarity.SimilarityLibraryState::class,
+    io.github.mesteriis.lik.privacy.SensitiveAutomaticRecord::class,
+    io.github.mesteriis.lik.privacy.SensitiveManualRecord::class,
+    io.github.mesteriis.lik.privacy.SensitiveClassifierRunRecord::class], version = 15, exportSchema = true)
 abstract class MediaDatabase : RoomDatabase() {
     abstract fun media(): MediaDao
     abstract fun organization(): OrganizationDao
     abstract fun aiIndexes(): io.github.mesteriis.lik.ai.AiIndexDao
     abstract fun ocrPeople(): io.github.mesteriis.lik.ai.OcrPeopleDao
     abstract fun similarity(): io.github.mesteriis.lik.similarity.SimilarityDao
+    abstract fun sensitiveMedia(): io.github.mesteriis.lik.privacy.SensitiveMediaDao
 
     companion object {
         @Volatile private var instance: MediaDatabase? = null
 
         fun get(context: Context): MediaDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MediaDatabase::class.java, "media.db")
-                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
                 .addCallback(SIMILARITY_CALLBACK)
                 .build().also { instance = it }
         }
@@ -41,6 +45,17 @@ abstract class MediaDatabase : RoomDatabase() {
         internal val SIMILARITY_CALLBACK=object:RoomDatabase.Callback(){
             override fun onCreate(db:SupportSQLiteDatabase){ensureSimilarityLibraryState(db)}
             override fun onOpen(db:SupportSQLiteDatabase){ensureSimilarityLibraryState(db)}
+        }
+
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS sensitive_automatic (mediaId TEXT NOT NULL, contentRevision INTEGER NOT NULL, accessEpoch INTEGER NOT NULL, pipelineFingerprint TEXT NOT NULL, decision TEXT NOT NULL, rawOutput BLOB NOT NULL, decidedAt INTEGER NOT NULL, PRIMARY KEY(mediaId,contentRevision,accessEpoch))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS sensitive_manual (mediaId TEXT NOT NULL PRIMARY KEY, contentRevision INTEGER NOT NULL, decision TEXT NOT NULL, decidedAt INTEGER NOT NULL)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS sensitive_classifier_run (mediaId TEXT NOT NULL, contentRevision INTEGER NOT NULL, accessEpoch INTEGER NOT NULL, pipelineFingerprint TEXT NOT NULL, outcome TEXT NOT NULL, rawOutput BLOB, error TEXT, evaluatedAt INTEGER NOT NULL, PRIMARY KEY(mediaId,contentRevision,accessEpoch,pipelineFingerprint))")
+                // The earlier exposure table lacked model and access-epoch provenance. Its SAFE
+                // values cannot cross the new visibility boundary without a trusted decision.
+                db.execSQL("UPDATE ai_media_exposure SET exposure='QUARANTINED'")
+            }
         }
 
         private fun ensureSimilarityLibraryState(db:SupportSQLiteDatabase){

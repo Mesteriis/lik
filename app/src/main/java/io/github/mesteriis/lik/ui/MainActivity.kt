@@ -39,6 +39,7 @@ import io.github.mesteriis.lik.catalog.MediaDatabase
 import io.github.mesteriis.lik.catalog.MediaOperation
 import io.github.mesteriis.lik.catalog.OrganizationRepository
 import kotlinx.coroutines.*
+import io.github.mesteriis.lik.privacy.*
 
 open class MainActivity : ComponentActivity() {
     private lateinit var model: ImportViewModel
@@ -59,6 +60,9 @@ open class MainActivity : ComponentActivity() {
     private var capabilityRevision = 0
     private var pendingExportId: String? = null
     private var exporting = false
+    private var privacySubscription:AutoCloseable?=null
+    private var biometricCancellation:android.os.CancellationSignal?=null
+    private var privacyInitialized=false
     private val exportDestination = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val id = pendingExportId
         pendingExportId = null
@@ -97,7 +101,9 @@ open class MainActivity : ComponentActivity() {
         )
         libraryZone = loadLibraryZone()
         ui = restoreUi(savedInstanceState)
-        selection = GallerySelection(savedInstanceState?.getStringArrayList(STATE_SELECTION)?.toSet().orEmpty())
+        val privacy=SensitiveMediaSession.current.snapshot()
+        val restoredSelection=savedInstanceState?.getStringArrayList(STATE_SELECTION)?.toSet().orEmpty()
+        selection=GallerySelection(restoredSelection.takeIf{savedInstanceState?.getLong(STATE_PRIVACY_EPOCH,-1)==privacy.epoch}.orEmpty())
         organization = OrganizationPanel(this, findViewById(R.id.section_placeholder), { selection.ids }) { id ->
             selection = selection.toggle(id)
             updateSelection()
@@ -132,6 +138,7 @@ open class MainActivity : ComponentActivity() {
         bindChrome()
         bindNavigation()
         model.state.observe(this, ::render)
+        privacySubscription=SensitiveMediaSession.current.observe{snapshot->runOnUiThread{renderPrivacy(snapshot)}}
 
         if (this is ShareImportActivity && savedInstanceState == null) {
             if (intent.action in listOf(Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE) && intent.type?.startsWith("image/") == true) {
@@ -146,6 +153,10 @@ open class MainActivity : ComponentActivity() {
     }
 
     private fun bindChrome() {
+        findViewById<View>(R.id.reveal_sensitive).setOnClickListener{
+            if(SensitiveMediaSession.current.snapshot().revealed)SensitiveMediaSession.current.relock(RevealRelockReason.EXPLICIT)
+            else authenticateSensitiveReveal()
+        }
         findViewById<View>(R.id.open_settings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
@@ -169,6 +180,41 @@ open class MainActivity : ComponentActivity() {
             R.id.timeline_level_years to TimelineLevel.YEARS,
         )
         levels.forEach { (id, level) -> findViewById<View>(id).setOnClickListener { setLevel(level) } }
+    }
+
+    private fun authenticateSensitiveReveal(){
+        val manager=getSystemService(android.hardware.biometrics.BiometricManager::class.java)
+        if(manager.canAuthenticate(android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG)!=android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS){
+            Toast.makeText(this,R.string.sensitive_biometric_unavailable,Toast.LENGTH_LONG).show();return
+        }
+        biometricCancellation?.cancel();val cancellation=android.os.CancellationSignal();biometricCancellation=cancellation
+        val request=SensitiveMediaSession.current.beginAuthentication()
+        val prompt=android.hardware.biometrics.BiometricPrompt.Builder(this)
+            .setTitle(getString(R.string.sensitive_auth_title)).setSubtitle(getString(R.string.sensitive_auth_message))
+            .setNegativeButton(getString(R.string.cancel),mainExecutor){_,_->SensitiveMediaSession.current.authenticationFailed(request,AuthFailure.CANCELLED)}
+            .setAllowedAuthenticators(android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG).build()
+        prompt.authenticate(cancellation,mainExecutor,object:android.hardware.biometrics.BiometricPrompt.AuthenticationCallback(){
+            override fun onAuthenticationSucceeded(result:android.hardware.biometrics.BiometricPrompt.AuthenticationResult){
+                if(!SensitiveMediaSession.current.authenticationSucceeded(request,AuthStrength.STRONG))return
+            }
+            override fun onAuthenticationError(code:Int,message:CharSequence){
+                val failure=if(code==android.hardware.biometrics.BiometricPrompt.BIOMETRIC_ERROR_LOCKOUT||code==android.hardware.biometrics.BiometricPrompt.BIOMETRIC_ERROR_LOCKOUT_PERMANENT)AuthFailure.LOCKOUT else AuthFailure.ERROR
+                SensitiveMediaSession.current.authenticationFailed(request,failure)
+            }
+            override fun onAuthenticationFailed(){/* Prompt remains active; no reveal state changes. */}
+        })
+    }
+
+    private fun renderPrivacy(snapshot:RevealSnapshot){
+        if(snapshot.revealed)window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE) else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        findViewById<ImageView>(R.id.reveal_sensitive).apply{
+            setImageResource(if(snapshot.revealed)android.R.drawable.ic_lock_idle_lock else android.R.drawable.ic_lock_lock)
+            contentDescription=getString(if(snapshot.revealed)R.string.sensitive_hide else R.string.sensitive_reveal)
+        }
+        val invalidate=privacyInitialized
+        privacyInitialized=true
+        if(invalidate)selection=GallerySelection()
+        timeline.setSensitiveReveal(snapshot);updateSelection();organization.refresh();pendingRestore=true;renderTimeline()
     }
 
     private fun bindNavigation() {
@@ -299,6 +345,7 @@ open class MainActivity : ComponentActivity() {
     private fun renderTimeline() {
         val publish = {
             timeline.select(selection.ids)
+            renderAccessState()
             if (pendingRestore || ui.anchorId != null) {
                 pendingRestore = false
                 ui.anchorId?.let {
@@ -523,7 +570,7 @@ open class MainActivity : ComponentActivity() {
         organization.refresh()
     }
 
-    override fun onStop() { model.stopObserving(); super.onStop() }
+    override fun onStop() { biometricCancellation?.cancel();biometricCancellation=null;model.stopObserving(); super.onStop() }
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("export.pending", pendingExportId)
@@ -534,6 +581,7 @@ open class MainActivity : ComponentActivity() {
         outState.putInt(STATE_SCROLL_OFFSET, ui.anchorOffset)
         outState.putInt(STATE_SCROLL_CHRONOLOGICAL_INDEX, ui.anchorChronologicalIndex)
         outState.putStringArrayList(STATE_SELECTION, ArrayList(selection.ids))
+        outState.putLong(STATE_PRIVACY_EPOCH,SensitiveMediaSession.current.snapshot().epoch)
         organization.save(outState)
         importSummaryEvents.renderedOperationId?.let { outState.putLong(STATE_RENDERED_IMPORT_SUMMARY, it) }
         super.onSaveInstanceState(outState)
@@ -588,7 +636,7 @@ open class MainActivity : ComponentActivity() {
         }
         status.text = message?.let(::getString).orEmpty()
         status.visibility = if (message == null) View.GONE else View.VISIBLE
-        val showEmpty = currentScreenState is GalleryScreenState.Empty ||
+        val showEmpty = (ui.section==GallerySection.FEED&&!timeline.hasEntries()&&model.state.value?.scanning!=true) || currentScreenState is GalleryScreenState.Empty ||
             (photos.isEmpty() && (currentScreenState is GalleryScreenState.Denied || currentScreenState is GalleryScreenState.PermanentlyDenied || currentScreenState is GalleryScreenState.SourceError))
         findViewById<TextView>(R.id.empty_gallery).apply {
             text = if (showEmpty && currentScreenState is GalleryScreenState.SourceError) getString(requireNotNull(message)) else getString(R.string.gallery_placeholder)
@@ -596,10 +644,11 @@ open class MainActivity : ComponentActivity() {
         }
     }
     private fun spansFor(widthPx: Int) = if (widthPx / resources.displayMetrics.density >= 600f) 12 else 6
-    override fun onDestroy() { organization.close(); organizationScope.cancel(); timeline.close(); super.onDestroy() }
+    override fun onDestroy() { privacySubscription?.close();organization.close(); organizationScope.cancel(); timeline.close(); super.onDestroy() }
 
     companion object {
         private const val STATE_SELECTION = "gallery.selection"
+        private const val STATE_PRIVACY_EPOCH = "gallery.selection.privacy_epoch"
         private const val STATE_LEVEL = "gallery.level"
         private const val STATE_SECTION = "gallery.section"
         private const val STATE_SCROLL_ID = "gallery.scroll.id"

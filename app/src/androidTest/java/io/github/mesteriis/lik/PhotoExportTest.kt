@@ -60,6 +60,8 @@ class PhotoExportTest {
         val bytes = output.toByteArray()
         val trash = TrashRepository(MediaDatabase.get(context), store)
         val item = trash.importPhoto(bytes.inputStream()).photo
+        MediaDatabase.get(context).ocrPeople().saveExposure(io.github.mesteriis.lik.ai.AiMediaExposureRecord(item.id,MediaDatabase.get(context).media().get(item.id)!!.contentRevision,io.github.mesteriis.lik.ai.AiExposure.SAFE,1))
+        MediaDatabase.get(context).sensitiveMedia().saveManual(io.github.mesteriis.lik.privacy.SensitiveManualRecord(item.id,MediaDatabase.get(context).media().get(item.id)!!.contentRevision,io.github.mesteriis.lik.privacy.SensitiveDecision.SAFE,1))
         try {
             val export = PhotoExport(context)
             val destination = export.destinationIntent(item.id)

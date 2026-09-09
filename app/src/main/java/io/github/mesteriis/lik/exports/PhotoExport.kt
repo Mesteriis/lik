@@ -19,8 +19,8 @@ class PhotoExport(private val context: Context) {
     private val files get() = ExportFiles(directory)
     private val store get() = PhotoLibrary.store(context)
 
-    private fun record(id: String, operation: MediaOperation): MediaRecord =
-        MediaDatabase.get(context).media().get(id)?.takeIf { it.allows(operation) }
+    private fun record(id: String, operation: MediaOperation,snapshot:io.github.mesteriis.lik.privacy.RevealSnapshot): MediaRecord =
+        MediaDatabase.get(context).media().get(id)?.takeIf { it.allows(operation)&&io.github.mesteriis.lik.privacy.SensitiveMediaRepository(context).mayAccess(it.mediaId,it.contentRevision,snapshot) }
             ?: throw IOException("Photo unavailable")
 
     private fun open(row: MediaRecord): InputStream = when (row.source) {
@@ -39,14 +39,16 @@ class PhotoExport(private val context: Context) {
 
     fun share(ids: Set<String>): Intent = synchronized(store) {
         require(ids.isNotEmpty())
+        val privacy=io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot()
         val prepared = mutableListOf<File>()
         try {
-            val rows = ids.map { record(it, MediaOperation.SHARE) }
+            val rows = ids.map { record(it, MediaOperation.SHARE,privacy) }
             val types = rows.map(::mime)
             val uris = rows.mapIndexed { index, row ->
                 val file = files.prepare(types[index]) { open(row) }.also(prepared::add)
                 FileProvider.getUriForFile(context, "${context.packageName}.exports", file)
             }
+            rows.forEach{if(!io.github.mesteriis.lik.privacy.SensitiveMediaRepository(context).mayAccess(it.mediaId,it.contentRevision,privacy))throw IOException("Photo relocked")}
             shareIntent(uris, types.distinct().singleOrNull() ?: "image/*")
         } catch (error: Exception) { prepared.forEach(File::delete); throw error }
     }
@@ -56,15 +58,19 @@ class PhotoExport(private val context: Context) {
         // A malicious/replaced result must not redirect a write into Lik's own shared cache.
         require(destination.scheme == "content" && destination.authority != "${context.packageName}.exports")
         return synchronized(store) {
-            val row = record(id, MediaOperation.EXPORT)
+            val privacy=io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot()
+            val row = record(id, MediaOperation.EXPORT,privacy)
             // CREATE_DOCUMENT does not prove this URI is new or owned by Lik. Never delete or
             // truncate it as failure cleanup. ExportFiles removes only our prepared snapshot.
-            files.save({ context.contentResolver.openOutputStream(destination, "wt") ?: throw IOException("Destination unavailable") }) { open(row) }
+            files.save({ context.contentResolver.openOutputStream(destination, "wt") ?: throw IOException("Destination unavailable") }) {
+                if(!io.github.mesteriis.lik.privacy.SensitiveMediaRepository(context).mayAccess(row.mediaId,row.contentRevision,privacy))throw IOException("Photo relocked")
+                open(row)
+            }
         }
     }
 
     fun destinationIntent(id: String): Intent {
-        val row = record(id, MediaOperation.EXPORT)
+        val row = record(id, MediaOperation.EXPORT,io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot())
         return Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = mime(row)

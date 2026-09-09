@@ -36,7 +36,8 @@ class TrashUiTest {
         bitmap.recycle()
         val trash = TrashRepository(MediaDatabase.get(context), PhotoLibrary.store(context))
         val id = trash.importPhoto(bytes.inputStream()).photo.id
-        try { test(id, trash) } finally { trash.trash(setOf(id)); trash.purgeNow(setOf(id)) }
+        val privacy=LegacyVisibleFixture(context);privacy.markCurrentSafe()
+        try { test(id, trash) } finally { privacy.close();trash.trash(setOf(id)); trash.purgeNow(setOf(id)) }
     }
 
     @Test fun moreTrashRestoresAndRequiresConfirmationForPurge() = fixture { id, trash ->

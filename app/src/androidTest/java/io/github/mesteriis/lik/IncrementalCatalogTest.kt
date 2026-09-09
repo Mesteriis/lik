@@ -46,6 +46,7 @@ class IncrementalCatalogTest {
         source.rows = listOf(row(1))
         scanner.scan(source, true, CancellationSignal())
         val media = db.media().get(row(1).mediaId)!!
+        db.ocrPeople().saveExposure(AiMediaExposureRecord(media.mediaId,media.contentRevision,AiExposure.SAFE,1))
         val generation = AiIndexGenerationRecord("stable", "compact-v1", "SEARCH", "pipeline",
             GenerationStatus.PREPARING, 1, 1, media.mediaId, null, 1)
         db.aiIndexes().saveGeneration(generation)
@@ -148,7 +149,7 @@ class IncrementalCatalogTest {
             }
             assertEquals(60, (loaded as androidx.paging.PagingSource.LoadResult.Page).data.size)
             val middle = db.media().page(1, size / 2).single()
-            val window = MediaRepository(db).viewerWindow(middle.mediaId)
+            val window = MediaRepository(db).viewerWindow(middle.mediaId,true)
             assertEquals(3, window.size)
             assertEquals(middle.mediaId, window[1].mediaId)
             val summaries = db.media().periods("dayKey", 10, 0)

@@ -37,10 +37,11 @@ class MediaRepository(private val database: MediaDatabase) {
         }
     }
 
-    fun viewerWindow(id: String): List<MediaRecord> = database.runInTransaction<List<MediaRecord>> {
-        val current = dao.get(id)?.takeIf { it.availability == MediaAvailability.AVAILABLE }
+    fun viewerWindow(id: String,includeProtected:Boolean=false): List<MediaRecord> = database.runInTransaction<List<MediaRecord>> {
+        val current = dao.get(id)?.takeIf { it.availability == MediaAvailability.AVAILABLE &&
+            (includeProtected || database.ocrPeople().exposure(it.mediaId,it.contentRevision)==io.github.mesteriis.lik.ai.AiExposure.SAFE) }
             ?: return@runInTransaction emptyList()
-        listOfNotNull(dao.previous(id, current.sortAt), current, dao.next(id, current.sortAt))
+        listOfNotNull(dao.visiblePrevious(id,current.sortAt,includeProtected), current, dao.visibleNext(id,current.sortAt,includeProtected))
     }
 
     fun cacheExif(id: String, revision: Long, takenAt: Long?, offset: Int?, orientation: Int, zone: ZoneId) {

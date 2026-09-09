@@ -33,6 +33,7 @@ class AiRuntimeTest {
         try {
             val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).build();try{
                 val media=MediaRecord("m",MediaSource.DEVICE,"1",contentUri="content://m",lastSeenAt=1);db.media().upsert(media)
+                db.ocrPeople().saveExposure(AiMediaExposureRecord("m",0,AiExposure.SAFE,1))
                 db.aiIndexes().saveGeneration(AiIndexGenerationRecord("ocr-room",ProfileId.BALANCED.wire,AiFeature.OCR.name,ocrPipe,GenerationStatus.COMPLETE,1,1,"m",null,1))
                 db.ocrPeople().saveRun(AiFeatureMediaRunRecord("ocr-room","m",AiFeature.OCR.name,0,1,null))
             }finally{db.close()}
@@ -510,6 +511,7 @@ class AiRuntimeTest {
         try {
             database.media().upsert(MediaRecord(mediaId, MediaSource.GOOGLE_IMPORT, mediaId,
                 privateFileId = mediaId, mimeType = "image/jpeg", contentRevision = 1, lastSeenAt = 1))
+            database.ocrPeople().saveExposure(AiMediaExposureRecord(mediaId,1,AiExposure.SAFE,1))
             dao.saveGeneration(old); dao.saveGeneration(new)
             dao.saveEmbedding(AiEmbeddingRecord(oldId, mediaId, 1, 1, 1,
                 FloatArray(pipeline.dimension!!) { if (it == 0) 1f else 0f }.toBytes()))

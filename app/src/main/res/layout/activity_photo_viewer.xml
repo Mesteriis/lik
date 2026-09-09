@@ -21,6 +21,12 @@
     <Button android:id="@+id/viewer_aigate" android:layout_width="wrap_content"
         android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/aigate_send_photo"
         android:textAllCaps="false" />
+    <Button android:id="@+id/viewer_mark_safe" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/sensitive_mark_safe"
+        android:textAllCaps="false" android:visibility="gone" />
+    <Button android:id="@+id/viewer_mark_sensitive" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/sensitive_mark_sensitive"
+        android:textAllCaps="false" android:visibility="gone" />
     <Button android:id="@+id/viewer_delete" android:layout_width="wrap_content"
         android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/delete"
         android:textAllCaps="false" />

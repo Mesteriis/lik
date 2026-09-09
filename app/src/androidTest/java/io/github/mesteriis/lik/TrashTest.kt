@@ -27,6 +27,7 @@ class TrashTest {
         val bytes = byteArrayOf(1, 2, 3)
         val imported = trash.importPhoto(bytes.inputStream()).photo
         val id = imported.id
+        db.ocrPeople().saveExposure(io.github.mesteriis.lik.ai.AiMediaExposureRecord(id,db.media().get(id)!!.contentRevision,io.github.mesteriis.lik.ai.AiExposure.SAFE,1))
         val org = OrganizationRepository(db)
         val album = org.createAlbum("Семья")
         org.organize(setOf(id)) { dao, media -> dao.favorite(Favorite(media)); dao.addMember(AlbumMedia(album, media)) }

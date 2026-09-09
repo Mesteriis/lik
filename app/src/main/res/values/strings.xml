@@ -241,4 +241,15 @@
   <string name="similarity_previous_exact">Previous exact groups</string>
   <string name="similarity_next_visual">Next similar photos</string>
   <string name="similarity_previous_visual">Previous similar photos</string>
+  <string name="sensitive_reveal">Reveal hidden photos</string>
+  <string name="sensitive_hide">Hide protected photos</string>
+  <string name="sensitive_auth_title">Reveal protected photos</string>
+  <string name="sensitive_auth_message">Confirm with strong biometrics. Photos hide again when Lik leaves the foreground.</string>
+  <string name="sensitive_biometric_unavailable">Strong biometric authentication is unavailable. Protected photos remain hidden.</string>
+  <string name="sensitive_mark_safe">Mark as safe</string>
+  <string name="sensitive_mark_sensitive">Mark as sensitive</string>
+  <string name="sensitive_settings_title">Sensitive photos</string>
+  <string name="sensitive_settings_disclosure">The shared local classifier is downloaded from the pinned Hugging Face revision with the selected profile. Calibration is not complete, so classifier output cannot mark a photo safe; new and changed photos remain quarantined until manual review.</string>
+  <string name="sensitive_process_now">Run local screening</string>
+  <string name="sensitive_processing_started">Sensitive-photo screening started.</string>
 </resources>

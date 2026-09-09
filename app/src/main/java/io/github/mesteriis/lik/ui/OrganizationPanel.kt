@@ -236,7 +236,7 @@ class OrganizationPanel(
         label(text(R.string.trash_help))
         val db = MediaDatabase.get(activity)
         val trash = TrashRepository(db, io.github.mesteriis.lik.imports.PhotoLibrary.store(activity))
-        load({ db.media().trashPage(61, offset) }) { rows ->
+        load({ db.media().visibleTrashPage(io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot().revealed,61, offset) }) { rows ->
             if (rows.isEmpty()) label(text(R.string.trash_empty))
             rows.take(60).forEach { row ->
                 val title = row.displayName ?: row.mediaId.takeLast(12)
@@ -261,7 +261,7 @@ class OrganizationPanel(
             prompt(R.string.create_album) { name -> mutate { repository.createAlbum(name) } }
         }
         button(text(R.string.favorites_title), R.id.organization_favorites) { open(CatalogSearch(favorites = true), text(R.string.favorites_title)) }
-        load({ repository.dao.albums() to repository.dao.folders() }) { (albums, folders) ->
+        load({ val reveal=io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot().revealed;repository.dao.visibleAlbums(reveal) to repository.dao.visibleFolders(reveal) }) { (albums, folders) ->
             label(text(R.string.virtual_albums), true)
             if (albums.isEmpty()) label(text(R.string.no_albums))
             albums.forEach { album ->
@@ -464,7 +464,8 @@ class OrganizationPanel(
         button(text(R.string.back)) { screen = if (section == GallerySection.ALBUMS) "albums" else "search"; render() }
         label(text(R.string.results_help))
         load({
-            val found=repository.dao.search(query.query(61, offset))
+            val reveal=io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot()
+            val found=repository.dao.search(query.query(61, offset,reveal.revealed))
             val current=if(query.ocrText.isBlank())found else query.ocrGenerationId?.let{generation->OcrSafeRead.retainVisible(MediaDatabase.get(activity),generation,found)}.orEmpty()
             current.map { it to repository.dao.tags(it.mediaId) }
         }) { rows ->

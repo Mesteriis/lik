@@ -244,4 +244,15 @@
   <string name="similarity_previous_exact">Предыдущие группы совпадений</string>
   <string name="similarity_next_visual">Следующие похожие фото</string>
   <string name="similarity_previous_visual">Предыдущие похожие фото</string>
+  <string name="sensitive_reveal">Показать скрытые фото</string>
+  <string name="sensitive_hide">Скрыть защищённые фото</string>
+  <string name="sensitive_auth_title">Показать защищённые фото</string>
+  <string name="sensitive_auth_message">Подтвердите личность сильной биометрией. Фото снова скроются, когда «Лик» уйдёт с экрана.</string>
+  <string name="sensitive_biometric_unavailable">Сильная биометрическая авторизация недоступна. Защищённые фото остаются скрытыми.</string>
+  <string name="sensitive_mark_safe">Отметить как безопасное</string>
+  <string name="sensitive_mark_sensitive">Отметить как чувствительное</string>
+  <string name="sensitive_settings_title">Чувствительные фото</string>
+  <string name="sensitive_settings_disclosure">Общий локальный классификатор скачивается из закреплённой ревизии Hugging Face вместе с выбранным профилем. Калибровка не завершена, поэтому модель не может сама отметить фото безопасным; новые и изменённые фото остаются в карантине до ручной проверки.</string>
+  <string name="sensitive_process_now">Запустить локальную проверку</string>
+  <string name="sensitive_processing_started">Проверка чувствительных фото запущена.</string>
 </resources>

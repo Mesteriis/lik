@@ -29,6 +29,7 @@ class CatalogInventoryFailureTest {
     private val library = File(context.filesDir, "imported_photos")
     private val saved = File(context.cacheDir, "inventory-test-backup")
     private lateinit var importedId: String
+    private lateinit var privacy:LegacyVisibleFixture
 
     @Before fun prepareCatalog() {
         library.deleteRecursively()
@@ -42,9 +43,11 @@ class CatalogInventoryFailureTest {
         }
         importedId = PhotoLibrary.store(context).importPhoto(bytes.inputStream()).photo.id
         assertTrue(GalleryCatalog.load(context, false).any { it.id == importedId })
+        privacy=LegacyVisibleFixture(context)
     }
 
     @After fun cleanup() {
+        privacy.close()
         library.deleteRecursively()
         saved.deleteRecursively()
     }

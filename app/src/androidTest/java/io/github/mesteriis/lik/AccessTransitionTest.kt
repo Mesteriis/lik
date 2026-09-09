@@ -39,13 +39,16 @@ class AccessTransitionTest {
     private val context = instrumentation.targetContext
     private val library = File(context.filesDir, "imported_photos")
     private val mediaUris = mutableListOf<android.net.Uri>()
+    private lateinit var privacy:LegacyVisibleFixture
 
     @Before fun resetLibraryAndAccessPrompt() {
         library.deleteRecursively()
         context.getSharedPreferences("gallery_ui", 0).edit().clear().commit()
+        privacy=LegacyVisibleFixture(context)
     }
 
     @After fun cleanLibrary() {
+        privacy.close()
         library.deleteRecursively()
         mediaUris.forEach { context.contentResolver.delete(it, null, null) }
     }

@@ -82,26 +82,42 @@ class TimelineAdapter(
     private var pagingLevel: TimelineLevel? = null
     private var pagingAnchor: String? = null
     private var pagingCallback: (() -> Unit)? = null
-    private val paging = AsyncPagingDataDiffer(
-        diffCallback = object : DiffUtil.ItemCallback<TimelineEntry>() {
-            override fun areItemsTheSame(oldItem: TimelineEntry, newItem: TimelineEntry) = oldItem.stableKey == newItem.stableKey
-            override fun areContentsTheSame(oldItem: TimelineEntry, newItem: TimelineEntry) = oldItem == newItem
-        },
-        updateCallback = object : ListUpdateCallback {
-            override fun onInserted(position: Int, count: Int) { syncPage(); notifyItemRangeInserted(position, count) }
-            override fun onRemoved(position: Int, count: Int) { syncPage(); notifyItemRangeRemoved(position, count) }
-            override fun onMoved(fromPosition: Int, toPosition: Int) { syncPage(); notifyItemMoved(fromPosition, toPosition) }
-            override fun onChanged(position: Int, count: Int, payload: Any?) { syncPage(); notifyItemRangeChanged(position, count, payload) }
-        },
-    )
+    private var includeProtected=false
+    private var privacyEpoch=io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot().epoch
+    private var pagingGeneration=0L
+    private var paging = createPaging(pagingGeneration)
 
-    private fun syncPage() {
-        entries = paging.snapshot().items
+    private fun syncPage(source:AsyncPagingDataDiffer<TimelineEntry>) {
+        entries = source.snapshot().items
         chronologicalPhotoIds = entries.mapNotNull { entry -> when (entry) {
             is TimelineEntry.Photo -> entry.photo.id
             is TimelineEntry.Period -> entry.cover.id
             else -> null
         } }
+    }
+
+    private fun createPaging(generation:Long):AsyncPagingDataDiffer<TimelineEntry>{
+        lateinit var differ:AsyncPagingDataDiffer<TimelineEntry>
+        fun publish(action:()->Unit){
+            if(generation!=pagingGeneration||closed)return
+            syncPage(differ);action()
+        }
+        differ=AsyncPagingDataDiffer(
+            diffCallback=object:DiffUtil.ItemCallback<TimelineEntry>(){
+                override fun areItemsTheSame(oldItem:TimelineEntry,newItem:TimelineEntry)=oldItem.stableKey==newItem.stableKey
+                override fun areContentsTheSame(oldItem:TimelineEntry,newItem:TimelineEntry)=oldItem==newItem
+            },
+            updateCallback=object:ListUpdateCallback{
+                override fun onInserted(position:Int,count:Int)=publish{notifyItemRangeInserted(position,count)}
+                override fun onRemoved(position:Int,count:Int)=publish{notifyItemRangeRemoved(position,count)}
+                override fun onMoved(fromPosition:Int,toPosition:Int)=publish{notifyItemMoved(fromPosition,toPosition)}
+                override fun onChanged(position:Int,count:Int,payload:Any?)=publish{notifyItemRangeChanged(position,count,payload)}
+            },
+        )
+        differ.addOnPagesUpdatedListener{
+            if(generation==pagingGeneration&&!closed){syncPage(differ);pagingCallback?.also{pagingCallback=null}?.invoke()}
+        }
+        return differ
     }
 
     fun submitCatalog(timelineLevel: TimelineLevel, anchorId: String?, fallbackRank: Int, onPublished: () -> Unit): Boolean {
@@ -115,17 +131,13 @@ class TimelineAdapter(
         level = timelineLevel
         pagingCallback = onPublished
         pagingJob = pagingScope.launch {
-            val catalog = CatalogPaging(MediaDatabase.get(context).media(), context.getString(R.string.timeline_undated), PhotoLibrary.store(context)::fileFor).apply { zone = zoneId }
+            val catalog = CatalogPaging(MediaDatabase.get(context).media(), context.getString(R.string.timeline_undated),includeProtected,PhotoLibrary.store(context)::fileFor).apply { zone = zoneId }
             catalog.flow(timelineLevel, anchorId, fallbackRank).collectLatest { paging.submitData(it) }
         }
         return true
     }
 
     init {
-        paging.addOnPagesUpdatedListener {
-            syncPage()
-            pagingCallback?.also { pagingCallback = null }?.invoke()
-        }
         timelineController = TimelineController(timelineWorker, zoneId) { revision ->
             val difference = calculateDiff(revision.previous, revision.entries, revision.level)
             main.post {
@@ -167,6 +179,16 @@ class TimelineAdapter(
         accessEpoch.refresh()
         thumbnailLoader.invalidate { it.photoId.startsWith(DEVICE_PHOTO_PREFIX) && !accessEpoch.accepts(it) }
         if (entries.isNotEmpty()) notifyItemRangeChanged(0, entries.size)
+    }
+
+    @android.annotation.SuppressLint("NotifyDataSetChanged")
+    fun setSensitiveReveal(snapshot:io.github.mesteriis.lik.privacy.RevealSnapshot){
+        if(includeProtected==snapshot.revealed&&privacyEpoch==snapshot.epoch)return
+        includeProtected=snapshot.revealed;privacyEpoch=snapshot.epoch
+        pagingJob?.cancel();pagingJob=null;pagingLevel=null;pagingAnchor=null
+        pagingGeneration++;paging=createPaging(pagingGeneration)
+        thumbnailLoader.invalidate{true};thumbnailCache.clear()
+        entries=emptyList();chronologicalPhotoIds=emptyList();notifyDataSetChanged()
     }
 
     fun select(ids: Set<String>) {
@@ -253,6 +275,7 @@ class TimelineAdapter(
     }
 
     fun entryAt(position: Int): TimelineEntry = entries[position]
+    fun hasEntries():Boolean=entries.isNotEmpty()
 
     override fun getItemCount() = entries.size
     override fun getItemViewType(position: Int) = when (entries[position]) {
@@ -368,7 +391,7 @@ class TimelineAdapter(
             try { GalleryCatalog.decode(context, photo, edge) } catch (_: Exception) { null }
         }) { result ->
             main.post {
-                if (!closed && acceptsThumbnailResult(photo, key) && (view.tag as? ThumbnailBinding)?.key == key) {
+                if (!closed && acceptsThumbnailResult(photo, key) && (view.tag as? ThumbnailBinding)?.let{it.key==key&&it.privacyEpoch==privacyEpoch}==true) {
                     if (result.value != null) {
                         view.setImageBitmap(result.value)
                     } else {
@@ -378,7 +401,7 @@ class TimelineAdapter(
                 }
             }
         }
-        view.tag = ThumbnailBinding(key, photo, edge, request.priority, request)
+        view.tag = ThumbnailBinding(key, photo, edge, request.priority, request,privacyEpoch)
     }
 
     fun forget(ids: Set<String>) {
@@ -412,6 +435,7 @@ class TimelineAdapter(
         val edge: Int,
         val priority: ThumbnailPriority,
         val request: ThumbnailRequest<Bitmap>,
+        val privacyEpoch:Long,
     )
 
     companion object {

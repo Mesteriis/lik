@@ -16,6 +16,8 @@ class OrganizationTest {
             val local = MediaRecord("device:a", MediaSource.DEVICE, "a", contentUri = "content://media/a", displayName = "ЁЛКА.jpg", lastSeenAt = 1)
             val imported = MediaRecord("import", MediaSource.GOOGLE_IMPORT, "import", privateFileId = "a".repeat(64), displayName = "ЁЛКА.jpg", takenAt = 100, lastSeenAt = 1)
             db.media().upsert(local); db.media().upsert(imported)
+            db.ocrPeople().saveExposure(io.github.mesteriis.lik.ai.AiMediaExposureRecord(local.mediaId,0,io.github.mesteriis.lik.ai.AiExposure.SAFE,1))
+            db.ocrPeople().saveExposure(io.github.mesteriis.lik.ai.AiMediaExposureRecord(imported.mediaId,0,io.github.mesteriis.lik.ai.AiExposure.SAFE,1))
             val album = repo.createAlbum("Лето")
             val duplicate = repo.createAlbum("Лето")
             assertNotEquals(album, duplicate)
@@ -27,22 +29,22 @@ class OrganizationTest {
             assertEquals(1, repo.dao.tags(local.mediaId).size)
             assertEquals(2, repo.dao.albums().first { it.albumId == album }.count)
             assertEquals(0, repo.dao.albums().first { it.albumId == duplicate }.count)
-            assertEquals(setOf(local.mediaId, imported.mediaId), repo.dao.search(CatalogSearch(name = "ёлка", tag = "семья", albumId = album, favorites = true).query()).map { it.mediaId }.toSet())
-            assertEquals(listOf(imported.mediaId), repo.dao.search(CatalogSearch(from = 100, until = 101).query()).map { it.mediaId })
-            assertTrue(repo.dao.search(CatalogSearch(from = 101).query()).isEmpty())
-            assertEquals(listOf(local.mediaId), repo.dao.search(CatalogSearch(source = MediaSource.DEVICE).query()).map { it.mediaId })
+            assertEquals(setOf(local.mediaId, imported.mediaId), repo.dao.search(CatalogSearch(name = "ёлка", tag = "семья", albumId = album, favorites = true).query(includeProtected=true)).map { it.mediaId }.toSet())
+            assertEquals(listOf(imported.mediaId), repo.dao.search(CatalogSearch(from = 100, until = 101).query(includeProtected=true)).map { it.mediaId })
+            assertTrue(repo.dao.search(CatalogSearch(from = 101).query(includeProtected=true)).isEmpty())
+            assertEquals(listOf(local.mediaId), repo.dao.search(CatalogSearch(source = MediaSource.DEVICE).query(includeProtected=true)).map { it.mediaId })
             db.media().markSource(MediaSource.DEVICE, MediaAvailability.INACCESSIBLE)
             assertEquals(setOf(imported.mediaId), repo.eligible(setOf(local.mediaId, imported.mediaId), MediaOperation.ORGANIZE))
-            assertEquals(1, repo.dao.search(CatalogSearch(albumId = album).query()).size)
+            assertEquals(1, repo.dao.search(CatalogSearch(albumId = album).query(includeProtected=true)).size)
             db.close()
             db = Room.databaseBuilder(context, MediaDatabase::class.java, name).build()
             assertEquals(1, db.organization().tags(local.mediaId).size)
             db.media().markSeen(local.mediaId, 2)
-            assertEquals(2, db.organization().search(CatalogSearch(albumId = album, favorites = true).query()).size)
+            assertEquals(2, db.organization().search(CatalogSearch(albumId = album, favorites = true).query(includeProtected=true)).size)
             db.organization().removeMember(album, local.mediaId)
             db.organization().unfavorite(local.mediaId)
             OrganizationRepository(db).tag(setOf(local.mediaId), "семья", false)
-            assertEquals(1, db.organization().search(CatalogSearch(albumId = album).query()).size)
+            assertEquals(1, db.organization().search(CatalogSearch(albumId = album).query(includeProtected=true)).size)
             assertTrue(db.organization().tags(local.mediaId).isEmpty())
             db.organization().renameAlbum(album, "Осень")
             assertEquals("Осень", db.organization().albums().first { it.albumId == album }.name)
@@ -58,12 +60,12 @@ class OrganizationTest {
             listOf("primary", "sdcard").forEach { volume -> db.media().upsert(MediaRecord(volume, MediaSource.DEVICE, "1", volumeName = volume,
                 bucketId = "1", bucketName = "Camera", relativePath = "DCIM/Camera/", displayName = "100%_СНИМОК.jpg", lastSeenAt = 1)) }
             assertEquals(2, db.organization().folders().size)
-            db.organization().folders().forEach { assertEquals(1, db.organization().search(CatalogSearch(folder = it).query()).size) }
-            assertEquals(2, db.organization().search(CatalogSearch(name = "%_снимок").query()).size)
-            assertTrue(db.organization().search(CatalogSearch(name = "' OR 1=1 --").query()).isEmpty())
+            db.organization().folders().forEach { assertEquals(1, db.organization().search(CatalogSearch(folder = it).query(includeProtected=true)).size) }
+            assertEquals(2, db.organization().search(CatalogSearch(name = "%_снимок").query(includeProtected=true)).size)
+            assertTrue(db.organization().search(CatalogSearch(name = "' OR 1=1 --").query(includeProtected=true)).isEmpty())
             val row = db.media().get("primary")!!
             db.media().upsert(row.copy(displayName = "ИЗМЕНЕНО"))
-            assertEquals(1, db.organization().search(CatalogSearch(name = "изменено").query()).size)
+            assertEquals(1, db.organization().search(CatalogSearch(name = "изменено").query(includeProtected=true)).size)
         } finally { db.close() }
     }
 

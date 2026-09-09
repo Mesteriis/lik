@@ -148,6 +148,7 @@ class ImportViewModel(application: Application) : AndroidViewModel(application) 
                     publish(current)
                 }
                 current = current.copy(photos = GalleryCatalog.load(getApplication(), hasPhotoPermission()))
+                io.github.mesteriis.lik.privacy.SensitiveClassifierWorker.enqueue(getApplication())
             } catch (_: IOException) {
                 current = current.copy(failed = current.failed + (current.total - current.processed), processed = current.total,
                     failureKinds = current.failureKinds + ImportFailureKind.STORAGE)

@@ -19,18 +19,19 @@ import java.time.format.FormatStyle
 import java.util.Locale
 
 /** Paging retains at most three photo pages; overview rows contain at most three covers. */
-class CatalogPaging(private val dao: MediaDao, private val undatedLabel: String, private val privateFile: (String) -> File) {
+class CatalogPaging(private val dao: MediaDao, private val undatedLabel: String, private val includeProtected:Boolean=false,
+                    private val privateFile: (String) -> File) {
     suspend fun flow(level: TimelineLevel, anchorId: String?, fallbackRank: Int): Flow<PagingData<TimelineEntry>> {
         val config = PagingConfig(pageSize = 60, initialLoadSize = 60, prefetchDistance = 15, maxSize = 180, enablePlaceholders = false)
         val anchor = withContext(Dispatchers.IO) { anchorId?.let(dao::get) }
         if (level == TimelineLevel.PHOTO || level == TimelineLevel.DAYS) {
-            val rank = withContext(Dispatchers.IO) { anchor?.let { dao.rank(it.mediaId, it.sortAt) } ?: fallbackRank }
-            return Pager(config, initialKey = rank.coerceAtLeast(0), pagingSourceFactory = dao::feed).flow.map { data ->
+            val rank = withContext(Dispatchers.IO) { anchor?.let { dao.visibleRank(it.mediaId, it.sortAt,includeProtected) } ?: fallbackRank }
+            return Pager(config, initialKey = rank.coerceAtLeast(0), pagingSourceFactory = {dao.visibleFeed(includeProtected)}).flow.map { data ->
                 val photos = data.map { record ->
                     withContext(Dispatchers.IO) {
-                        val group = if (level == TimelineLevel.DAYS) dao.dayPosition(record.mediaId, record.sortAt, record.dayKey) else 0
-                        val count = if (level == TimelineLevel.DAYS) dao.dayCount(record.dayKey) else 0
-                        TimelineEntry.Photo(record.toGalleryPhoto(privateFile), group, count, dao.rank(record.mediaId, record.sortAt)) as TimelineEntry
+                        val group = if (level == TimelineLevel.DAYS) dao.visibleDayPosition(record.mediaId, record.sortAt, record.dayKey,includeProtected) else 0
+                        val count = if (level == TimelineLevel.DAYS) dao.visibleDayCount(record.dayKey,includeProtected) else 0
+                        TimelineEntry.Photo(record.toGalleryPhoto(privateFile), group, count, dao.visibleRank(record.mediaId, record.sortAt,includeProtected)) as TimelineEntry
                     }
                 }
                 if (level == TimelineLevel.PHOTO) photos else photos.insertSeparators { before, after ->
@@ -43,16 +44,16 @@ class CatalogPaging(private val dao: MediaDao, private val undatedLabel: String,
         }
         val column = when (level) { TimelineLevel.WEEKS -> "weekKey"; TimelineLevel.MONTHS -> "monthKey"; else -> "yearKey" }
         val rank = withContext(Dispatchers.IO) {
-            if (anchor == null) 0 else dao.periodRank(column, anchor.sortAt)
+            if(anchor==null)0 else dao.visiblePeriodRank(column,anchor.sortAt,includeProtected)
         }
-        return Pager(config, initialKey = rank, pagingSourceFactory = { dao.periodFeed(SimpleSQLiteQuery(periodSql(column))) }).flow.map { data ->
+        return Pager(config, initialKey = rank, pagingSourceFactory = { dao.periodFeed(SimpleSQLiteQuery(visiblePeriodSql(column,includeProtected))) }).flow.map { data ->
             data.map { summary ->
                 withContext(Dispatchers.IO) {
-                    val covers = dao.covers(column, summary.periodKey).map { it.toGalleryPhoto(privateFile) }
+                    val covers = dao.visibleCovers(column, summary.periodKey,includeProtected).map { it.toGalleryPhoto(privateFile) }
                     // Room invalidates a generation if rows vanish between aggregate and cover reads.
                     if (covers.isEmpty()) TimelineEntry.Header(summary.periodKey, label(summary.periodKey, level), "")
                     else TimelineEntry.Period(summary.periodKey, label(summary.periodKey, level), summary.count,
-                        covers.first(), covers, covers, level.closer(), dao.rank(covers.first().id, summary.newestAt))
+                        covers.first(), covers, covers, level.closer(), dao.visibleRank(covers.first().id, summary.newestAt,includeProtected))
                 }
             }
         }

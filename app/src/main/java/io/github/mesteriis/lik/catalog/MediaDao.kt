@@ -30,6 +30,9 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE availability = 'AVAILABLE' ORDER BY COALESCE(takenAt, addedAt, -9223372036854775808) DESC, mediaId DESC")
     fun available(): List<MediaRecord>
 
+    @Query("SELECT m.* FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.availability='AVAILABLE' AND (:includeProtected=1 OR x.exposure='SAFE') ORDER BY m.sortAt DESC,m.mediaId DESC")
+    fun visible(includeProtected:Boolean):List<MediaRecord>
+
     @Query("UPDATE media SET availability = :availability WHERE source = :source AND availability NOT IN ('TRASHED', 'PURGING')")
     fun markSource(source: MediaSource, availability: MediaAvailability)
 
@@ -44,6 +47,8 @@ interface MediaDao {
 
     @Query("SELECT * FROM media WHERE source = 'GOOGLE_IMPORT' AND availability = 'TRASHED' ORDER BY trashedAt DESC, mediaId LIMIT :limit OFFSET :offset")
     fun trashPage(limit: Int = 60, offset: Int = 0): List<MediaRecord>
+    @Query("SELECT m.* FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.source='GOOGLE_IMPORT' AND m.availability='TRASHED' AND (:includeProtected=1 OR x.exposure='SAFE') ORDER BY m.trashedAt DESC,m.mediaId LIMIT :limit OFFSET :offset")
+    fun visibleTrashPage(includeProtected:Boolean,limit:Int=60,offset:Int=0):List<MediaRecord>
 
     @Query("UPDATE media SET availability = 'TRASHED', trashedAt = :now WHERE mediaId IN (:ids) AND source = 'GOOGLE_IMPORT' AND availability = 'AVAILABLE' AND privateFileId IS NOT NULL")
     fun trash(ids: Set<String>, now: Long): Int
@@ -86,6 +91,24 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE availability = 'AVAILABLE' ORDER BY sortAt DESC, mediaId DESC")
     fun feed(): PagingSource<Int, MediaRecord>
 
+    @Query("SELECT m.* FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.availability='AVAILABLE' AND (:includeProtected=1 OR x.exposure='SAFE') ORDER BY m.sortAt DESC,m.mediaId DESC")
+    fun visibleFeed(includeProtected:Boolean):PagingSource<Int,MediaRecord>
+
+    @Query("SELECT m.* FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.availability='AVAILABLE' AND (:includeProtected=1 OR x.exposure='SAFE') AND (m.sortAt<:at OR (m.sortAt=:at AND m.mediaId<:id)) ORDER BY m.sortAt DESC,m.mediaId DESC LIMIT 1")
+    fun visibleNext(id:String,at:Long,includeProtected:Boolean):MediaRecord?
+
+    @Query("SELECT m.* FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.availability='AVAILABLE' AND (:includeProtected=1 OR x.exposure='SAFE') AND (m.sortAt>:at OR (m.sortAt=:at AND m.mediaId>:id)) ORDER BY m.sortAt ASC,m.mediaId ASC LIMIT 1")
+    fun visiblePrevious(id:String,at:Long,includeProtected:Boolean):MediaRecord?
+
+    @Query("SELECT COUNT(*) FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.availability='AVAILABLE' AND (:includeProtected=1 OR x.exposure='SAFE') AND (m.sortAt>:at OR (m.sortAt=:at AND m.mediaId>:id))")
+    fun visibleRank(id:String,at:Long,includeProtected:Boolean):Int
+
+    @Query("SELECT COUNT(*) FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.availability='AVAILABLE' AND (:includeProtected=1 OR x.exposure='SAFE') AND m.dayKey=:day")
+    fun visibleDayCount(day:String,includeProtected:Boolean):Int
+
+    @Query("SELECT COUNT(*) FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.availability='AVAILABLE' AND (:includeProtected=1 OR x.exposure='SAFE') AND m.dayKey=:day AND (m.sortAt>:at OR (m.sortAt=:at AND m.mediaId>:id))")
+    fun visibleDayPosition(id:String,at:Long,day:String,includeProtected:Boolean):Int
+
     @Query("SELECT * FROM media WHERE availability = 'AVAILABLE' AND (sortAt < :at OR (sortAt = :at AND mediaId < :id)) ORDER BY sortAt DESC, mediaId DESC LIMIT 1")
     fun next(id: String, at: Long): MediaRecord?
 
@@ -124,10 +147,27 @@ interface MediaDao {
         require(column in PERIOD_COLUMNS)
         return mediaRows(SimpleSQLiteQuery("SELECT * FROM media WHERE availability = 'AVAILABLE' AND $column = ? ORDER BY sortAt DESC, mediaId DESC LIMIT 3", arrayOf(key)))
     }
+
+    fun visibleCovers(column:String,key:String,includeProtected:Boolean):List<MediaRecord>{
+        require(column in PERIOD_COLUMNS)
+        return mediaRows(SimpleSQLiteQuery("SELECT m.* FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.availability='AVAILABLE' AND (?=1 OR x.exposure='SAFE') AND m.$column=? ORDER BY m.sortAt DESC,m.mediaId DESC LIMIT 3",arrayOf<Any>(if(includeProtected)1 else 0,key)))
+    }
+
+    fun visiblePeriodRank(column:String,at:Long,includeProtected:Boolean):Int{
+        require(column in PERIOD_COLUMNS)
+        val visible=if(includeProtected)"1=1" else "x.exposure='SAFE'"
+        return integer(SimpleSQLiteQuery("SELECT COUNT(*) FROM (SELECT MAX(m.sortAt) newest FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.availability='AVAILABLE' AND $visible GROUP BY m.$column HAVING newest>(SELECT MAX(a.sortAt) FROM media a LEFT JOIN ai_media_exposure ax ON ax.mediaId=a.mediaId AND ax.contentRevision=a.contentRevision WHERE a.availability='AVAILABLE' AND ${if(includeProtected)"1=1" else "ax.exposure='SAFE'"} AND a.$column=(SELECT b.$column FROM media b LEFT JOIN ai_media_exposure bx ON bx.mediaId=b.mediaId AND bx.contentRevision=b.contentRevision WHERE b.availability='AVAILABLE' AND ${if(includeProtected)"1=1" else "bx.exposure='SAFE'"} AND b.sortAt<=? ORDER BY b.sortAt DESC,b.mediaId DESC LIMIT 1)))",arrayOf(at)))
+    }
 }
 
 val PERIOD_COLUMNS = setOf("dayKey", "weekKey", "monthKey", "yearKey")
 fun periodSql(column: String): String {
     require(column in PERIOD_COLUMNS)
     return "SELECT $column AS periodKey, COUNT(*) AS count, MAX(sortAt) AS newestAt FROM media WHERE availability = 'AVAILABLE' GROUP BY $column ORDER BY newestAt DESC, periodKey DESC"
+}
+
+fun visiblePeriodSql(column:String,includeProtected:Boolean):String{
+    require(column in PERIOD_COLUMNS)
+    val visible=if(includeProtected)"1=1" else "x.exposure='SAFE'"
+    return "SELECT m.$column AS periodKey,COUNT(*) AS count,MAX(m.sortAt) AS newestAt FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.availability='AVAILABLE' AND $visible GROUP BY m.$column ORDER BY newestAt DESC,periodKey DESC"
 }

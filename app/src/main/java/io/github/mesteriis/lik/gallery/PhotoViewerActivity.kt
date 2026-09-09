@@ -27,6 +27,7 @@ import io.github.mesteriis.lik.ai.OcrRepository
 import io.github.mesteriis.lik.ai.AiUiPublicationGuard
 import io.github.mesteriis.lik.ai.AiFeature
 import io.github.mesteriis.lik.ai.ModelCatalog
+import io.github.mesteriis.lik.privacy.*
 
 class PhotoViewerActivity : ComponentActivity() {
     private lateinit var model: PhotoViewerViewModel
@@ -39,8 +40,10 @@ class PhotoViewerActivity : ComponentActivity() {
     private var currentRevision: Long = -1
     private var aiGateRequest = 0L
     private var ocrRequest = 0L
+    private var currentRequiredRevealEpoch:Long?=null
     @Volatile private var aiGateClient: AiGateClient? = null
     private var aiGateSettingsSubscription: AutoCloseable? = null
+    private var privacySubscription:AutoCloseable?=null
     private val ocrInvalidation by lazy { object:androidx.room.InvalidationTracker.Observer("media","ai_media_exposure","ai_ocr_result") {
         override fun onInvalidated(tables:Set<String>) { runOnUiThread { currentMediaId?.let { loadOcr(it,currentRevision) } } }
     } }
@@ -62,6 +65,8 @@ class PhotoViewerActivity : ComponentActivity() {
         }
         findViewById<View>(R.id.viewer_delete).setOnClickListener { confirmDelete() }
         findViewById<View>(R.id.viewer_aigate).setOnClickListener { sendToAiGate() }
+        findViewById<View>(R.id.viewer_mark_safe).setOnClickListener{setSensitiveDecision(SensitiveDecision.SAFE)}
+        findViewById<View>(R.id.viewer_mark_sensitive).setOnClickListener{setSensitiveDecision(SensitiveDecision.SENSITIVE)}
         findViewById<View>(R.id.viewer_copy_ocr).setOnClickListener {
             val value=findViewById<TextView>(R.id.viewer_ocr_text).text
             getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(android.content.ClipData.newPlainText(getString(R.string.ocr_text_title),value))
@@ -71,10 +76,17 @@ class PhotoViewerActivity : ComponentActivity() {
             if (!enabled) { aiGateRequest++; aiGateConsent.clear(); aiGateClient?.cancel(); aiGateClient = null }
         }
         model.state.observe(this, ::render)
+        privacySubscription=SensitiveMediaSession.current.observe{snapshot->runOnUiThread{privacyChanged(snapshot)}}
         model.start(intent.getStringExtra(EXTRA_PHOTO_ID))
     }
 
     private fun render(state: ViewerState) {
+        state.requiredRevealEpoch?.let{epoch->
+            if(!SensitiveMediaSession.current.accepts(epoch)){
+                image.setImageDrawable(null);shownBitmap=null;currentMediaId=null;currentRevision=-1;finish();return
+            }
+        }
+        currentRequiredRevealEpoch=state.requiredRevealEpoch
         state.cursor?.current?.id?.let { id ->
             setResult(RESULT_OK, Intent().putExtra(EXTRA_RESULT_PHOTO_ID, id))
         }
@@ -118,6 +130,7 @@ class PhotoViewerActivity : ComponentActivity() {
         aiGateIo.shutdownNow()
         ocrRequest++
         ocrIo.shutdownNow()
+        privacySubscription?.close()
         super.onDestroy()
     }
 
@@ -147,6 +160,22 @@ class PhotoViewerActivity : ComponentActivity() {
         super.onStop()
     }
 
+    private fun privacyChanged(snapshot:RevealSnapshot){
+        if(snapshot.revealed)window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        findViewById<View>(R.id.viewer_mark_safe).visibility=if(snapshot.revealed)View.VISIBLE else View.GONE
+        findViewById<View>(R.id.viewer_mark_sensitive).visibility=if(snapshot.revealed)View.VISIBLE else View.GONE
+        if(currentRequiredRevealEpoch?.let{!SensitiveMediaSession.current.accepts(it)}==true){
+            aiGateRequest++;ocrRequest++;aiGateConsent.clear();aiGateClient?.cancel();image.setImageDrawable(null);shownBitmap=null;finish()
+        }
+    }
+
+    private fun setSensitiveDecision(decision:SensitiveDecision){
+        val id=currentMediaId?:return
+        if(SensitiveMediaRepository(this).setManual(id,decision)){
+            if(decision==SensitiveDecision.SENSITIVE){image.setImageDrawable(null);shownBitmap=null;finish()}
+        }
+    }
+
     override fun onStart() {
         super.onStart()
         MediaDatabase.get(this).invalidationTracker.addObserver(ocrInvalidation)
@@ -157,7 +186,7 @@ class PhotoViewerActivity : ComponentActivity() {
         if (!settings.enabled) { Toast.makeText(this, R.string.aigate_enable_in_settings, Toast.LENGTH_LONG).show(); return }
         val mediaId = currentMediaId ?: return
         val revision = currentRevision
-        if (!AiGatePhotoBoundary.maySend(mediaId, revision)) {
+        if (!AiGatePhotoBoundary.maySend(this,mediaId, revision)) {
             Toast.makeText(this, R.string.aigate_task13_required, Toast.LENGTH_LONG).show(); return
         }
         if (shownBitmap == null) return
@@ -176,6 +205,7 @@ class PhotoViewerActivity : ComponentActivity() {
                         require(client.health().running) { "AIGATE_NOT_RUNNING" }
                         client.models()
                         require(AiGateSettings(this).enabled && request == aiGateRequest) { "AIGATE_CANCELLED" }
+                        require(AiGatePhotoBoundary.maySend(this,mediaId,revision)){"SENSITIVE_RELOCKED"}
                         val row = requireNotNull(MediaDatabase.get(this).media().get(mediaId)) { "PHOTO_MISSING" }
                         require(row.contentRevision == revision && row.availability.name == "AVAILABLE") { "PHOTO_CHANGED" }
                         val jpeg = if (row.source == MediaSource.DEVICE) {
@@ -183,12 +213,14 @@ class PhotoViewerActivity : ComponentActivity() {
                         } else {
                             AiGateImage.encode(PhotoLibrary.store(this).fileFor(requireNotNull(row.privateFileId)))
                         }
+                        require(AiGatePhotoBoundary.maySend(this,mediaId,revision)){"SENSITIVE_RELOCKED"}
                         client.chat(token, aiGateConsent, mediaId, revision, request, text, jpeg)
                     }
                     runOnUiThread {
                         if (aiGateClient === client) aiGateClient = null
                         if (request != aiGateRequest || currentMediaId != mediaId || currentRevision != revision) return@runOnUiThread
                         if (!AiGateSettings(this).enabled) return@runOnUiThread
+                        if(!AiGatePhotoBoundary.maySend(this,mediaId,revision))return@runOnUiThread
                         result.onSuccess { reply -> AlertDialog.Builder(this).setTitle(R.string.aigate_reply).setMessage(reply.text)
                             .setPositiveButton(android.R.string.ok, null).show() }
                             .onFailure { Toast.makeText(this, getString(R.string.aigate_send_failed, it.message ?: "error"), Toast.LENGTH_LONG).show() }

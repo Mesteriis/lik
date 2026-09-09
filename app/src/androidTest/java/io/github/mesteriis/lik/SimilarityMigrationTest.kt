@@ -28,10 +28,11 @@ class SimilarityMigrationTest {
                 sqlite.execSQL("INSERT INTO similarity_scan VALUES('a',1,1,2,'01',1,1)")
                 sqlite.execSQL("INSERT INTO similarity_checkpoint(checkpointId,checkpointMediaId,completed,total,status,updatedAt,error,libraryRevision,tranche,comparisons,continuations) VALUES('default','a',4,9,'PAUSED',10,NULL,0,7,8192,7)");sqlite.version=13
             }
-            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_13_14).build();try{
+            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_13_14, MediaDatabase.MIGRATION_14_15).build();try{
                 val sql=db.openHelper.writableDatabase;fun count(table:String)=sql.query("SELECT COUNT(*) FROM $table").use{it.moveToFirst();it.getInt(0)}
-                assertEquals(14,sql.version);assertEquals(2,count("content_fingerprint"));assertEquals(0,count("similarity_relation"));assertEquals(0,count("similarity_scan"));assertEquals(0,db.similarity().fingerprint("a")!!.relationsRevision)
+                assertEquals(15,sql.version);assertEquals(2,count("content_fingerprint"));assertEquals(0,count("similarity_relation"));assertEquals(0,count("similarity_scan"));assertEquals(0,db.similarity().fingerprint("a")!!.relationsRevision)
                 val paused=db.similarity().checkpoint()!!;assertEquals(SimilarityWorkStatus.PAUSED,paused.status);assertEquals(7,paused.tranche);assertEquals(8192,paused.comparisons);assertEquals(7,paused.continuations);var calculations=0
+                db.ocrPeople().saveExposure(AiMediaExposureRecord("a",1,AiExposure.SAFE,2));db.ocrPeople().saveExposure(AiMediaExposureRecord("c",1,AiExposure.SAFE,2))
                 assertEquals(SimilarityRunOutcome.PAUSED_BUDGET,SimilarityProcessor(db,FingerprintCalculator{_,_->calculations++;CalculatedFingerprint("new",ByteArray(8))},{false}).run());assertEquals(0,calculations);assertEquals(8192,db.similarity().checkpoint()!!.comparisons)
                 SimilarityProcessor(db,FingerprintCalculator{_,_->calculations++;CalculatedFingerprint("new",ByteArray(8))},{false},newTranche=true).run();assertTrue(calculations>0);assertTrue(db.similarity().checkpoint()!!.comparisons<8192)
             }finally{db.close()}
@@ -45,8 +46,8 @@ class SimilarityMigrationTest {
                 val entities=schema.getJSONArray("entities");for(index in 0 until entities.length()){val entity=entities.getJSONObject(index);val table=entity.getString("tableName");sqlite.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}",table));val indices=entity.optJSONArray("indices")?:JSONArray();for(i in 0 until indices.length())sqlite.execSQL(indices.getJSONObject(i).getString("createSql").replace("\${TABLE_NAME}",table))}
                 val setup=schema.getJSONArray("setupQueries");for(i in 0 until setup.length())sqlite.execSQL(setup.getString(i));sqlite.execSQL("INSERT INTO album VALUES('kept','Семья')");sqlite.version=10
             }
-            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_10_11, MediaDatabase.MIGRATION_11_12, MediaDatabase.MIGRATION_12_13, MediaDatabase.MIGRATION_13_14).build()
-            try{assertEquals("Семья",db.organization().albums().single().name);assertTrue(db.similarity().visibleRelations(10,0).isEmpty());db.similarity().saveCheckpoint(SimilarityCheckpoint(checkpointMediaId=null,completed=0,total=0,status=SimilarityWorkStatus.COMPLETE,updatedAt=1));assertNotNull(db.similarity().checkpoint());assertEquals(14,db.openHelper.writableDatabase.version)}finally{db.close()}
+            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_10_11, MediaDatabase.MIGRATION_11_12, MediaDatabase.MIGRATION_12_13, MediaDatabase.MIGRATION_13_14, MediaDatabase.MIGRATION_14_15).build()
+            try{assertEquals("Семья",db.organization().albums().single().name);assertTrue(db.similarity().visibleRelations(10,0).isEmpty());db.similarity().saveCheckpoint(SimilarityCheckpoint(checkpointMediaId=null,completed=0,total=0,status=SimilarityWorkStatus.COMPLETE,updatedAt=1));assertNotNull(db.similarity().checkpoint());assertEquals(15,db.openHelper.writableDatabase.version)}finally{db.close()}
         }finally{context.deleteDatabase(name)}
     }
 
@@ -62,12 +63,12 @@ class SimilarityMigrationTest {
                 sqlite.execSQL("INSERT INTO similarity_relation VALUES('a','b',1,1,2,2,'VISUAL',1,1,3)")
                 sqlite.execSQL("INSERT INTO similarity_checkpoint VALUES('default','a',1,1,'COMPLETE',3,NULL)");sqlite.version=11
             }
-            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_11_12, MediaDatabase.MIGRATION_12_13, MediaDatabase.MIGRATION_13_14).build()
+            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_11_12, MediaDatabase.MIGRATION_12_13, MediaDatabase.MIGRATION_13_14, MediaDatabase.MIGRATION_14_15).build()
             try{
                 val sql=db.openHelper.writableDatabase
                 fun count(table:String)=sql.query("SELECT COUNT(*) FROM $table").use{it.moveToFirst();it.getInt(0)}
                 assertEquals(0,count("fingerprint_band"));assertEquals(0,count("similarity_relation"));assertEquals(0,db.similarity().progress().completed)
-                db.similarity().saveScan(SimilarityScanRecord("a",1,2,PerceptualFingerprintV2.VERSION,"",0,4));assertNotNull(db.similarity().scan("a"));assertEquals(14,sql.version)
+                db.similarity().saveScan(SimilarityScanRecord("a",1,2,PerceptualFingerprintV2.VERSION,"",0,4));assertNotNull(db.similarity().scan("a"));assertEquals(15,sql.version)
                 val revision=db.similarity().libraryRevision();val trigger=MediaRecord("trigger",MediaSource.DEVICE,"trigger",lastSeenAt=1);db.media().upsert(trigger);db.ocrPeople().saveExposure(AiMediaExposureRecord("trigger",0,AiExposure.SAFE,1));assertEquals(revision+1,db.similarity().libraryRevision())
             }finally{db.close()}
         }finally{context.deleteDatabase(name)}

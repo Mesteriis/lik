@@ -46,10 +46,11 @@ data class CatalogSearch(
     init { require(from == null || until == null || from < until) }
 
     /** Date interval is [from, until); undated rows only match an unbounded date filter. */
-    fun query(limit: Int = 60, offset: Int = 0): SupportSQLiteQuery {
+    fun query(limit: Int = 60, offset: Int = 0,includeProtected:Boolean=false): SupportSQLiteQuery {
         require(limit in 1..120 && offset >= 0)
         val clauses = mutableListOf("m.availability = 'AVAILABLE'")
         val args = mutableListOf<Any>()
+        if(!includeProtected)clauses += "EXISTS (SELECT 1 FROM ai_media_exposure privacy WHERE privacy.mediaId=m.mediaId AND privacy.contentRevision=m.contentRevision AND privacy.exposure='SAFE')"
         fun condition(sql: String, value: Any) { clauses += sql; args += value }
         if (name.isNotEmpty()) condition("instr(m.displayNameSearch, ?) > 0", searchKey(name))
         from?.let { condition("COALESCE(m.takenAt, m.addedAt) >= ?", it) }
@@ -58,7 +59,7 @@ data class CatalogSearch(
         if (tag.isNotBlank()) condition("EXISTS (SELECT 1 FROM media_tag t WHERE t.mediaId = m.mediaId AND t.tagKey = ?)", searchKey(tag.trim()))
         if (ocrText.isNotBlank()) {
             require(!ocrGenerationId.isNullOrBlank())
-            condition("EXISTS (SELECT 1 FROM ai_ocr_result o JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE o.mediaId=m.mediaId AND o.generationId=? AND o.contentRevision=m.contentRevision AND o.accessEpoch=m.accessGrantEpoch AND x.exposure='SAFE' AND instr(o.searchText,?)>0)", ocrGenerationId)
+            condition("EXISTS (SELECT 1 FROM ai_ocr_result o LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE o.mediaId=m.mediaId AND o.generationId=? AND o.contentRevision=m.contentRevision AND o.accessEpoch=m.accessGrantEpoch AND (${if(includeProtected)"1=1" else "x.exposure='SAFE'"}) AND instr(o.searchText,?)>0)", ocrGenerationId)
             args += io.github.mesteriis.lik.ai.OcrText.searchKey(ocrText)
         }
         albumId?.let { condition("EXISTS (SELECT 1 FROM album_media a WHERE a.mediaId = m.mediaId AND a.albumId = ?)", it) }
@@ -88,8 +89,12 @@ interface OrganizationDao {
     @Query("SELECT * FROM media_tag WHERE mediaId = :id ORDER BY tagKey") fun tags(id: String): List<MediaTag>
     @Query("SELECT a.albumId, a.name, COUNT(m.mediaId) AS count FROM album a LEFT JOIN album_media am ON am.albumId = a.albumId LEFT JOIN media m ON m.mediaId = am.mediaId AND m.availability = 'AVAILABLE' GROUP BY a.albumId ORDER BY a.name, a.albumId")
     fun albums(): List<AlbumSummary>
+    @Query("SELECT a.albumId,a.name,COUNT(m.mediaId) AS count FROM album a LEFT JOIN album_media am ON am.albumId=a.albumId LEFT JOIN media m ON m.mediaId=am.mediaId AND m.availability='AVAILABLE' LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE :includeProtected=1 OR m.mediaId IS NULL OR x.exposure='SAFE' GROUP BY a.albumId ORDER BY a.name,a.albumId")
+    fun visibleAlbums(includeProtected:Boolean):List<AlbumSummary>
     @Query("SELECT volumeName, COALESCE(bucketId, '') AS bucketId, COALESCE(relativePath, '') AS relativePath, MAX(bucketName) AS name, COUNT(*) AS count FROM media WHERE source = 'DEVICE' AND availability = 'AVAILABLE' GROUP BY volumeName, COALESCE(bucketId, ''), COALESCE(relativePath, '') ORDER BY name, volumeName, relativePath, bucketId")
     fun folders(): List<DeviceFolder>
+    @Query("SELECT m.volumeName,COALESCE(m.bucketId,'') AS bucketId,COALESCE(m.relativePath,'') AS relativePath,MAX(m.bucketName) AS name,COUNT(*) AS count FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.source='DEVICE' AND m.availability='AVAILABLE' AND (:includeProtected=1 OR x.exposure='SAFE') GROUP BY m.volumeName,COALESCE(m.bucketId,''),COALESCE(m.relativePath,'') ORDER BY name,m.volumeName,relativePath,bucketId")
+    fun visibleFolders(includeProtected:Boolean):List<DeviceFolder>
     @RawQuery(observedEntities = [MediaRecord::class, AlbumMedia::class, Favorite::class, MediaTag::class])
     fun search(query: SupportSQLiteQuery): List<MediaRecord>
 }
@@ -102,7 +107,12 @@ class OrganizationRepository(private val database: MediaDatabase) {
         return UUID.randomUUID().toString().also { dao.insertAlbum(Album(it, name.trim())) }
     }
     fun eligible(ids: Set<String>, operation: MediaOperation): Set<String> = ids.mapNotNull { id ->
-        database.media().get(id)?.takeIf { it.allows(operation) }?.mediaId
+        database.media().get(id)?.takeIf { row ->
+            val reveal=io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot()
+            val visible=database.ocrPeople().exposure(row.mediaId,row.contentRevision)==io.github.mesteriis.lik.ai.AiExposure.SAFE||
+                (reveal.revealed&&io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.accepts(reveal.epoch))
+            row.allows(operation)&&visible
+        }?.mediaId
     }.toSet()
     fun organize(ids: Set<String>, action: (OrganizationDao, String) -> Unit): Int = database.runInTransaction<Int> {
         val eligible = eligible(ids, MediaOperation.ORGANIZE)

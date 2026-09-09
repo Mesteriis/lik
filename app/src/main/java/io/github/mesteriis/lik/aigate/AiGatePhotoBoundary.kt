@@ -1,9 +1,8 @@
 package io.github.mesteriis.lik.aigate
 
-/** Task 13 replaces this conservative boundary after calibrated classification and BIOMETRIC_STRONG reveal exist. */
 object AiGatePhotoBoundary {
-    fun maySend(mediaId: String, revision: Long): Boolean {
+    fun maySend(context:android.content.Context,mediaId: String, revision: Long): Boolean {
         require(mediaId.isNotBlank() && revision >= 0)
-        return false
+        return io.github.mesteriis.lik.privacy.SensitiveMediaRepository(context).mayAccess(mediaId,revision)
     }
 }

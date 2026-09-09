@@ -10,6 +10,7 @@ import io.github.mesteriis.lik.ai.*
 import io.github.mesteriis.lik.aigate.*
 import io.github.mesteriis.lik.catalog.MediaDatabase
 import io.github.mesteriis.lik.ui.applySystemBarInsets
+import io.github.mesteriis.lik.privacy.SensitiveClassifierWorker
 import java.util.Locale
 import java.util.concurrent.Executors
 
@@ -109,6 +110,12 @@ class AiSettingsActivity : Activity() {
         }
         pauseIndex = actionButton(indexActions, getString(R.string.ai_pause_indexing)) {
             catalog.snapshot().active?.let { AiIndexWorker.pause(this, it); OcrPeopleIndexWorker.pause(this, it) }
+        }
+        heading(getString(R.string.sensitive_settings_title),22f)
+        label(getString(R.string.sensitive_settings_disclosure))
+        button(getString(R.string.sensitive_process_now)){
+            SensitiveClassifierWorker.enqueue(this,manual=true)
+            Toast.makeText(this,R.string.sensitive_processing_started,Toast.LENGTH_SHORT).show()
         }
         buildAiGate(savedState)
     }

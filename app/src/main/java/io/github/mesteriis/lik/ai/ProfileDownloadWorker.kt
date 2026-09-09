@@ -32,7 +32,7 @@ class ProfileDownloadWorker(context: Context, parameters: WorkerParameters) : Co
                 if (continuation.isActive) continuation.resume(value)
             }
         }
-        return result.fold({ Result.success() }, {
+        return result.fold({ io.github.mesteriis.lik.privacy.SensitiveClassifierWorker.enqueue(applicationContext);Result.success() }, {
             if (runAttemptCount < 3) Result.retry() else {
                 withContext(Dispatchers.IO) { downloader.abandon(profile) }
                 Result.failure(workDataOf("error" to it.message))

@@ -49,7 +49,7 @@ class SemanticSearchRepository(
             ?: InferenceGate.run(InferencePriority.INTERACTIVE) { engine.query(profile, text) }
         val dao = database.aiIndexes()
         val indexed = dao.currentEmbeddingCount(generationId)
-        val available = dao.availableCount()
+        val available = dao.aiIndexableCount()
         var nativeUsed = false
         var rows: List<AiEmbeddingRecord> = emptyList()
         val nativeDirectory = NativeIndexFiles.generation(context, generationId)
@@ -144,7 +144,7 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
                 it.pipelineFingerprint == pipeline.fingerprint && it.status == GenerationStatus.PREPARING
         } ?: AiIndexGenerationRecord(
             UUID.randomUUID().toString(), profile.wire, AiFeature.SEARCH.name, pipeline.fingerprint,
-            GenerationStatus.PREPARING, 0, dao.availableCount(), null, null, System.currentTimeMillis(),
+            GenerationStatus.PREPARING, 0, dao.aiIndexableCount(), null, null, System.currentTimeMillis(),
         ).also(dao::saveGeneration)
         val engine = SemanticEmbeddingEngine(applicationContext)
         val sensitivePipeline = catalog.trusted.profiles.getValue(profile).pipelines.getValue(AiFeature.SENSITIVE).fingerprint
@@ -154,7 +154,7 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
         var nativeKey = (dao.maxKey(generation.generationId) ?: 0L) + 1L
         while (true) {
             if (isStopped) throw InterruptedException("INDEX_CANCELLED")
-            val batch = dao.mediaBatch(checkpoint, BATCH_SIZE)
+            val batch = dao.aiIndexableMediaBatch(checkpoint, BATCH_SIZE)
             if (batch.isEmpty()) break
             for (row in batch) {
                 if (isStopped) throw InterruptedException("INDEX_CANCELLED")
@@ -162,7 +162,7 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
                 val priorEmbedding = dao.embedding(generation.generationId, row.mediaId)
                 if (priorEmbedding?.let { it.contentRevision == row.contentRevision && it.accessEpoch == row.accessGrantEpoch } == true) {
                     checkpoint = row.mediaId
-                    dao.saveGeneration(generation.copy(completed = completed, total = dao.availableCount(), checkpointMediaId = checkpoint, error = null))
+                    dao.saveGeneration(generation.copy(completed = completed, total = dao.aiIndexableCount(), checkpointMediaId = checkpoint, error = null))
                     continue
                 }
                 if (dao.sensitive(row.mediaId, row.contentRevision, sensitivePipeline)?.status != SensitiveRunStatus.RAW_RESULT) {
@@ -187,14 +187,14 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
                 if (fresh == null || fresh.availability != MediaAvailability.AVAILABLE) {
                     if (dao.deleteEmbedding(generation.generationId, row.mediaId) > 0) completed--
                     checkpoint = row.mediaId
-                    dao.saveGeneration(generation.copy(completed = completed, total = dao.availableCount(), checkpointMediaId = checkpoint))
+                    dao.saveGeneration(generation.copy(completed = completed, total = dao.aiIndexableCount(), checkpointMediaId = checkpoint))
                     continue
                 }
                 if (!item.canPublish(fresh.mediaId, fresh.contentRevision, fresh.accessGrantEpoch, true))
                     throw RetryableIndexException("MEDIA_CHANGED").also {
                         dao.saveGeneration(generation.copy(completed = completed, checkpointMediaId = checkpoint, error = "MEDIA_CHANGED"))
                     }
-                val nextGeneration = generation.copy(completed = completed + 1, total = dao.availableCount(),
+                val nextGeneration = generation.copy(completed = completed + 1, total = dao.aiIndexableCount(),
                     checkpointMediaId = row.mediaId, error = null)
                 val published = dao.publishEmbeddingIfCurrent(AiEmbeddingRecord(generation.generationId, row.mediaId, nativeKey,
                     row.contentRevision, row.accessGrantEpoch, embedded.getOrThrow().toBytes()), nextGeneration)
@@ -210,9 +210,9 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
         val indexed = persistIndexes(generation.generationId, pipeline.dimension!!, dao)
         if (isStopped) throw InterruptedException("INDEX_CANCELLED")
         val done = dao.completeIfCurrent(generation.copy(completed = indexed,
-            total = dao.availableCount(), checkpointMediaId = checkpoint, error = null)) ?: run {
+            total = dao.aiIndexableCount(), checkpointMediaId = checkpoint, error = null)) ?: run {
             dao.saveGeneration(generation.copy(completed = dao.currentEmbeddingCount(generation.generationId),
-                total = dao.availableCount(), checkpointMediaId = checkpoint, error = "INDEX_COVERAGE_CHANGED"))
+                total = dao.aiIndexableCount(), checkpointMediaId = checkpoint, error = "INDEX_COVERAGE_CHANGED"))
             throw RetryableIndexException("INDEX_COVERAGE_CHANGED")
         }
         if (isStopped) throw InterruptedException("INDEX_CANCELLED")
@@ -220,7 +220,7 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
     }
 
     private fun generationCurrent(record: AiIndexGenerationRecord, dao: AiIndexDao): Boolean {
-        val available = dao.availableCount()
+        val available = dao.aiIndexableCount()
         val directory = NativeIndexFiles.generation(applicationContext, record.generationId)
         if (dao.currentEmbeddingCount(record.generationId) != available || dao.embeddingCount(record.generationId) != available)
             return false

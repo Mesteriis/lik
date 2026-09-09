@@ -34,6 +34,7 @@ data class ViewerState(
     val loading: Boolean = false,
     val deleting: Boolean = false,
     val error: Boolean = false,
+    val requiredRevealEpoch: Long? = null,
 )
 
 // Lik only runs on API 37, where the platform android.media.ExifInterface fixes the old-version issues
@@ -57,7 +58,9 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
         id?.let(dao::get)?.takeIf { it.availability == io.github.mesteriis.lik.catalog.MediaAvailability.AVAILABLE && it.exifRevision != it.contentRevision }?.let { record ->
             io.github.mesteriis.lik.catalog.CatalogExif.enrich(getApplication(), MediaDatabase.get(getApplication()), record, libraryZone(getApplication()))
         }
-        return PhotoCursor(id?.let { repository.viewerWindow(it).map { record ->
+        val reveal=io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot()
+        val includeProtected=reveal.revealed&&io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.accepts(reveal.epoch)
+        return PhotoCursor(id?.let { repository.viewerWindow(it,includeProtected).map { record ->
             record.toGalleryPhoto(PhotoLibrary.store(getApplication())::fileFor)
         } }.orEmpty(), id)
     }
@@ -91,8 +94,9 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
             try {
                 val id = requestedCursor?.current?.id ?: return@execute
                 val record = dao.get(id) ?: return@execute
-                val target = if (delta == 1) dao.next(id, record.sortAt) else if (delta == -1) dao.previous(id, record.sortAt)
-                    else dao.page(1, (dao.rank(id, record.sortAt).toLong() + delta).coerceIn(0, (dao.availableCount() - 1).coerceAtLeast(0).toLong()).toInt()).firstOrNull()
+                val reveal=io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot()
+                val target = if (delta == 1) dao.visibleNext(id,record.sortAt,reveal.revealed) else if (delta == -1) dao.visiblePrevious(id,record.sortAt,reveal.revealed)
+                    else dao.visible(reveal.revealed).getOrNull((dao.visibleRank(id,record.sortAt,reveal.revealed).toLong()+delta).coerceAtLeast(0).toInt())
                 val cursor = window(target?.mediaId ?: id)
                 requestedCursor = cursor
                 if (isCurrent(request, revision)) load(cursor, request = request, revision = revision)
@@ -111,11 +115,15 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
             try {
                 val importedId = GalleryCatalog.importedId(current.id)
                     ?: return@execute publish(request, revision, state.copy(deleting = false))
+                if(!io.github.mesteriis.lik.privacy.SensitiveMediaRepository(getApplication()).mayAccess(current.id,current.sourceRevision))
+                    return@execute publish(request,revision,ViewerState(error=true))
                 io.github.mesteriis.lik.catalog.TrashRepository(MediaDatabase.get(getApplication()), PhotoLibrary.store(getApplication()))
                     .trash(setOf(importedId))
                 val old = dao.get(current.id)
                 repository.reconcileImports(PhotoLibrary.store(getApplication()), System.currentTimeMillis(), libraryZone(getApplication()))
-                val adjacent = old?.let { dao.next(it.mediaId, it.sortAt) ?: dao.previous(it.mediaId, it.sortAt) }
+                val reveal=io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot()
+                val includeProtected=reveal.revealed&&io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.accepts(reveal.epoch)
+                val adjacent = old?.let { dao.visibleNext(it.mediaId,it.sortAt,includeProtected) ?: dao.visiblePrevious(it.mediaId,it.sortAt,includeProtected) }
                 val cursor = window(adjacent?.mediaId)
                 requestedCursor = cursor
                 load(cursor, request = request, revision = revision)
@@ -136,6 +144,13 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
             publish(request, revision, ViewerState(cursor = cursor, deleting = deleting, error = true))
             return
         }
+        val privacy=io.github.mesteriis.lik.privacy.SensitiveMediaRepository(getApplication())
+        if(!privacy.mayAccess(photo.id,photo.sourceRevision)){
+            publish(request,revision,ViewerState(error=true,deleting=deleting));return
+        }
+        val requiredRevealEpoch=if(privacy.decision(photo.id)==io.github.mesteriis.lik.privacy.SensitiveDecision.SAFE)null else
+            io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot().takeIf{it.revealed&&io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.accepts(it.epoch)}?.epoch
+                ?:return publish(request,revision,ViewerState(error=true,deleting=deleting))
         val bitmap = try { GalleryCatalog.decode(getApplication(), photo, MAX_BITMAP_EDGE) } catch (_: Exception) { null }
         if (!isCurrent(request, revision)) {
             bitmap?.recycle()
@@ -144,6 +159,9 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
         if (bitmap == null) {
             publish(request, revision, ViewerState(cursor = cursor, error = true, deleting = deleting))
             return
+        }
+        if(!privacy.mayAccess(photo.id,photo.sourceRevision)){
+            bitmap.recycle();publish(request,revision,ViewerState(error=true,deleting=deleting));return
         }
         val file = photo.file
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -169,14 +187,19 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
             bitmap.recycle()
             return
         }
-        publish(request, revision, ViewerState(cursor = cursor, bitmap = bitmap, details = details, deleting = deleting))
+        publish(request, revision, ViewerState(cursor = cursor, bitmap = bitmap, details = details, deleting = deleting,requiredRevealEpoch=requiredRevealEpoch))
     }
 
     private fun isCurrent(request: Int, revision: Int) =
         !closed && generation.get() == request && contentRevision.get() == revision
 
     private fun publish(request: Int, revision: Int, state: ViewerState) {
-        main.post { if (isCurrent(request, revision)) updates.value = state }
+        main.post {
+            if(!isCurrent(request,revision))return@post
+            val epoch=state.requiredRevealEpoch
+            updates.value=if(epoch==null||io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.accepts(epoch))state
+                else ViewerState(error=true,requiredRevealEpoch=epoch)
+        }
     }
 
     override fun onCleared() {

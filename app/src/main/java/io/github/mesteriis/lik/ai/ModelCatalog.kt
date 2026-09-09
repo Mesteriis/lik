@@ -328,10 +328,10 @@ internal object RoomGenerationStorage {
                 }
                 if (!metadataMatches) return@use false
                 db.rawQuery("SELECT COUNT(*) FROM ai_feature_media_run r JOIN media m ON m.mediaId=r.mediaId " +
-                    "LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision " +
+                    "JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision " +
                     "WHERE r.generationId=? AND r.feature=? AND r.error IS NULL AND m.availability='AVAILABLE' " +
                     "AND m.contentRevision=r.contentRevision AND m.accessGrantEpoch=r.accessEpoch " +
-                    "AND (x.exposure IS NULL OR x.exposure!='SENSITIVE')",
+                    "AND m.trashedAt IS NULL AND x.exposure='SAFE'",
                     arrayOf(generation.id, generation.feature.name)).use { count ->
                     count.moveToFirst() && count.getInt(0) == generation.total
                 }
