@@ -541,11 +541,8 @@ private class PersistentRuntimeTransport(
         return runCatching {
             try { remote.send(Message.obtain(null, code).apply { replyTo = callback; data = payload }) }
             catch (dead: RemoteException) { lost(); throw dead }
-            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds)
-            while (!latch.await(250, TimeUnit.MILLISECONDS)) {
+            RuntimeRequestAwait.await(latch, timeoutSeconds, cancelled = { cancel(remote, requestId) }) {
                 if (generation != startGeneration) error("RUNTIME_DIED")
-                if (Thread.currentThread().isInterrupted) { cancel(remote, requestId); throw InterruptedException() }
-                if (System.nanoTime() >= deadline) { cancel(remote, requestId); error("RUNTIME_TIMEOUT") }
             }
             val result = requireNotNull(response)
             residents = result.getStringArrayList(InferenceRuntimeService.SESSIONS).orEmpty().toSet()
@@ -610,5 +607,25 @@ private class PersistentRuntimeTransport(
             wasBound
         }
         if (unbind) runCatching { context.unbindService(connection) }
+    }
+}
+
+/** Makes cancellation part of the wait contract, including interruption thrown by CountDownLatch itself. */
+object RuntimeRequestAwait {
+    fun await(latch: CountDownLatch, timeoutSeconds: Long, cancelled: () -> Unit) =
+        await(latch, timeoutSeconds, cancelled) {}
+
+    fun await(latch: CountDownLatch, timeoutSeconds: Long, cancelled: () -> Unit, poll: () -> Unit) {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds)
+        try {
+            while (!latch.await(250, TimeUnit.MILLISECONDS)) {
+                poll()
+                if (Thread.currentThread().isInterrupted) throw InterruptedException()
+                if (System.nanoTime() >= deadline) error("RUNTIME_TIMEOUT")
+            }
+        } catch (failure: Throwable) {
+            cancelled()
+            throw failure
+        }
     }
 }

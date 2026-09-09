@@ -24,6 +24,9 @@ import io.github.mesteriis.lik.catalog.MediaSource
 import io.github.mesteriis.lik.imports.PhotoLibrary
 import java.util.concurrent.Executors
 import io.github.mesteriis.lik.ai.OcrRepository
+import io.github.mesteriis.lik.ai.AiUiPublicationGuard
+import io.github.mesteriis.lik.ai.AiFeature
+import io.github.mesteriis.lik.ai.ModelCatalog
 
 class PhotoViewerActivity : ComponentActivity() {
     private lateinit var model: PhotoViewerViewModel
@@ -38,6 +41,9 @@ class PhotoViewerActivity : ComponentActivity() {
     private var ocrRequest = 0L
     @Volatile private var aiGateClient: AiGateClient? = null
     private var aiGateSettingsSubscription: AutoCloseable? = null
+    private val ocrInvalidation by lazy { object:androidx.room.InvalidationTracker.Observer("media","ai_media_exposure","ai_ocr_result") {
+        override fun onInvalidated(tables:Set<String>) { runOnUiThread { currentMediaId?.let { loadOcr(it,currentRevision) } } }
+    } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -119,17 +125,31 @@ class PhotoViewerActivity : ComponentActivity() {
         val panel=findViewById<View>(R.id.viewer_ocr_panel);val text=findViewById<TextView>(R.id.viewer_ocr_text)
         panel.visibility=View.GONE;text.text="";val id=mediaId?:return;val request=++ocrRequest
         ocrIo.execute { val result=runCatching{OcrRepository(this).text(id)}.getOrNull();runOnUiThread{
-            if(request!=ocrRequest||currentMediaId!=id||currentRevision!=revision||isDestroyed)return@runOnUiThread
-            val value=result?.takeIf{it.contentRevision==revision}?.displayText.orEmpty();text.text=value;panel.visibility=if(value.isBlank())View.GONE else View.VISIBLE
+            val generation=ModelCatalog.get(this).snapshot().activeGenerations[AiFeature.OCR]
+            val valid=request==ocrRequest&&currentMediaId==id&&currentRevision==revision&&!isDestroyed&&generation!=null&&
+                result?.let{it.contentRevision==revision&&AiUiPublicationGuard.ocr(MediaDatabase.get(this),generation,it)}==true
+            if(!valid){text.text="";panel.visibility=View.GONE;return@runOnUiThread}
+            val value=requireNotNull(result).displayText;text.text=value;panel.visibility=if(value.isBlank())View.GONE else View.VISIBLE
         }}
     }
 
+    override fun onResume() {
+        super.onResume()
+        currentMediaId?.let { loadOcr(it,currentRevision) }
+    }
+
     override fun onStop() {
+        MediaDatabase.get(this).invalidationTracker.removeObserver(ocrInvalidation)
         aiGateRequest++
         aiGateConsent.clear()
         aiGateClient?.cancel()
         aiGateClient = null
         super.onStop()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        MediaDatabase.get(this).invalidationTracker.addObserver(ocrInvalidation)
     }
 
     private fun sendToAiGate() {

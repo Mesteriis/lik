@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     io.github.mesteriis.lik.ai.AiFaceDetectionRecord::class,
     io.github.mesteriis.lik.ai.PersonIdentityRecord::class, io.github.mesteriis.lik.ai.PersonFaceDecisionRecord::class,
     io.github.mesteriis.lik.ai.PersonMergeRecord::class, io.github.mesteriis.lik.ai.PersonCannotLinkRecord::class,
-    io.github.mesteriis.lik.ai.PersonSplitRecord::class], version = 8, exportSchema = true)
+    io.github.mesteriis.lik.ai.PersonSplitRecord::class, io.github.mesteriis.lik.ai.PersonCannotLinkOwnerRecord::class], version = 9, exportSchema = true)
 abstract class MediaDatabase : RoomDatabase() {
     abstract fun media(): MediaDao
     abstract fun organization(): OrganizationDao
@@ -26,8 +26,16 @@ abstract class MediaDatabase : RoomDatabase() {
 
         fun get(context: Context): MediaDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MediaDatabase::class.java, "media.db")
-                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                 .build().also { instance = it }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS person_cannot_link_owner (leftAnchorId TEXT NOT NULL, rightAnchorId TEXT NOT NULL, ownerId TEXT NOT NULL, updatedAt INTEGER NOT NULL, PRIMARY KEY(leftAnchorId,rightAnchorId,ownerId))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_person_cannot_link_owner_ownerId ON person_cannot_link_owner(ownerId)")
+                db.execSQL("INSERT OR IGNORE INTO person_cannot_link_owner(leftAnchorId,rightAnchorId,ownerId,updatedAt) SELECT leftAnchorId,rightAnchorId,CASE WHEN splitPersonId IS NULL THEN 'manual' ELSE 'split:' || splitPersonId END,updatedAt FROM person_cannot_link")
+            }
         }
 
         val MIGRATION_7_8 = object : Migration(7, 8) {

@@ -48,7 +48,10 @@ class OcrPeopleInferenceEngine(
         val resized = OcrTensor.detector(bitmap)
         val probability = runtime.runFloat(file(detector), "x", resized.shape, resized.values, "fetch_name_0",
             outputCapacityFloats = resized.width * resized.height).getOrThrow()
-        val boxes = DbRegions.quadrilaterals(probability, resized.width, resized.height)
+        val boxes = DbRegions.quadrilaterals(
+            probability, resized.width, resized.height,
+            resized.sourceWidth, resized.sourceHeight, resized.paddedWidth, resized.paddedHeight,
+        )
         val dictionary = file("ocr-cyrillic-rec-v1/characters.txt").readLines(Charsets.UTF_8) + " "
         val regions = boxes.mapNotNull { quad ->
             val crop = crop(bitmap, quad)
@@ -110,15 +113,51 @@ class OcrPeopleInferenceEngine(
     }
 }
 
-private data class TensorImage(val values: FloatArray, val shape: IntArray, val width: Int, val height: Int, val scaleX: Float, val scaleY: Float)
+private data class TensorImage(
+    val values: FloatArray, val shape: IntArray, val width: Int, val height: Int,
+    val scaleX: Float, val scaleY: Float,
+    val sourceWidth: Int = width, val sourceHeight: Int = height,
+    val paddedWidth: Int = sourceWidth, val paddedHeight: Int = sourceHeight,
+)
+
+data class OcrResizePlan(
+    val paddedWidth: Int, val paddedHeight: Int,
+    val resizedWidth: Int, val resizedHeight: Int,
+) {
+    companion object {
+        fun forSource(width: Int, height: Int): OcrResizePlan {
+            require(width > 0 && height > 0)
+            val paddedWidth = if (width + height < 64) max(width, 32) else width
+            val paddedHeight = if (width + height < 64) max(height, 32) else height
+            val ratio = 960f / max(paddedWidth, paddedHeight)
+            fun publisherDimension(value: Int): Int {
+                val truncated = (value * ratio).toInt().coerceAtLeast(1)
+                return ((truncated + 127) / 128) * 128
+            }
+            return OcrResizePlan(paddedWidth, paddedHeight, publisherDimension(paddedWidth), publisherDimension(paddedHeight))
+        }
+    }
+}
+
 private object OcrTensor {
     fun detector(source: Bitmap): TensorImage {
-        val ratio = 960f / max(source.width, source.height)
-        val width = (ceil(max(32f, source.width * ratio) / 128f) * 128).toInt()
-        val height = (ceil(max(32f, source.height * ratio) / 128f) * 128).toInt()
-        val bitmap = Bitmap.createScaledBitmap(source, width, height, true)
-        return try { TensorImage(channels(bitmap, floatArrayOf(.485f,.456f,.406f), floatArrayOf(.229f,.224f,.225f), bgr=true), intArrayOf(1,3,height,width), width,height,width/source.width.toFloat(),height/source.height.toFloat()) }
-        finally { if (bitmap !== source) bitmap.recycle() }
+        val plan = OcrResizePlan.forSource(source.width, source.height)
+        val padded = if (plan.paddedWidth == source.width && plan.paddedHeight == source.height) source else
+            Bitmap.createBitmap(plan.paddedWidth, plan.paddedHeight, Bitmap.Config.ARGB_8888).also {
+                Canvas(it).apply { drawColor(Color.BLACK); drawBitmap(source, 0f, 0f, null) }
+            }
+        val bitmap = Bitmap.createScaledBitmap(padded, plan.resizedWidth, plan.resizedHeight, true)
+        return try {
+            TensorImage(
+                channels(bitmap, floatArrayOf(.485f,.456f,.406f), floatArrayOf(.229f,.224f,.225f), bgr=true),
+                intArrayOf(1,3,plan.resizedHeight,plan.resizedWidth), plan.resizedWidth, plan.resizedHeight,
+                plan.resizedWidth/plan.paddedWidth.toFloat(), plan.resizedHeight/plan.paddedHeight.toFloat(),
+                source.width, source.height, plan.paddedWidth, plan.paddedHeight,
+            )
+        } finally {
+            if (bitmap !== padded) bitmap.recycle()
+            if (padded !== source) padded.recycle()
+        }
     }
     fun recognizer(source: Bitmap): TensorImage {
         val rotated = if (source.height.toFloat()/source.width >= 1.5f) rotate(source) else source
@@ -158,20 +197,34 @@ private fun channels(bitmap: Bitmap, mean: FloatArray, std: FloatArray, bgr: Boo
 }
 
 object DbRegions {
-    /** Pinned DB postprocess: threshold, component contour, box score, unclip and ordered quadrilateral. */
-    fun quadrilaterals(probability: FloatArray, width: Int, height: Int): List<OcrQuad> {
+    /** Pinned contracts-v1 DB postprocess: contour, min-area quad, polygon score and polygon offset. */
+    fun quadrilaterals(
+        probability: FloatArray, width: Int, height: Int,
+        sourceWidth: Int = width, sourceHeight: Int = height,
+        paddedWidth: Int = sourceWidth, paddedHeight: Int = sourceHeight,
+    ): List<OcrQuad> {
         if (probability.size != width*height) return emptyList()
         val seen=BooleanArray(probability.size); val regions=mutableListOf<OcrQuad>()
-        for(seed in probability.indices) if(!seen[seed] && probability[seed]>=.3f){
-            var score=0f; val pixels=ArrayList<OcrPoint>()
+        var contours = 0
+        for(seed in probability.indices) if(!seen[seed] && probability[seed]>=.3f && contours++ < 1000){
+            val pixels=ArrayList<OcrPoint>()
             val queue=java.util.ArrayDeque<Int>(); queue.add(seed); seen[seed]=true
-            while(queue.isNotEmpty() && pixels.size<200000){ val at=queue.removeFirst(); val x=at%width; val y=at/width; pixels += OcrPoint(x+.5f,y+.5f);score+=probability[at]
-                intArrayOf(at-1,at+1,at-width,at+width).forEach { n -> if(n in probability.indices && !seen[n] && probability[n]>=.3f && abs(n%width-x)<=1){seen[n]=true;queue.add(n)} } }
-            val mean=if(pixels.isEmpty())0f else score/pixels.size
-            if(pixels.size>=4 && mean>=.6f) minimumRectangle(pixels)?.let { raw ->
-                val expanded=unclip(raw,1.5f).map { OcrPoint((it.x/width).coerceIn(0f,1f),(it.y/height).coerceIn(0f,1f)) }
-                if(expanded.map{it.x}.distinct().size>1&&expanded.map{it.y}.distinct().size>1) regions += OcrQuad(order(expanded),mean)
+            while(queue.isNotEmpty() && pixels.size<200000){ val at=queue.removeFirst(); val x=at%width; val y=at/width; pixels += OcrPoint(x+.5f,y+.5f)
+                for(dy in -1..1)for(dx in -1..1){if(dx==0&&dy==0)continue;val nx=x+dx;val ny=y+dy;if(nx in 0 until width&&ny in 0 until height){val n=ny*width+nx;if(!seen[n]&&probability[n]>=.3f){seen[n]=true;queue.add(n)}}} }
+            if(pixels.size < 4) continue
+            val raw = minimumRectangle(pixels)?.let(::order) ?: continue
+            if(shortSide(raw)<3f) continue
+            val score=polygonScore(probability,width,height,raw)
+            if(score<.6f) continue
+            val expandedPolygon=offsetConvex(raw,if(perimeter(raw)==0f)0f else polygonArea(raw)*1.5f/perimeter(raw)) ?: continue
+            val expanded=minimumRectangle(expandedPolygon)?.let(::order) ?: continue
+            if(shortSide(expanded)<5f) continue
+            val normalized=expanded.map { point ->
+                val sourceX=(point.x.coerceIn(0f,width.toFloat())/width*paddedWidth).coerceIn(0f,sourceWidth.toFloat())
+                val sourceY=(point.y.coerceIn(0f,height.toFloat())/height*paddedHeight).coerceIn(0f,sourceHeight.toFloat())
+                OcrPoint(sourceX/sourceWidth,sourceY/sourceHeight)
             }
+            if(shortSide(normalized)>0f) regions += OcrQuad(order(normalized),score)
         }
         return regions.sortedWith(compareBy<OcrQuad>{it.box.top}.thenBy{it.box.left}).take(1000)
     }
@@ -192,8 +245,30 @@ object DbRegions {
         fun cross(o:OcrPoint,a:OcrPoint,b:OcrPoint)=(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x)
         val lower=mutableListOf<OcrPoint>();p.forEach{x->while(lower.size>=2&&cross(lower[lower.size-2],lower.last(),x)<=0)lower.removeAt(lower.lastIndex);lower+=x}
         val upper=mutableListOf<OcrPoint>();p.asReversed().forEach{x->while(upper.size>=2&&cross(upper[upper.size-2],upper.last(),x)<=0)upper.removeAt(upper.lastIndex);upper+=x};return lower.dropLast(1)+upper.dropLast(1)}
-    private fun unclip(points:List<OcrPoint>,ratio:Float):List<OcrPoint>{val center=OcrPoint(points.map{it.x}.average().toFloat(),points.map{it.y}.average().toFloat());val area=abs(points.indices.sumOf{i->val a=points[i];val b=points[(i+1)%points.size];(a.x*b.y-a.y*b.x).toDouble()}/2).toFloat();val perimeter=points.indices.sumOf{i->val a=points[i];val b=points[(i+1)%points.size];hypot(a.x-b.x,a.y-b.y).toDouble()}.toFloat();val distance=if(perimeter==0f)0f else area*ratio/perimeter;return points.map{p->val r=hypot(p.x-center.x,p.y-center.y);val scale=if(r==0f)1f else (r+distance)/r;OcrPoint(center.x+(p.x-center.x)*scale,center.y+(p.y-center.y)*scale)}}
-    private fun order(points:List<OcrPoint>):List<OcrPoint>{val sorted=points.sortedBy{it.y};val top=sorted.take(2).sortedBy{it.x};val bottom=sorted.takeLast(2).sortedByDescending{it.x};return top+bottom}
+    private fun polygonScore(probability:FloatArray,width:Int,height:Int,points:List<OcrPoint>):Float {
+        val minX=floor(points.minOf{it.x}).toInt().coerceIn(0,width-1);val maxX=ceil(points.maxOf{it.x}).toInt().coerceIn(0,width-1)
+        val minY=floor(points.minOf{it.y}).toInt().coerceIn(0,height-1);val maxY=ceil(points.maxOf{it.y}).toInt().coerceIn(0,height-1)
+        var sum=0.0;var count=0
+        for(y in minY..maxY)for(x in minX..maxX)if(inside(OcrPoint(x+.5f,y+.5f),points)){sum+=probability[y*width+x];count++}
+        return if(count==0)0f else (sum/count).toFloat()
+    }
+    private fun inside(point:OcrPoint,polygon:List<OcrPoint>):Boolean {var inside=false;var j=polygon.lastIndex;for(i in polygon.indices){val a=polygon[i];val b=polygon[j];if((a.y>point.y)!=(b.y>point.y)&&point.x<(b.x-a.x)*(point.y-a.y)/(b.y-a.y)+a.x)inside=!inside;j=i};return inside}
+    private fun polygonArea(points:List<OcrPoint>)=abs(points.indices.sumOf{i->val a=points[i];val b=points[(i+1)%points.size];(a.x*b.y-a.y*b.x).toDouble()}/2).toFloat()
+    private fun perimeter(points:List<OcrPoint>)=points.indices.sumOf{i->val a=points[i];val b=points[(i+1)%points.size];hypot(a.x-b.x,a.y-b.y).toDouble()}.toFloat()
+    private fun shortSide(points:List<OcrPoint>)=points.indices.minOf{i->val a=points[i];val b=points[(i+1)%points.size];hypot(a.x-b.x,a.y-b.y)}
+    private data class OffsetLine(val point:OcrPoint,val direction:OcrPoint)
+    private fun offsetConvex(points:List<OcrPoint>,distance:Float):List<OcrPoint>? {
+        if(distance<=0f)return null
+        val ordered=order(points);val signed=ordered.indices.sumOf{i->val a=ordered[i];val b=ordered[(i+1)%ordered.size];(a.x*b.y-a.y*b.x).toDouble()}
+        val lines=ordered.indices.map{i->val a=ordered[i];val b=ordered[(i+1)%ordered.size];val dx=b.x-a.x;val dy=b.y-a.y;val length=hypot(dx,dy);if(length==0f)return null
+            val sign=if(signed>=0)1f else -1f;val nx=sign*dy/length;val ny=-sign*dx/length;OffsetLine(OcrPoint(a.x+nx*distance,a.y+ny*distance),OcrPoint(dx,dy))}
+        return lines.indices.map{i->intersect(lines[(i+lines.size-1)%lines.size],lines[i])?:return null}
+    }
+    private fun intersect(a:OffsetLine,b:OffsetLine):OcrPoint? {val cross=a.direction.x*b.direction.y-a.direction.y*b.direction.x;if(abs(cross)<1e-5f)return null;val dx=b.point.x-a.point.x;val dy=b.point.y-a.point.y;val t=(dx*b.direction.y-dy*b.direction.x)/cross;return OcrPoint(a.point.x+t*a.direction.x,a.point.y+t*a.direction.y)}
+    private fun order(points:List<OcrPoint>):List<OcrPoint>{
+        val byX=points.sortedWith(compareBy<OcrPoint>{it.x}.thenBy{it.y});val left=byX.take(2).sortedBy{it.y};val right=byX.takeLast(2).sortedBy{it.y}
+        return listOf(left.first(),right.first(),right.last(),left.last())
+    }
 }
 
 private data class FaceProposal(val box: FaceBox,val landmarks:FloatArray,val confidence:Float)

@@ -33,6 +33,9 @@ class AiSettingsActivity : Activity() {
     private lateinit var processIndex: Button
     private lateinit var pauseIndex: Button
     private lateinit var aiGatePort: EditText
+    private val coverageInvalidation by lazy { object:androidx.room.InvalidationTracker.Observer("media","ai_media_exposure","ai_feature_media_run","ai_embedding"){
+        override fun onInvalidated(tables:Set<String>){runOnUiThread{if(!isDestroyed&&!isFinishing&&::catalog.isInitialized&&!io.isShutdown){indexCoverage.text=getString(R.string.ai_coverage_checking);updateLiveCoverage(catalog.snapshot())}}}
+    } }
     private val profileViews = mutableMapOf<ProfileId, ProfileViews>()
     private val featureViews = mutableMapOf<AiFeature, Switch>()
     private var subscription: AutoCloseable? = null
@@ -62,6 +65,9 @@ class AiSettingsActivity : Activity() {
         outState.putInt(SCROLL_Y, scroll.scrollY)
         super.onSaveInstanceState(outState)
     }
+
+    override fun onStart(){super.onStart();MediaDatabase.get(this).invalidationTracker.addObserver(coverageInvalidation)}
+    override fun onStop(){MediaDatabase.get(this).invalidationTracker.removeObserver(coverageInvalidation);super.onStop()}
 
     override fun onDestroy() {
         subscription?.close()
@@ -125,16 +131,14 @@ class AiSettingsActivity : Activity() {
     }
 
     private fun updateLiveCoverage(snapshot: CatalogSnapshot) {
+        if(io.isShutdown)return
         val request = ++coverageRequest
         val ids = snapshot.activeGenerations
         io.execute {
-            val db = MediaDatabase.get(this)
-            val eligible = db.ocrPeople().eligibleCount()
-            val search = ids[AiFeature.SEARCH]?.let(db.aiIndexes()::currentSafeEmbeddingCount) ?: 0
-            val ocr = ids[AiFeature.OCR]?.let(db.ocrPeople()::currentSafeRunCount) ?: 0
-            val people = ids[AiFeature.PEOPLE]?.let(db.ocrPeople()::currentSafeRunCount) ?: 0
             runOnUiThread {
                 if (request != coverageRequest || isDestroyed || catalog.snapshot().activeGenerations != ids) return@runOnUiThread
+                val coverage=AiUiPublicationGuard.coverage(MediaDatabase.get(this),ids)
+                val eligible=coverage.eligible;val search=coverage.search;val ocr=coverage.ocr;val people=coverage.people
                 indexCoverage.text = if (eligible == 0) getString(R.string.ai_safe_coverage_unavailable)
                 else getString(R.string.ai_all_index_coverage,
                     search, if (AiFeature.SEARCH in snapshot.enabledFeatures) eligible else 0,

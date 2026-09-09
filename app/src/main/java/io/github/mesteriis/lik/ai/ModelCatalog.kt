@@ -84,6 +84,56 @@ class ModelCatalog private constructor(private val root: File, private val datab
                 activeGenerations = if (withGeneration.active == profile && feature in withGeneration.enabledFeatures)
                     withGeneration.activeGenerations + (feature to generation.id) else withGeneration.activeGenerations)
         }, beforeCommit)
+
+    /** Final membership validation, Room completion, clustering and catalog publication share one lock/transaction. */
+    @Synchronized internal fun completeRoomGeneration(
+        database: io.github.mesteriis.lik.catalog.MediaDatabase,
+        profile: ProfileId,
+        feature: AiFeature,
+        generationId: String,
+        finalizePayload: (OcrPeopleDao) -> Unit = {},
+    ): RoomGenerationCompletion? {
+        require(feature == AiFeature.OCR || feature == AiFeature.PEOPLE)
+        var completed: AiIndexGenerationRecord? = null
+        var pruned = emptySet<String>()
+        val old=current
+        var next:CatalogSnapshot?=null
+        try {
+            database.runInTransaction {
+                val index = database.aiIndexes(); val payload = database.ocrPeople()
+                payload.invalidIndexableRunIds(generationId).forEach { mediaId ->
+                    payload.deleteOcr(generationId, mediaId); payload.deleteFaces(generationId, mediaId); payload.deleteRun(generationId, mediaId)
+                }
+                val record = index.generation(generationId) ?: return@runInTransaction
+                if (record.feature != feature.name || record.status == GenerationStatus.ERROR) return@runInTransaction
+                val total = index.aiIndexableCount()
+                if (payload.currentIndexableRunCount(generationId) != total || payload.storedRunCount(generationId) != total) return@runInTransaction
+                finalizePayload(payload)
+                if (payload.currentIndexableRunCount(generationId) != total || index.aiIndexableCount() != total) return@runInTransaction
+                val ready = record.copy(status=GenerationStatus.COMPLETE,completed=total,total=total,error=null)
+                index.saveGeneration(ready)
+                val candidate = CatalogGenerationBounds.prune(run { val state=old
+                val contract=IndexGeneration(ready.generationId,feature,ready.pipelineFingerprint,true,total,total)
+                val withGeneration=state.copy(generations=state.generations+(contract.id to contract))
+                if(withGeneration.pending?.profile==profile && feature in withGeneration.pending.enabled)
+                    ProfileTransitions.generationReady(withGeneration,profile,feature,contract.id)
+                else withGeneration.copy(revision=withGeneration.revision+1,
+                    activeGenerations=if(withGeneration.active==profile&&feature in withGeneration.enabledFeatures)withGeneration.activeGenerations+(feature to contract.id) else withGeneration.activeGenerations)
+                }, acceptedPipelineFingerprints)
+                require(candidate.revision>old.revision)
+                pruned=CatalogPrunedGenerations.between(old.generations.keys,candidate.generations.keys)
+                GenerationRetirement.journal(root,profile,pruned)
+                write(candidate)
+                next=candidate
+                completed=ready
+            }
+        } catch(failure:Throwable) {
+            if(next!=null)runCatching{write(old)}
+            throw failure
+        }
+        next?.let{committed->current=committed;listeners.toList().forEach{it(committed)}}
+        return completed?.let { RoomGenerationCompletion(it,pruned) }
+    }
     fun operationPhase(profile: ProfileId, phase: ProfilePhase, completed: Long = 0, total: Long = 0, error: String? = null) = update { state ->
         state.copy(revision = state.revision + 1, profiles = state.profiles + (profile to ProfileState(phase, completed, total, error)))
     }
@@ -214,6 +264,9 @@ class ModelCatalog private constructor(private val root: File, private val datab
         internal fun openForTests(root:File,databaseFile:File,trusted:TrustedModelCatalog)=ModelCatalog(root,databaseFile,trusted)
     }
 }
+
+data class RoomGenerationCompletion(val record:AiIndexGenerationRecord,val pruned:Set<String>)
+object CatalogPrunedGenerations { fun between(before:Set<String>,after:Set<String>):Set<String> = before-after }
 
 /** Read-only startup oracle for generation kinds whose durable payload is stored in Room. */
 internal object RoomGenerationStorage {

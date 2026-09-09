@@ -40,6 +40,10 @@ class OrganizationPanel(
     private var semanticText = ""
     private var personId: String? = null
     private var content: LinearLayout = container
+    private val privacyInvalidation=object:androidx.room.InvalidationTracker.Observer("media","ai_media_exposure","ai_ocr_result","ai_face_detection"){
+        override fun onInvalidated(tables:Set<String>){activity.runOnUiThread{refresh()}}
+    }
+    init { MediaDatabase.get(activity).invalidationTracker.addObserver(privacyInvalidation) }
 
     fun restore(state: Bundle?) {
         state ?: return
@@ -99,7 +103,7 @@ class OrganizationPanel(
 
     fun hide() { active = false; request++ }
     fun refresh() { if (active && container.isShown && screen != "search") render() }
-    fun close() { request++; scope.cancel() }
+    fun close() { request++; MediaDatabase.get(activity).invalidationTracker.removeObserver(privacyInvalidation);scope.cancel() }
 
     private fun root(title: String) {
         request++
@@ -290,14 +294,18 @@ class OrganizationPanel(
                 render()
                 return@load
             }
-            if (eligible == 0) label(text(R.string.ai_safe_coverage_unavailable))
-            else if (groups.isEmpty() && excluded.isEmpty()) label(text(R.string.people_empty))
-            groups.forEach { group -> button(activity.resources.getQuantityString(R.plurals.person_group_count, group.faces.size, group.name ?: text(R.string.unnamed_person), group.faces.size)) {
+            val database=MediaDatabase.get(activity)
+            val currentGroups=groups.mapNotNull{group->group.copy(faces=group.faces.filter{AiUiPublicationGuard.face(database,generation,it)}).takeIf{it.faces.isNotEmpty()}}
+            val currentExcluded=excluded.filter{AiUiPublicationGuard.face(database,generation,it)}
+            val currentEligible=AiUiPublicationGuard.coverage(database,mapOf(AiFeature.PEOPLE to generation)).eligible
+            if (currentEligible == 0) label(text(R.string.ai_safe_coverage_unavailable))
+            else if (currentGroups.isEmpty() && currentExcluded.isEmpty()) label(text(R.string.people_empty))
+            currentGroups.forEach { group -> button(activity.resources.getQuantityString(R.plurals.person_group_count, group.faces.size, group.name ?: text(R.string.unnamed_person), group.faces.size)) {
                 personId = group.personId; screen = "person"; render()
             } }
-            if (excluded.isNotEmpty()) {
+            if (currentExcluded.isNotEmpty()) {
                 label(text(R.string.excluded_faces), true)
-                excluded.forEach { face ->
+                currentExcluded.forEach { face ->
                     button(activity.getString(R.string.restore_excluded_face, face.mediaId.takeLast(16))) {
                         mutate { repository.clear(face.anchorId) }
                     }.setOnLongClickListener {
@@ -320,10 +328,11 @@ class OrganizationPanel(
                 render()
                 return@load
             }
-            if(group==null){label(text(R.string.people_empty));return@load}
-            label(group.name ?: text(R.string.unnamed_person),true)
-            button(text(R.string.rename_person)){prompt(R.string.rename_person,group.name.orEmpty()){name->mutate{people.name(selectedPerson,name)}}}
-            button(text(R.string.merge_person)){choosePerson(generation,selectedPerson,R.string.merge_person){target->screen="people";mutate{people.merge(selectedPerson,target)}}}
+            val current=group?.copy(faces=group.faces.filter{AiUiPublicationGuard.face(MediaDatabase.get(activity),generation,it)})?.takeIf{it.faces.isNotEmpty()}
+            if(current==null){label(text(R.string.people_empty));return@load}
+            label(current.name ?: text(R.string.unnamed_person),true)
+            button(text(R.string.rename_person)){prompt(R.string.rename_person,current.name.orEmpty()){name->mutate{people.name(generation,selectedPerson,name).also{personId=it}}}}
+            button(text(R.string.merge_person)){choosePerson(generation,selectedPerson,R.string.merge_person){target->screen="people";mutate{people.merge(generation,selectedPerson,target)}}}
             if(splitSource!=null) button(text(R.string.undo_person_split)){screen="people";mutate{people.undoSplit(selectedPerson)}}
             if (mergedSources.isNotEmpty()) {
                 label(text(R.string.merged_people), true)
@@ -331,11 +340,11 @@ class OrganizationPanel(
                     mutate { people.unmerge(source.personId) }
                 } }
             }
-            group.faces.forEach { face ->
+            current.faces.forEach { face ->
                 val row=button("${face.mediaId.takeLast(16)} · ${face.anchorId.take(8)}") { activity.startActivity(Intent(activity,PhotoViewerActivity::class.java).putExtra(PhotoViewerActivity.EXTRA_PHOTO_ID,face.mediaId)) }
                 row.setOnLongClickListener {
                     AlertDialog.Builder(activity).setTitle(R.string.correct_person).setItems(arrayOf(text(R.string.move_face),text(R.string.split_face),text(R.string.exclude_face),text(R.string.clear_person_correction))){_,which->when(which){
-                        0->choosePerson(generation,selectedPerson,R.string.move_face){target->mutate{people.move(face.anchorId,target)}}
+                        0->choosePerson(generation,selectedPerson,R.string.move_face){target->mutate{people.move(generation,face.anchorId,target)}}
                         1->prompt(R.string.split_face){name->mutate{people.split(generation,setOf(face.anchorId),selectedPerson,name)}}
                         2->mutate{people.exclude(face.anchorId)}
                         else->mutate{people.clear(face.anchorId)}
@@ -352,11 +361,12 @@ class OrganizationPanel(
                 render()
                 return@load
             }
-            if (groups.isEmpty()) {
+            val current=groups.mapNotNull{group->group.copy(faces=group.faces.filter{AiUiPublicationGuard.face(MediaDatabase.get(activity),generation,it)}).takeIf{it.faces.isNotEmpty()}}
+            if (current.isEmpty()) {
                 Toast.makeText(activity, R.string.people_empty, Toast.LENGTH_SHORT).show()
                 return@load
             }
-            val labels = groups.map { group ->
+            val labels = current.map { group ->
                 activity.resources.getQuantityString(
                     R.plurals.person_group_count,
                     group.faces.size,
@@ -365,7 +375,7 @@ class OrganizationPanel(
                 )
             }
             AlertDialog.Builder(activity).setTitle(title).setItems(labels.toTypedArray()) { _, which ->
-                action(groups[which].personId)
+                action(current[which].personId)
             }.show()
         }
     }
@@ -402,8 +412,9 @@ class OrganizationPanel(
             if (query.ocrText.isNotBlank() && ModelCatalog.get(activity).snapshot().activeGenerations[AiFeature.OCR] != query.ocrGenerationId) {
                 label(text(R.string.ocr_results_changed)); return@load
             }
-            if (rows.isEmpty()) label(text(R.string.search_empty))
-            rows.take(60).forEach { (row, tags) ->
+            val currentRows=if(query.ocrText.isBlank())rows else query.ocrGenerationId?.let{generation->rows.filter{AiUiPublicationGuard.mediaOcr(MediaDatabase.get(activity),generation,it.first)}}.orEmpty()
+            if (currentRows.isEmpty()) label(text(R.string.search_empty))
+            currentRows.take(60).forEach { (row, tags) ->
                 val date = (row.takenAt ?: row.addedAt)?.let {
                     DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(Instant.ofEpochMilli(it).atZone(libraryZone(activity)))
                 } ?: text(R.string.timeline_undated)
@@ -417,7 +428,7 @@ class OrganizationPanel(
                 view.setOnLongClickListener { toggle(row.mediaId); render(); true }
             }
             if (offset > 0) button(text(R.string.previous_page)) { offset = (offset - 60).coerceAtLeast(0); render() }
-            if (rows.size > 60) button(text(R.string.next_page)) { offset += 60; render() }
+            if (currentRows.size > 60) button(text(R.string.next_page)) { offset += 60; render() }
         }
     }
 

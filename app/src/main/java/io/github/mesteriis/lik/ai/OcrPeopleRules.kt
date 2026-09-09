@@ -111,8 +111,13 @@ data class ManualPeopleState(
 }
 
 object PeopleResolution {
-    fun apply(computed: List<ComputedFace>, manual: ManualPeopleState): List<ResolvedFace> = computed.map { face ->
-        val automatic = manual.assignments[face.anchorId] ?: face.computedClusterId
+    fun apply(computed: List<ComputedFace>, manual: ManualPeopleState): List<ResolvedFace> {
+        val durableByCluster = computed.groupBy(ComputedFace::computedClusterId).mapValues { (_, faces) ->
+            faces.mapNotNull { manual.assignments[it.anchorId] }.map(manual::canonical).distinct().sorted().firstOrNull()
+        }
+        return computed.map { face ->
+        val automatic = manual.assignments[face.anchorId] ?: durableByCluster[face.computedClusterId] ?: face.computedClusterId
         ResolvedFace(face.detectionId, face.anchorId, manual.canonical(automatic), face.anchorId in manual.excluded)
+        }
     }
 }

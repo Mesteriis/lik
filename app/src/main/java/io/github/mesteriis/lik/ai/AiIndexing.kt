@@ -345,10 +345,8 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
                                dao: AiIndexDao) {
         var superseded = emptySet<String>()
         catalog.generationReady(profile, AiFeature.SEARCH, record.toContract(complete = true)) { next ->
-            superseded = dao.generations().filter {
-                it.profileId == profile.wire && it.feature == AiFeature.SEARCH.name &&
-                    it.generationId !in next.generations
-            }.map { it.generationId }.toSet()
+            superseded = CatalogPrunedGenerations.between(catalog.snapshot().generations.keys,next.generations.keys)
+                .intersect(dao.generations().map(AiIndexGenerationRecord::generationId).toSet())
             GenerationRetirement.journal(File(applicationContext.filesDir, "ai"), profile, superseded)
         }
         GenerationRetirement.drain(applicationContext, profile, superseded, catalog,

@@ -51,6 +51,8 @@ interface AiIndexDao {
     fun compatible(pipeline: String): AiIndexGenerationRecord?
     @Query("SELECT * FROM media WHERE availability = 'AVAILABLE' AND (:after IS NULL OR mediaId > :after) ORDER BY mediaId LIMIT :limit")
     fun mediaBatch(after: String?, limit: Int): List<MediaRecord>
+    @Query("SELECT m.* FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.availability='AVAILABLE' AND (x.exposure IS NULL OR x.exposure!='SENSITIVE') AND (:after IS NULL OR m.mediaId>:after) ORDER BY m.mediaId LIMIT :limit")
+    fun aiIndexableMediaBatch(after:String?,limit:Int):List<MediaRecord>
     @Upsert fun saveEmbedding(value: AiEmbeddingRecord)
     @Query("SELECT * FROM ai_embedding WHERE generationId = :generation ORDER BY nativeKey") fun embeddings(generation: String): List<AiEmbeddingRecord>
     @Query("SELECT * FROM ai_embedding WHERE generationId = :generation AND (:after IS NULL OR nativeKey > :after) ORDER BY nativeKey LIMIT :limit")
@@ -64,6 +66,7 @@ interface AiIndexDao {
     @Query("SELECT MAX(nativeKey) FROM ai_embedding WHERE generationId = :generation") fun maxKey(generation: String): Long?
     @Query("SELECT COUNT(*) FROM ai_embedding WHERE generationId = :generation") fun embeddingCount(generation: String): Int
     @Query("SELECT COUNT(*) FROM media WHERE availability = 'AVAILABLE'") fun availableCount(): Int
+    @Query("SELECT COUNT(*) FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.availability='AVAILABLE' AND (x.exposure IS NULL OR x.exposure!='SENSITIVE')") fun aiIndexableCount():Int
     @Query("SELECT COUNT(*) FROM ai_embedding e JOIN media m ON m.mediaId = e.mediaId WHERE e.generationId = :generation AND m.availability = 'AVAILABLE' AND m.contentRevision = e.contentRevision AND m.accessGrantEpoch = e.accessEpoch")
     fun currentEmbeddingCount(generation: String): Int
     @Query("SELECT COUNT(*) FROM ai_embedding e JOIN media m ON m.mediaId=e.mediaId JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE e.generationId=:generation AND m.availability='AVAILABLE' AND m.contentRevision=e.contentRevision AND m.accessGrantEpoch=e.accessEpoch AND x.exposure='SAFE'")

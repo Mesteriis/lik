@@ -2,8 +2,20 @@ package io.github.mesteriis.lik.ai
 
 import org.junit.Assert.*
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class OcrPeopleRulesTest {
+    @Test fun interruptedRuntimeAwaitAlwaysCancelsAndReleasesSerialExecutor() {
+        val executor=Executors.newSingleThreadExecutor();val waiting=CountDownLatch(1);val cancelled=CountDownLatch(1);val second=CountDownLatch(1)
+        try{val first=executor.submit{waiting.countDown();assertThrows(InterruptedException::class.java){RuntimeRequestAwait.await(CountDownLatch(1),60){cancelled.countDown()}}};assertTrue(waiting.await(1,TimeUnit.SECONDS));first.cancel(true);assertTrue(cancelled.await(1,TimeUnit.SECONDS));executor.execute{second.countDown()};assertTrue(second.await(1,TimeUnit.SECONDS))}finally{executor.shutdownNow()}
+    }
+
+    @Test fun detectorResizeUsesPublisherPaddingAndTruncateBeforeCeil() {
+        assertEquals(OcrResizePlan(32,32,1024,1024),OcrResizePlan.forSource(10,1))
+        assertEquals(OcrResizePlan(1000,134,1024,128),OcrResizePlan.forSource(1000,134))
+    }
     @Test fun ocrNormalizationPreservesCyrillicAndMatchesCanonicalUnicode() {
         val display = "  Ёлка\nCafe\u0301  42  "
         assertEquals("Ёлка\nCafé 42", OcrText.normalizeDisplay(display))
@@ -21,9 +33,9 @@ class OcrPeopleRulesTest {
     }
 
     @Test fun detectorPostprocessBuildsOrderedRegionsAndRejectsWeakNoise() {
-        val map=FloatArray(8*6);for(y in 1..2)for(x in 1..3)map[y*8+x]=.9f
-        map[5*8+7]=.4f
-        val regions=DbRegions.rectangles(map,8,6,800,600)
+        val map=FloatArray(8*7);for(y in 1..4)for(x in 1..4)map[y*8+x]=.9f
+        map[6*8+7]=.4f
+        val regions=DbRegions.rectangles(map,8,7,800,700)
         assertEquals(1,regions.size)
         assertTrue(regions.single().left < regions.single().right)
     }
@@ -39,9 +51,19 @@ class OcrPeopleRulesTest {
         for(y in 3..9) for(x in (y-1)..(y+5)) map[y*width+x]=.92f
         val quad=DbRegions.quadrilaterals(map,width,height).single()
         assertEquals(4,quad.points.size)
-        assertTrue(quad.score>=.9f)
+        assertTrue(quad.score>=.7f)
         assertTrue(quad.points.zipWithNext().any { (a,b) -> kotlin.math.abs(a.y-b.y)>.01f && kotlin.math.abs(a.x-b.x)>.01f })
         assertTrue((quad.box.right-quad.box.left) > 7f/width)
+    }
+
+    @Test fun detectorScoresWholePolygonAndFiltersLongThinContours() {
+        val hollow=FloatArray(20*12);for(x in 3..15){hollow[3*20+x]=.95f;hollow[8*20+x]=.95f};for(y in 3..8){hollow[y*20+3]=.95f;hollow[y*20+15]=.95f}
+        assertTrue(DbRegions.quadrilaterals(hollow,20,12).isEmpty())
+        val thin=FloatArray(30*8);for(x in 2..25)thin[4*30+x]=.95f
+        assertTrue(DbRegions.quadrilaterals(thin,30,8).isEmpty())
+        val threshold=FloatArray(8*8);for(y in 2..5)for(x in 2..5)threshold[y*8+x]=.59f
+        assertTrue(DbRegions.quadrilaterals(threshold,8,8).isEmpty());for(y in 2..5)for(x in 2..5)threshold[y*8+x]=.61f
+        assertEquals(1,DbRegions.quadrilaterals(threshold,8,8).size)
     }
 
     @Test fun fiveLandmarkSimilarityAlignmentUsesAllPinnedPoints() {
@@ -92,7 +114,19 @@ class OcrPeopleRulesTest {
         val resolved = PeopleResolution.apply(computed, decisions)
         assertEquals("person-1", resolved.single { it.anchorId == "anchor-a" }.personId)
         assertTrue(resolved.single { it.anchorId == "anchor-b" }.excluded)
-        assertEquals("automatic-x", resolved.single { it.anchorId == "anchor-c" }.personId)
+        assertEquals("person-1", resolved.single { it.anchorId == "anchor-c" }.personId)
+    }
+
+    @Test fun assignedIdentityPropagatesAcrossAReclusteredFaceGroup() {
+        val computed=listOf(ComputedFace("d0","0-new","cluster"),ComputedFace("d1","b-old","cluster"))
+        val resolved=PeopleResolution.apply(computed,ManualPeopleState(assignments=mapOf("b-old" to "person")))
+        assertEquals(setOf("person"),resolved.map{it.personId}.toSet())
+    }
+
+    @Test fun retirementUsesEveryGenerationActuallyPrunedFromGlobalCatalog() {
+        assertEquals(setOf("other-profile","shared-old"),CatalogPrunedGenerations.between(
+            setOf("active","other-profile","shared-old"),setOf("active")))
+        assertTrue(CatalogPrunedGenerations.between(setOf("shared"),setOf("shared")).isEmpty())
     }
 
     @Test fun mergeMoveSplitAndUndoDoNotMutateComputedClusters() {
