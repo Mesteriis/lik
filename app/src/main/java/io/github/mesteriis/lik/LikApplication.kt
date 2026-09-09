@@ -9,6 +9,7 @@ class LikApplication : Application() {
         super.onCreate()
         if (android.os.Process.isIsolated()) return
         TrashMaintenance.schedule(this)
+        io.github.mesteriis.lik.similarity.SimilarityWorker.schedule(this)
         Thread({
             ModelMaintenance.recover(this)
             val state = ModelCatalog.get(this).snapshot()

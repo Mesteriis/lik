@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/comparison_root" android:layout_width="match_parent" android:layout_height="match_parent">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+    <Button android:id="@+id/comparison_back" android:layout_width="wrap_content" android:layout_height="48dp" android:text="@string/viewer_back" android:textAllCaps="false" />
+    <TextView android:id="@+id/comparison_unavailable" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="24dp" android:text="@string/similarity_pair_unavailable" android:textSize="18sp" />
+    <LinearLayout android:id="@+id/comparison_content" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
+      <TextView android:id="@+id/comparison_reason" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="12dp" android:textSize="20sp" android:textStyle="bold" />
+      <ImageView android:id="@+id/comparison_left_image" android:layout_width="match_parent" android:layout_height="280dp" android:adjustViewBounds="true" android:contentDescription="@string/similarity_left_photo" android:scaleType="fitCenter" />
+      <TextView android:id="@+id/comparison_left_details" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="8dp" android:textSize="16sp" />
+      <Button android:id="@+id/comparison_left_delete" android:layout_width="wrap_content" android:layout_height="48dp" android:text="@string/similarity_move_to_trash" android:textAllCaps="false" />
+      <ImageView android:id="@+id/comparison_right_image" android:layout_width="match_parent" android:layout_height="280dp" android:adjustViewBounds="true" android:contentDescription="@string/similarity_right_photo" android:scaleType="fitCenter" />
+      <TextView android:id="@+id/comparison_right_details" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="8dp" android:textSize="16sp" />
+      <Button android:id="@+id/comparison_right_delete" android:layout_width="wrap_content" android:layout_height="48dp" android:text="@string/similarity_move_to_trash" android:textAllCaps="false" />
+    </LinearLayout>
+  </LinearLayout>
+</ScrollView>

@@ -14,20 +14,40 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     io.github.mesteriis.lik.ai.AiFaceDetectionRecord::class,
     io.github.mesteriis.lik.ai.PersonIdentityRecord::class, io.github.mesteriis.lik.ai.PersonFaceDecisionRecord::class,
     io.github.mesteriis.lik.ai.PersonMergeRecord::class, io.github.mesteriis.lik.ai.PersonCannotLinkRecord::class,
-    io.github.mesteriis.lik.ai.PersonSplitRecord::class, io.github.mesteriis.lik.ai.PersonCannotLinkOwnerRecord::class], version = 10, exportSchema = true)
+    io.github.mesteriis.lik.ai.PersonSplitRecord::class, io.github.mesteriis.lik.ai.PersonCannotLinkOwnerRecord::class,
+    io.github.mesteriis.lik.similarity.ContentFingerprintRecord::class, io.github.mesteriis.lik.similarity.FingerprintFailureRecord::class,
+    io.github.mesteriis.lik.similarity.FingerprintBandRecord::class,
+    io.github.mesteriis.lik.similarity.SimilarityRelationRecord::class,
+    io.github.mesteriis.lik.similarity.SimilarityCheckpoint::class], version = 11, exportSchema = true)
 abstract class MediaDatabase : RoomDatabase() {
     abstract fun media(): MediaDao
     abstract fun organization(): OrganizationDao
     abstract fun aiIndexes(): io.github.mesteriis.lik.ai.AiIndexDao
     abstract fun ocrPeople(): io.github.mesteriis.lik.ai.OcrPeopleDao
+    abstract fun similarity(): io.github.mesteriis.lik.similarity.SimilarityDao
 
     companion object {
         @Volatile private var instance: MediaDatabase? = null
 
         fun get(context: Context): MediaDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MediaDatabase::class.java, "media.db")
-                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .build().also { instance = it }
+        }
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS content_fingerprint (mediaId TEXT NOT NULL PRIMARY KEY, contentRevision INTEGER NOT NULL, accessEpoch INTEGER NOT NULL, sha256 TEXT NOT NULL, perceptualVersion INTEGER NOT NULL, perceptualBits BLOB NOT NULL, computedAt INTEGER NOT NULL, relationsReady INTEGER NOT NULL)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_content_fingerprint_sha256 ON content_fingerprint(sha256)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_content_fingerprint_perceptualVersion ON content_fingerprint(perceptualVersion)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS fingerprint_failure (mediaId TEXT NOT NULL, contentRevision INTEGER NOT NULL, accessEpoch INTEGER NOT NULL, perceptualVersion INTEGER NOT NULL, error TEXT NOT NULL, failedAt INTEGER NOT NULL, PRIMARY KEY(mediaId,contentRevision,accessEpoch,perceptualVersion))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS fingerprint_band (mediaId TEXT NOT NULL, perceptualVersion INTEGER NOT NULL, bandIndex INTEGER NOT NULL, bandValue INTEGER NOT NULL, PRIMARY KEY(mediaId,perceptualVersion,bandIndex))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_fingerprint_band_perceptualVersion_bandIndex_bandValue ON fingerprint_band(perceptualVersion,bandIndex,bandValue)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS similarity_relation (leftMediaId TEXT NOT NULL, rightMediaId TEXT NOT NULL, leftRevision INTEGER NOT NULL, rightRevision INTEGER NOT NULL, leftAccessEpoch INTEGER NOT NULL, rightAccessEpoch INTEGER NOT NULL, kind TEXT NOT NULL, fingerprintVersion INTEGER NOT NULL, distance INTEGER NOT NULL, updatedAt INTEGER NOT NULL, PRIMARY KEY(leftMediaId,rightMediaId))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_similarity_relation_rightMediaId ON similarity_relation(rightMediaId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_similarity_relation_kind ON similarity_relation(kind)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS similarity_checkpoint (checkpointId TEXT NOT NULL PRIMARY KEY, checkpointMediaId TEXT, completed INTEGER NOT NULL, total INTEGER NOT NULL, status TEXT NOT NULL, updatedAt INTEGER NOT NULL, error TEXT)")
+            }
         }
 
         /** Materializes legacy computed `auto:*` identities before reclustering can rename their anchor. */

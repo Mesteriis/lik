@@ -36,6 +36,7 @@
         android:name=".settings.SettingsActivity"
         android:exported="false" />
     <activity android:name=".settings.AiSettingsActivity" android:exported="false" />
+    <activity android:name=".similarity.ComparisonActivity" android:exported="false" />
     <activity
         android:name=".gallery.PhotoViewerActivity"
         android:exported="false"

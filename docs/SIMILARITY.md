@@ -1,0 +1,13 @@
+# Exact duplicates and similar photos
+
+Task 12 adds an original Lik implementation of cross-source duplicate and similarity review. It uses Android/Room/WorkManager APIs and a versioned DCT perceptual hash; no third-party runtime code or model payload is added.
+
+The catalog identity contract is unchanged. Imported private copies keep their SHA-256 media ID, while every eligible MediaStore or imported record may also receive a `content_fingerprint` row bound to its current `contentRevision` and `accessGrantEpoch`. Exact matches compare a separately streamed SHA-256 digest across sources. `similarity_relation` stores a derived ordered pair and reason; neither digest nor perceptual similarity merges, renames, or owns either media record.
+
+Perceptual fingerprint v1 decodes at most a 64-pixel edge, converts to luminance, samples 32×32, and stores 63 low-frequency DCT comparisons. Hamming distance at most 14 is the current candidate threshold. Eight byte bands bound the SQL candidate set before exact Hamming verification; this is an implementation threshold, not a measured quality claim. Exact SHA matches bypass perceptual version and band filtering. Changing the fingerprint version regenerates derived rows without changing media identity or user albums, tags, favorites, trash state, or People corrections.
+
+`SimilarityWorker` reads originals with a 64 KiB streaming digest buffer and an eight-record application batch. It requires charging for automatic work, checks battery/storage and severe thermal state, and supports explicit run/pause from More. A persisted checkpoint plus revision-scoped success/failure rows make restart idempotent. Publication and every visible read re-check `AVAILABLE`, no trash timestamp, current revision/access epoch, and an explicit `SAFE` exposure. Unclassified, sensitive, inaccessible, missing, trashed, changed, clipped, corrupt, or revoked media cannot enter a candidate list, count, comparison, or action. A failed decode is quarantined to that exact revision/access/version and is retried after content or access changes.
+
+The EN/RU comparison screen shows both bounded previews, source, dimensions, byte size, and exact/similar reason. It exposes a delete choice only for an available private import and routes the confirmed action through the existing 30-day trash. Device and Google Photos originals are read-only. Lik never auto-selects a preferred original, auto-merges records, or auto-deletes a file.
+
+Room schema v11 adds `content_fingerprint`, `fingerprint_failure`, `fingerprint_band`, `similarity_relation`, and `similarity_checkpoint`. Migration v10→v11 creates empty regenerable state and preserves all existing catalog and user data.

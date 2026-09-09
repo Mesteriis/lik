@@ -1,7 +1,7 @@
 {
   "provenance": "Explicitly reviewed compiler outputs; never updated by a build or inferred from an inspected APK.",
   "schemaVersion": 1,
-  "sourceFingerprint": "3cdff4a6c9d772eb92d7f56733c72fcc5993d6d334e1a51ae2b829ba310b605f",
+  "sourceFingerprint": "20080e9c7f6463cdcf62234aeacf74cfbd3fc948609e74961ae945421f2f34b7",
   "sourceInputs": {
     "files": [
       "app/build.gradle.kts",
@@ -86,8 +86,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/0/classes.dex",
-          "sha256": "b01eb61eab612086057efca0d463b62f479299d77dc0b077f649b535cf3fc8a9",
-          "size": 40248
+          "sha256": "464b62b0f6fadee64e0176a7baeca23ca7a20d5e1e0c89b487f9e9a0c6adc742",
+          "size": 41744
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/11/classes.dex",
@@ -100,14 +100,19 @@
           "size": 1086152
         },
         {
+          "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/15/classes.dex",
+          "sha256": "23a235a26fddcc9f885bc57d4d91eac32d3b6f60ec8886be05288e79f3848194",
+          "size": 146044
+        },
+        {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/4/classes.dex",
           "sha256": "a2ba7247adf070b3781550b533b242958365a9ff40b125b7291a3315e3b8a270",
           "size": 66192
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/5/classes.dex",
-          "sha256": "2076616b32c18dfc4c57a0f1eaae5f9d4b822cd4e839de6f7443ce6685e49a29",
-          "size": 5160
+          "sha256": "662e3688cca7cf6d99ff4a0b310ebbfc60c64c49db2a4783fd76e95c0228ac4d",
+          "size": 5328
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/7/classes.dex",
@@ -116,8 +121,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/9/classes.dex",
-          "sha256": "2bc6e6de2d791b8deef17330c7de2e7436a66d941f417fc3e29b088cce93dc84",
-          "size": 589192
+          "sha256": "2c88c8fec43a00ff764584757d0f33f6b284d424c812505011c1169fde68d119",
+          "size": 608012
         },
         {
           "compilerPath": "app/build/intermediates/global_synthetics_dex/debug/generateDebugGlobalSynthetics/classes.dex",
@@ -130,8 +135,8 @@
       "resourceArchive": "app/build/intermediates/linked_resources_binary_format/debug/processDebugResources/linked-resources-binary-format-debug.ap_",
       "resourceEntries": {
         "AndroidManifest.xml": {
-          "sha256": "8fbfacc283efe94ac3b7c361d06589473ed45ff4865f066fc2efde6238b380a5",
-          "size": 16912
+          "sha256": "9779b1cbbb3268f54093defd100f94f92c3154b85d8275b79638ffadd9e5aa51",
+          "size": 17124
         },
         "res/color/lik_tab_text.xml": {
           "sha256": "16b5457699479eea874e683af49d5a806543720391884483aa07ddb4d7fd882d",
@@ -345,20 +350,24 @@
           "sha256": "a6758b180e3b21c9b48ba009ccdb992c4a394c61a585279cac2b9c09a0f2cea7",
           "size": 304
         },
+        "res/layout/activity_comparison.xml": {
+          "sha256": "39bb3d82f733e2f977f4269227ec1bc232bfb9ee5339f81eeb20a369b7b8b8c3",
+          "size": 2476
+        },
         "res/layout/activity_main.xml": {
-          "sha256": "edcfeb9be8fd854e0e419653f07c0837c72818015b612e97616013d086027adf",
+          "sha256": "92b967d75535b09e9db7eac08e9b95f2129ffa1a5362761b4ca45c2160089149",
           "size": 7816
         },
         "res/layout/activity_photo_viewer.xml": {
-          "sha256": "664413da7c71472653f42332aa8a3005bd853452fc956cdfda1e7cb2c2ddc4b6",
+          "sha256": "6a1637a0e39fc0d818f5d7d2658ba516a224bbdce3a8c4dbe2ee92d401f82a13",
           "size": 3996
         },
         "res/layout/activity_settings.xml": {
-          "sha256": "85613dec485c828fab321d96fc63e7a3d5fcce1fc29ecbbda50f0724b17e3a01",
+          "sha256": "bc221b94e931497901bc1279bf5d9a2b4a58c8704674e929f5ef5bc97ebba630",
           "size": 2024
         },
         "res/layout/custom_dialog.xml": {
-          "sha256": "e6d3d10725ccaa3dd523cd902b4439f551eeda05eb046679477f1921dbcf6efa",
+          "sha256": "d86ec5cead0d8d24373145aa627635d6c8c2c1a5a43ca1fd1a8e2c26adb2e781",
           "size": 612
         },
         "res/layout/ime_base_split_test_activity.xml": {
@@ -366,7 +375,7 @@
           "size": 364
         },
         "res/layout/ime_secondary_split_test_activity.xml": {
-          "sha256": "c2a5183ae2cbd7162c2cc75c3264f81baa7160564ea064c6307a652b4a4024cf",
+          "sha256": "20750f3818fc08c1b5c1d8bb8c7df9a187e5839d5b062943db1f695f73e8909d",
           "size": 876
         },
         "res/layout/item_icon_option.xml": {
@@ -374,15 +383,15 @@
           "size": 656
         },
         "res/layout/item_timeline_header.xml": {
-          "sha256": "b4ebfd8ed45b438f5fc0770d622b740a95600075aa5d12f3983286690dadc4c1",
+          "sha256": "d7d80cda5fe64c27b76eee8eb99db98cd4d66d62b13d755fabb32fcabfb61578",
           "size": 640
         },
         "res/layout/item_timeline_period.xml": {
-          "sha256": "d4a6e54bf8cae5bc116f096e24670dad75a4ee3ee6809241adaa0e009f86cdd1",
+          "sha256": "d77a95081f11f6764c78c4e16dafa4245066c95e5b983a5ecffd762e7d1ff265",
           "size": 2164
         },
         "res/layout/item_timeline_photo.xml": {
-          "sha256": "43944f630ff0b98f170b868e84c3fafd0844c83331922e637032d8f033c238f4",
+          "sha256": "a1b1c8b0f6a5fe2a93751cf83ca59c21bb7a00aead221b4bab5ccfca97f9c3d1",
           "size": 1084
         },
         "res/layout/notification_action.xml": {
@@ -394,11 +403,11 @@
           "size": 1228
         },
         "res/layout/notification_template_custom_big.xml": {
-          "sha256": "d053f8f2fa0c4b40a3f82f61e4780eb0dd98a92a1712588ef8b5479e04ddf2ed",
+          "sha256": "5968305838d6bd0503ead4d3d24ea5b8c87364d9e4b1564d9d053837b9f23529",
           "size": 2456
         },
         "res/layout/notification_template_icon_group.xml": {
-          "sha256": "eba187098f65da9bd811d7492d0451197810027fbe9dca5a480534e8223d759c",
+          "sha256": "3b8a29759c336ab2b2ebf20478b322b9234d8832828ba41abf5afd45ea5e4ab7",
           "size": 988
         },
         "res/layout/notification_template_part_chronometer.xml": {
@@ -406,7 +415,7 @@
           "size": 440
         },
         "res/layout/notification_template_part_time.xml": {
-          "sha256": "830e0515d6ddcdfa1b3a5a2f02c50ca31f2136dfaad07e8e82ae2719f71ab739",
+          "sha256": "1467be4809b130c437b07395f49acfd07621294572498c14a92df78bbea902b3",
           "size": 440
         },
         "res/mipmap-anydpi-v21/ic_launcher.xml": {
@@ -462,8 +471,8 @@
           "size": 528
         },
         "resources.arsc": {
-          "sha256": "634a1ab2933f4ca266e37a011b814792f7e488def3d3b83f613e5e74d013db66",
-          "size": 167496
+          "sha256": "c9c06e221e5d6c6a386fc1a3938c28afea3e5ac43178b05716753586caeb95f7",
+          "size": 179320
         }
       },
       "resourceSemantics": {
@@ -521,6 +530,7 @@
           "res/drawable/notification_bg_low.xml",
           "res/drawable/notification_icon_background.xml",
           "res/drawable/notification_tile_bg.xml",
+          "res/layout/activity_comparison.xml",
           "res/layout/activity_main.xml",
           "res/layout/activity_photo_viewer.xml",
           "res/layout/activity_settings.xml",
@@ -583,8 +593,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/5/classes.dex",
-          "sha256": "7d0593504a5ded70987f405cf90dfa6b6240f33c493eb77521389b1b7f3966e4",
-          "size": 466080
+          "sha256": "b3ea8ac8d24896b8d48d372708b015bf971468be08588929b7e5b5914ad6f53f",
+          "size": 492892
         },
         {
           "compilerPath": "app/build/intermediates/global_synthetics_dex/debugAndroidTest/generateDebugAndroidTestGlobalSynthetics/classes.dex",
@@ -807,28 +817,28 @@
       "dex": [
         {
           "compilerPath": "app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex",
-          "sha256": "7d27fceab91109f8db9342451eab4c0067c7931ec9822c87bf22bd4ebb802da9",
-          "size": 1305224
+          "sha256": "e4ab449027a18b3eece7308d95f2002a523633b0c2693b58527cf2c941a25f3b",
+          "size": 1350308
         }
       ],
       "kind": "app",
       "profiles": {
         "assets/dexopt/baseline.prof": {
           "compilerPath": "app/build/intermediates/binary_art_profile/release/compileReleaseArtProfile/baseline.prof",
-          "sha256": "5eaff745e92a6236711aaa6acdc53ceec432da7143a3428d161fd9efe00913c2",
-          "size": 1011
+          "sha256": "2cb434f3407b5c2a009c6e41579f1604be0c769313e7d216641054025d2944f1",
+          "size": 890
         },
         "assets/dexopt/baseline.profm": {
           "compilerPath": "app/build/intermediates/binary_art_profile_metadata/release/compileReleaseArtProfile/baseline.profm",
-          "sha256": "d15b6858f5ac0710052aa9fe898662c986b1f0fa4185b9fb0ac5229b955f84b3",
-          "size": 167
+          "sha256": "f935fb974a952b1f7948e886d268eee834058c9086ef4fcc583fb6cd878ede41",
+          "size": 164
         }
       },
       "resourceArchive": "app/build/intermediates/optimized_processed_res/release/optimizeReleaseResources/resources-release-optimize.ap_",
       "resourceEntries": {
         "AndroidManifest.xml": {
-          "sha256": "44d96656eada78ad718449d0c306df817dbfe6cbfca59e9d86d0b611852c229a",
-          "size": 16860
+          "sha256": "a4790822e28fef882278a4769b919349a971652a3ff3674569538db32cf5770a",
+          "size": 17072
         },
         "res/4j.xml": {
           "sha256": "757f2049fb0d70af338a3e505fca6fa81f3f5bf62bf313ca34d75a64b7a3cd1e",
@@ -867,7 +877,7 @@
           "size": 408
         },
         "res/Gi.xml": {
-          "sha256": "d4a6e54bf8cae5bc116f096e24670dad75a4ee3ee6809241adaa0e009f86cdd1",
+          "sha256": "d77a95081f11f6764c78c4e16dafa4245066c95e5b983a5ecffd762e7d1ff265",
           "size": 2164
         },
         "res/IV.xml": {
@@ -877,6 +887,10 @@
         "res/J_.png": {
           "sha256": "da5511f9c1a26c8ad8a10405bdf2739483c5bd0665083f951ef37fc8740a6985",
           "size": 1487098
+        },
+        "res/N5.xml": {
+          "sha256": "39bb3d82f733e2f977f4269227ec1bc232bfb9ee5339f81eeb20a369b7b8b8c3",
+          "size": 2476
         },
         "res/Nj.xml": {
           "sha256": "e5892a728e885c654ef20f012f41fcd7f9d5755ddb4dc140159de31b1dbda3de",
@@ -927,7 +941,7 @@
           "size": 1553387
         },
         "res/id.xml": {
-          "sha256": "43944f630ff0b98f170b868e84c3fafd0844c83331922e637032d8f033c238f4",
+          "sha256": "a1b1c8b0f6a5fe2a93751cf83ca59c21bb7a00aead221b4bab5ccfca97f9c3d1",
           "size": 1084
         },
         "res/kJ.xml": {
@@ -951,7 +965,7 @@
           "size": 408
         },
         "res/q3.xml": {
-          "sha256": "85613dec485c828fab321d96fc63e7a3d5fcce1fc29ecbbda50f0724b17e3a01",
+          "sha256": "bc221b94e931497901bc1279bf5d9a2b4a58c8704674e929f5ef5bc97ebba630",
           "size": 2024
         },
         "res/qj.xml": {
@@ -959,7 +973,7 @@
           "size": 652
         },
         "res/r0.xml": {
-          "sha256": "664413da7c71472653f42332aa8a3005bd853452fc956cdfda1e7cb2c2ddc4b6",
+          "sha256": "6a1637a0e39fc0d818f5d7d2658ba516a224bbdce3a8c4dbe2ee92d401f82a13",
           "size": 3996
         },
         "res/s9.xml": {
@@ -979,7 +993,7 @@
           "size": 548
         },
         "res/tj.xml": {
-          "sha256": "b4ebfd8ed45b438f5fc0770d622b740a95600075aa5d12f3983286690dadc4c1",
+          "sha256": "d7d80cda5fe64c27b76eee8eb99db98cd4d66d62b13d755fabb32fcabfb61578",
           "size": 640
         },
         "res/ty.png": {
@@ -991,7 +1005,7 @@
           "size": 1491481
         },
         "res/v9.xml": {
-          "sha256": "edcfeb9be8fd854e0e419653f07c0837c72818015b612e97616013d086027adf",
+          "sha256": "92b967d75535b09e9db7eac08e9b95f2129ffa1a5362761b4ca45c2160089149",
           "size": 7816
         },
         "res/ww.xml": {
@@ -1015,8 +1029,8 @@
           "size": 408
         },
         "resources.arsc": {
-          "sha256": "318a82b5700366a71850fa15b5c8e2766fe8c1c69cf479f3f82987edad0b3ad9",
-          "size": 49848
+          "sha256": "65ee80179a34688d80a208276b8e13aa90c19838ff9e07fad00a34d3707096cf",
+          "size": 54256
         }
       },
       "resourceSemantics": {
@@ -1033,6 +1047,7 @@
           "res/Gi.xml",
           "res/IV.xml",
           "res/J_.png",
+          "res/N5.xml",
           "res/Nj.xml",
           "res/OM.xml",
           "res/Qr.xml",

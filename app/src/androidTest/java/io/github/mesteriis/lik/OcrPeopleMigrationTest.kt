@@ -16,8 +16,8 @@ class OcrPeopleMigrationTest {
         val schema=JSONObject(instrumentation.context.assets.open("io.github.mesteriis.lik.catalog.MediaDatabase/6.json").bufferedReader().use{it.readText()}).getJSONObject("database")
         try{
             SQLiteDatabase.openOrCreateDatabase(path,null).use{sqlite->val entities=schema.getJSONArray("entities");for(i in 0 until entities.length()){val entity=entities.getJSONObject(i);val table=entity.getString("tableName");sqlite.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}",table));val indices=entity.optJSONArray("indices")?:JSONArray();for(j in 0 until indices.length())sqlite.execSQL(indices.getJSONObject(j).getString("createSql").replace("\${TABLE_NAME}",table))};val setup=schema.getJSONArray("setupQueries");for(i in 0 until setup.length())sqlite.execSQL(setup.getString(i));sqlite.version=6}
-            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_6_7,MediaDatabase.MIGRATION_7_8,MediaDatabase.MIGRATION_8_9, MediaDatabase.MIGRATION_9_10).build()
-            try{assertEquals(10,db.openHelper.writableDatabase.version);db.ocrPeople().savePerson(PersonIdentityRecord("p","Ирина",1));assertEquals("Ирина",db.ocrPeople().person("p")!!.name);val tables=mutableSetOf<String>();db.openHelper.writableDatabase.query("SELECT name FROM sqlite_master WHERE type='table'").use{c->while(c.moveToNext())tables+=c.getString(0)};assertTrue(tables.containsAll(setOf("ai_ocr_result","ai_feature_media_run","ai_face_detection","person_identity","person_face_decision","person_merge","person_cannot_link","person_cannot_link_owner","person_split")))}finally{db.close()}
+            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_6_7,MediaDatabase.MIGRATION_7_8,MediaDatabase.MIGRATION_8_9, MediaDatabase.MIGRATION_9_10, MediaDatabase.MIGRATION_10_11).build()
+            try{assertEquals(11,db.openHelper.writableDatabase.version);db.ocrPeople().savePerson(PersonIdentityRecord("p","Ирина",1));assertEquals("Ирина",db.ocrPeople().person("p")!!.name);val tables=mutableSetOf<String>();db.openHelper.writableDatabase.query("SELECT name FROM sqlite_master WHERE type='table'").use{c->while(c.moveToNext())tables+=c.getString(0)};assertTrue(tables.containsAll(setOf("ai_ocr_result","ai_feature_media_run","ai_face_detection","person_identity","person_face_decision","person_merge","person_cannot_link","person_cannot_link_owner","person_split")))}finally{db.close()}
         }finally{context.deleteDatabase(name)}
     }
 
@@ -26,8 +26,8 @@ class OcrPeopleMigrationTest {
         val schema=JSONObject(instrumentation.context.assets.open("io.github.mesteriis.lik.catalog.MediaDatabase/8.json").bufferedReader().use{it.readText()}).getJSONObject("database")
         try{
             SQLiteDatabase.openOrCreateDatabase(path,null).use{sqlite->val entities=schema.getJSONArray("entities");for(i in 0 until entities.length()){val entity=entities.getJSONObject(i);val table=entity.getString("tableName");sqlite.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}",table));val indices=entity.optJSONArray("indices")?:JSONArray();for(j in 0 until indices.length())sqlite.execSQL(indices.getJSONObject(j).getString("createSql").replace("\${TABLE_NAME}",table))};val setup=schema.getJSONArray("setupQueries");for(i in 0 until setup.length())sqlite.execSQL(setup.getString(i));sqlite.execSQL("INSERT INTO person_cannot_link(leftAnchorId,rightAnchorId,updatedAt,splitPersonId) VALUES('a','b',1,'person')");sqlite.version=8}
-            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_8_9, MediaDatabase.MIGRATION_9_10).build()
-            try{assertEquals(10,db.openHelper.writableDatabase.version);assertEquals(1,db.ocrPeople().cannotLinkOwnerCount("a","b"));assertEquals("split:person",db.ocrPeople().cannotLinkOwners("split:person").single().ownerId)}finally{db.close()}
+            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_8_9, MediaDatabase.MIGRATION_9_10, MediaDatabase.MIGRATION_10_11).build()
+            try{assertEquals(11,db.openHelper.writableDatabase.version);assertEquals(1,db.ocrPeople().cannotLinkOwnerCount("a","b"));assertEquals("split:person",db.ocrPeople().cannotLinkOwners("split:person").single().ownerId)}finally{db.close()}
         }finally{context.deleteDatabase(name)}
     }
 
@@ -47,9 +47,9 @@ class OcrPeopleMigrationTest {
                 sqlite.execSQL("INSERT INTO person_face_decision(anchorId,decision,personId,updatedAt) VALUES('a-old','EXCLUDE',NULL,30),('c-old','ASSIGN','manual',31)")
                 sqlite.version=9
             }
-            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_9_10).build()
+            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_9_10, MediaDatabase.MIGRATION_10_11).build()
             try{
-                assertEquals(10,db.openHelper.writableDatabase.version)
+                assertEquals(11,db.openHelper.writableDatabase.version)
                 val stableA=LegacyPersonIdentity.stableId("auto:a-old");val stableC=LegacyPersonIdentity.stableId("auto:c-old")
                 assertEquals("Анна",db.ocrPeople().person(stableA)?.name);assertEquals("Слияние",db.ocrPeople().person(stableC)?.name)
                 assertTrue(db.ocrPeople().people().none{it.personId.startsWith("auto:")})

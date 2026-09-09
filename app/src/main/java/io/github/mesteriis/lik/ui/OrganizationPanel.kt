@@ -157,6 +157,7 @@ class OrganizationPanel(
             "people" -> people()
             "person" -> person()
             "trash" -> trash()
+            "similarity" -> similarity()
             "ai" -> {
                 activity.startActivity(Intent(activity, io.github.mesteriis.lik.settings.AiSettingsActivity::class.java))
                 screen = "more"
@@ -166,8 +167,29 @@ class OrganizationPanel(
                 root(text(R.string.nav_more))
                 button(text(R.string.search_title), R.id.organization_search) { screen = "search"; render() }
                 button(text(R.string.trash_title), R.id.organization_trash) { screen = "trash"; offset = 0; render() }
+                button(text(R.string.similarity_title), R.id.organization_similarity) { screen = "similarity"; offset = 0; render() }
                 button(text(R.string.ai_settings_title), R.id.organization_ai) { screen = "ai"; render() }
             }
+        }
+    }
+
+    private fun similarity() {
+        root(text(R.string.similarity_title))
+        button(text(R.string.back)) { screen = "more"; render() }
+        val db=MediaDatabase.get(activity)
+        button(text(R.string.similarity_run),R.id.organization_similarity_run){io.github.mesteriis.lik.similarity.SimilarityWorker.enqueue(activity,manual=true);Toast.makeText(activity,R.string.similarity_started,Toast.LENGTH_SHORT).show()}
+        button(text(R.string.similarity_pause)){io.github.mesteriis.lik.similarity.SimilarityWorker.pause(activity);Toast.makeText(activity,R.string.similarity_paused,Toast.LENGTH_SHORT).show()}
+        load({db.similarity().checkpoint() to io.github.mesteriis.lik.similarity.SimilarityRepository(activity).pairs(61,offset)}){(checkpoint,pairs)->
+            label(checkpoint?.let{activity.getString(R.string.similarity_progress,it.completed,it.total)}?:text(R.string.similarity_not_indexed))
+            if(pairs.isEmpty())label(text(R.string.similarity_empty))
+            pairs.take(60).forEach{pair->
+                val reason=if(pair.relation.kind==io.github.mesteriis.lik.similarity.SimilarityKind.EXACT)text(R.string.similarity_exact) else activity.getString(R.string.similarity_visual,pair.relation.distance)
+                button("$reason · ${pair.left.media.displayName?:pair.left.media.mediaId.takeLast(8)} / ${pair.right.media.displayName?:pair.right.media.mediaId.takeLast(8)}"){
+                    activity.startActivity(Intent(activity,io.github.mesteriis.lik.similarity.ComparisonActivity::class.java).putExtra(io.github.mesteriis.lik.similarity.ComparisonActivity.EXTRA_LEFT,pair.relation.leftMediaId).putExtra(io.github.mesteriis.lik.similarity.ComparisonActivity.EXTRA_RIGHT,pair.relation.rightMediaId))
+                }
+            }
+            if(offset>0)button(text(R.string.previous_page)){offset=(offset-60).coerceAtLeast(0);render()}
+            if(pairs.size>60)button(text(R.string.next_page)){offset+=60;render()}
         }
     }
 

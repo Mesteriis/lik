@@ -32,4 +32,6 @@
   <item name="aigate_enabled" type="id" />
   <item name="aigate_port" type="id" />
   <item name="aigate_check" type="id" />
+  <item name="organization_similarity" type="id" />
+  <item name="organization_similarity_run" type="id" />
 </resources>

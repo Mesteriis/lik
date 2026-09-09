@@ -1,6 +1,6 @@
 # Persistent media catalog
 
-Tasks 5–8 implement the Room 2.8.4 metadata catalog, Paging 3.5.1 feed, organization/search, share/export, and trash in the single `:app` module. KSP 2.3.9 generates the DAO implementation; schemas 1–4 are checked into `app/schemas/`, with explicit non-destructive migrations. This is original Lik code using official Android/Room/Paging/WorkManager APIs, with no code copied from gallery references. These are Apache-2.0 dependencies, unrelated to model licenses.
+Tasks 5–8 and 12 implement the Room 2.8.4 metadata catalog, Paging 3.5.1 feed, organization/search, share/export, trash, and derived duplicate/similarity records in the single `:app` module. KSP 2.3.9 generates the DAO implementation; schemas 1–11 are checked into `app/schemas/`, with explicit non-destructive migrations. This is original Lik code using official Android/Room/Paging/WorkManager APIs, with no code copied from gallery references. These are Apache-2.0 dependencies, unrelated to model licenses.
 
 ## Ownership and identity
 
@@ -57,6 +57,10 @@ Schema v4 adds nullable `trashedAt`. Deleting a selection is a single conditiona
 Retention is exactly `30 * 24 * 60 * 60 * 1000` milliseconds: a row is eligible at equality, independent of timezone and DST. WorkManager 2.11.2 schedules unique daily cleanup and an app-start request; foreground catalog reconciliation also purges before reading inventory. OS scheduling can delay physical removal after eligibility. A durable SQL transition to `PURGING` commits before private-file unlink; final row deletion cascades its organization relationships. Failure retains the claim and WorkManager returns retry. An absent file is a successful idempotent retry after a crash. Restore rejects a claimed purge. All claims, restore, re-import, inventory and unlink acquire the shared PhotoStore monitor before database work, so a completed restore cannot subsequently lose its file to an earlier purge. Purge resolves only validated opaque private-file IDs, never MediaStore or Google Photos URIs.
 
 Source: original Lik implementation on Task 7 commit `73f5f4913685abd7cd6fb619d955d916fd3006e5`; files `catalog/TrashRepository.kt`, `TrashMaintenance.kt`, `exports/`, `res/xml/export_paths.xml`, `LikApplication.kt`, and their UI integrations. API contracts: [FileProvider](https://developer.android.com/reference/androidx/core/content/FileProvider), [document creation](https://developer.android.com/training/data-storage/shared/documents-files#create-file), [WorkManager 2.11.2](https://developer.android.com/jetpack/androidx/releases/work#2.11.2). No upstream runtime code or model artifacts were copied.
+
+## Exact duplicates and similar photos (Task 12)
+
+Schema v11 and the full privacy, fingerprint, worker, relation, UI, and action contracts are documented in [SIMILARITY.md](SIMILARITY.md). These derived records never replace the stable media identity and carry no ownership of originals or user organization data.
 
 ### Verification scope
 
