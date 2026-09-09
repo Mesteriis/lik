@@ -1,7 +1,7 @@
 {
   "provenance": "Explicitly reviewed compiler outputs; never updated by a build or inferred from an inspected APK.",
   "schemaVersion": 1,
-  "sourceFingerprint": "173f9e05bb56d4079433f0b00911b7d73c4e9b5b90f404004553014847cdb8ce",
+  "sourceFingerprint": "6370171c97a17b37cbcd358fa83f1cd546d63328df4ccc233dbad20ea179dc26",
   "sourceInputs": {
     "files": [
       "app/build.gradle.kts",
@@ -91,13 +91,13 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/11/classes.dex",
-          "sha256": "2fe6aa35e4cdd20977e0ec93df780e4879a9e242f665d5816facdc4b618b659d",
-          "size": 105724
+          "sha256": "90979e5a89ef285f9a6756836ec421210c1b4261e289aa69e71c9a06a0f3667b",
+          "size": 107428
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/14/classes.dex",
-          "sha256": "debd2aa0ddb2add2f0a273f683975b25d6e92e9da745fcb7d9b07ac97abdee2f",
-          "size": 1094480
+          "sha256": "865d0b513f80b7b252550514c6bfd24d04ac9be3e8f89f091544eb7a93a14343",
+          "size": 1096468
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/15/classes.dex",
@@ -121,8 +121,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/9/classes.dex",
-          "sha256": "4e1f969c5d3844ae8b636b7ace2cd5104a56784f3cb47ea79a83b0d4451d50ad",
-          "size": 683764
+          "sha256": "e5e519900c5c3c2f831993fc927a93b75df1c83c2bf2c8f1bfc7e29fc747eada",
+          "size": 683980
         },
         {
           "compilerPath": "app/build/intermediates/global_synthetics_dex/debug/generateDebugGlobalSynthetics/classes.dex",
@@ -471,8 +471,8 @@
           "size": 528
         },
         "resources.arsc": {
-          "sha256": "af7d61afa2f13624f88c609a4f0f5819e2716fa0ed475801d12050a492db73a5",
-          "size": 188732
+          "sha256": "fcc9e5a002a11ace2680bf580297515f9b6f59af552867461b1ada748817f2b0",
+          "size": 188652
         }
       },
       "resourceSemantics": {
@@ -593,8 +593,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/5/classes.dex",
-          "sha256": "2c78d3ceb3621571b469b66c1fae8afae52a4496b2c88476c639813b4a1e66f4",
-          "size": 581608
+          "sha256": "4dd1c906724500a91658a7bac53547b84ad4d133a6a5daa3564c55f88ae48288",
+          "size": 597644
         },
         {
           "compilerPath": "app/build/intermediates/global_synthetics_dex/debugAndroidTest/generateDebugAndroidTestGlobalSynthetics/classes.dex",
@@ -817,21 +817,21 @@
       "dex": [
         {
           "compilerPath": "app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex",
-          "sha256": "5156149ac2537fae58462221509012484760714ab970c2f6f2a304b58cb28fbf",
-          "size": 1422500
+          "sha256": "1020edacf0111c53a8d22cf6172521656f5d16d3493985cf40480fb77c7241fb",
+          "size": 1423424
         }
       ],
       "kind": "app",
       "profiles": {
         "assets/dexopt/baseline.prof": {
           "compilerPath": "app/build/intermediates/binary_art_profile/release/compileReleaseArtProfile/baseline.prof",
-          "sha256": "aa7742d47b0cb9507872435539e8785037d9b73c91e769b59a383aa636ae3f0c",
-          "size": 867
+          "sha256": "ae401fd232f80b72414d58136640cb0f948d0076e7722b503455c8bb8494f5bd",
+          "size": 1014
         },
         "assets/dexopt/baseline.profm": {
           "compilerPath": "app/build/intermediates/binary_art_profile_metadata/release/compileReleaseArtProfile/baseline.profm",
-          "sha256": "3596bfba32dd2bc83a40dc27b18b116d63115c62c6fcc30a21a72f578f6dbf2d",
-          "size": 164
+          "sha256": "de0e56c03d50797f52cf970b0d2889974802e92767c3c13398d9249fde78d2ab",
+          "size": 169
         }
       },
       "resourceArchive": "app/build/intermediates/optimized_processed_res/release/optimizeReleaseResources/resources-release-optimize.ap_",
@@ -1029,8 +1029,8 @@
           "size": 408
         },
         "resources.arsc": {
-          "sha256": "75b13d3aaa9a2778f10d84f6345efedc47712761e874a611f4bdc0614d7a6999",
-          "size": 59244
+          "sha256": "6e34f93c7aa6ad2958807bf58b7392b934f7b824cabaf38c0c3efc6a46ef6e41",
+          "size": 59164
         }
       },
       "resourceSemantics": {

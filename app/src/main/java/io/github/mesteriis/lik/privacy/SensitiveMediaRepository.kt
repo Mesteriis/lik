@@ -19,11 +19,12 @@ class SensitiveMediaRepository(private val context:Context,private val database:
         return SensitiveMediaPolicy.mayReveal(database.sensitiveMedia().resolved(mediaId,revision,row.accessGrantEpoch),revealActive)
     }
 
-    fun setManual(mediaId:String,decision:SensitiveDecision,reveal:RevealSnapshot=SensitiveMediaSession.current.snapshot()):Boolean{
+    fun setManual(mediaId:String,decision:SensitiveDecision,reveal:RevealSnapshot=SensitiveMediaSession.current.snapshot(),expectedRevision:Long?=null):Boolean{
         require(decision==SensitiveDecision.SAFE||decision==SensitiveDecision.SENSITIVE)
         if(!reveal.revealed||!SensitiveMediaSession.current.accepts(reveal.epoch))return false
         return database.runInTransaction<Boolean>{
             val row=database.media().get(mediaId)?.takeIf{it.availability==MediaAvailability.AVAILABLE&&it.trashedAt==null}?:return@runInTransaction false
+            if(expectedRevision!=null&&row.contentRevision!=expectedRevision)return@runInTransaction false
             if(!SensitiveMediaSession.current.accepts(reveal.epoch))return@runInTransaction false
             database.sensitiveMedia().saveManual(SensitiveManualRecord(mediaId,row.contentRevision,decision,System.currentTimeMillis()))
             database.ocrPeople().saveExposure(AiMediaExposureRecord(mediaId,row.contentRevision,decision.toLegacy(),System.currentTimeMillis()))

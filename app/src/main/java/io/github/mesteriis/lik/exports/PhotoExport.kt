@@ -62,8 +62,9 @@ class PhotoExport(private val context: Context) {
             val row = record(id, MediaOperation.EXPORT,privacy)
             // CREATE_DOCUMENT does not prove this URI is new or owned by Lik. Never delete or
             // truncate it as failure cleanup. ExportFiles removes only our prepared snapshot.
-            files.save({ context.contentResolver.openOutputStream(destination, "wt") ?: throw IOException("Destination unavailable") }) {
+            files.save({ context.contentResolver.openOutputStream(destination, "wt") ?: throw IOException("Destination unavailable") }, validate = {
                 if(!io.github.mesteriis.lik.privacy.SensitiveMediaRepository(context).mayAccess(row.mediaId,row.contentRevision,privacy))throw IOException("Photo relocked")
+            }) {
                 open(row)
             }
         }

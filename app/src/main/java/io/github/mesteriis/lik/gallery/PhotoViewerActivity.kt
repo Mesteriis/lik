@@ -171,8 +171,13 @@ class PhotoViewerActivity : ComponentActivity() {
 
     private fun setSensitiveDecision(decision:SensitiveDecision){
         val id=currentMediaId?:return
-        if(SensitiveMediaRepository(this).setManual(id,decision)){
-            if(decision==SensitiveDecision.SENSITIVE){image.setImageDrawable(null);shownBitmap=null;finish()}
+        val reveal=SensitiveMediaSession.current.snapshot()
+        val revision=currentRevision
+        ocrIo.execute {
+            val changed=SensitiveMediaRepository(this).setManual(id,decision,reveal,expectedRevision=revision)
+            runOnUiThread {
+                if(changed&&currentMediaId==id&&decision==SensitiveDecision.SENSITIVE){image.setImageDrawable(null);shownBitmap=null;finish()}
+            }
         }
     }
 
@@ -186,7 +191,7 @@ class PhotoViewerActivity : ComponentActivity() {
         if (!settings.enabled) { Toast.makeText(this, R.string.aigate_enable_in_settings, Toast.LENGTH_LONG).show(); return }
         val mediaId = currentMediaId ?: return
         val revision = currentRevision
-        if (!AiGatePhotoBoundary.maySend(this,mediaId, revision)) {
+        if (currentRequiredRevealEpoch?.let { !SensitiveMediaSession.current.accepts(it) } == true) {
             Toast.makeText(this, R.string.aigate_task13_required, Toast.LENGTH_LONG).show(); return
         }
         if (shownBitmap == null) return
@@ -197,6 +202,7 @@ class PhotoViewerActivity : ComponentActivity() {
                 if (text.isEmpty()) return@setPositiveButton
                 val request = ++aiGateRequest
                 val token = aiGateConsent.grant(mediaId, revision)
+                val privacy = SensitiveMediaSession.current.snapshot()
                 aiGateIo.execute {
                     val client = AiGateClient(AiGateEndpoint(settings.port))
                     aiGateClient = client
@@ -205,7 +211,7 @@ class PhotoViewerActivity : ComponentActivity() {
                         require(client.health().running) { "AIGATE_NOT_RUNNING" }
                         client.models()
                         require(AiGateSettings(this).enabled && request == aiGateRequest) { "AIGATE_CANCELLED" }
-                        require(AiGatePhotoBoundary.maySend(this,mediaId,revision)){"SENSITIVE_RELOCKED"}
+                        require(SensitiveMediaRepository(this).mayAccess(mediaId,revision,privacy)){"SENSITIVE_RELOCKED"}
                         val row = requireNotNull(MediaDatabase.get(this).media().get(mediaId)) { "PHOTO_MISSING" }
                         require(row.contentRevision == revision && row.availability.name == "AVAILABLE") { "PHOTO_CHANGED" }
                         val jpeg = if (row.source == MediaSource.DEVICE) {
@@ -213,14 +219,15 @@ class PhotoViewerActivity : ComponentActivity() {
                         } else {
                             AiGateImage.encode(PhotoLibrary.store(this).fileFor(requireNotNull(row.privateFileId)))
                         }
-                        require(AiGatePhotoBoundary.maySend(this,mediaId,revision)){"SENSITIVE_RELOCKED"}
+                        require(request == aiGateRequest && SensitiveMediaRepository(this).mayAccess(mediaId,revision,privacy)){"SENSITIVE_RELOCKED"}
                         client.chat(token, aiGateConsent, mediaId, revision, request, text, jpeg)
                     }
+                    val mayPublish=SensitiveMediaRepository(this).mayAccess(mediaId,revision,privacy)
                     runOnUiThread {
                         if (aiGateClient === client) aiGateClient = null
                         if (request != aiGateRequest || currentMediaId != mediaId || currentRevision != revision) return@runOnUiThread
                         if (!AiGateSettings(this).enabled) return@runOnUiThread
-                        if(!AiGatePhotoBoundary.maySend(this,mediaId,revision))return@runOnUiThread
+                        if(!mayPublish||SensitiveMediaSession.current.snapshot().epoch!=privacy.epoch)return@runOnUiThread
                         result.onSuccess { reply -> AlertDialog.Builder(this).setTitle(R.string.aigate_reply).setMessage(reply.text)
                             .setPositiveButton(android.R.string.ok, null).show() }
                             .onFailure { Toast.makeText(this, getString(R.string.aigate_send_failed, it.message ?: "error"), Toast.LENGTH_LONG).show() }

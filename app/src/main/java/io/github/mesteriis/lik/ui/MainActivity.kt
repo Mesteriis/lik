@@ -467,11 +467,13 @@ open class MainActivity : ComponentActivity() {
     private fun exportSelection(save: Boolean) {
         val ids = selection.ids
         if (ids.isEmpty() || exporting || (save && (ids.size != 1 || pendingExportId != null))) return
+        val privacyEpoch = SensitiveMediaSession.current.snapshot().epoch
         exporting = true; updateSelection()
         organizationScope.launch {
             try {
                 val export = io.github.mesteriis.lik.exports.PhotoExport(this@MainActivity)
                 val intent = withContext(Dispatchers.IO) { if (save) export.destinationIntent(ids.single()) else export.share(ids) }
+                if (SensitiveMediaSession.current.snapshot().epoch != privacyEpoch) return@launch
                 if (save) {
                     pendingExportId = ids.single()
                     exportDestination.launch(intent)

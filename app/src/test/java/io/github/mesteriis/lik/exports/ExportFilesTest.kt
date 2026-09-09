@@ -9,6 +9,22 @@ import org.junit.rules.TemporaryFolder
 class ExportFilesTest {
     @get:Rule val temporary = TemporaryFolder()
 
+    @Test fun revokedAccessAfterStagingNeverOpensDestination() {
+        val files = ExportFiles(temporary.root)
+        var allowed = true
+        var opened = false
+        val source = object : ByteArrayInputStream(byteArrayOf(3, 5, 8)) {
+            override fun close() { allowed = false; super.close() }
+        }
+        assertThrows(SecurityException::class.java) {
+            files.save({ opened = true; ByteArrayOutputStream() }, validate = {
+                if (!allowed) throw SecurityException("Photo relocked")
+            }) { source }
+        }
+        assertFalse(opened)
+        assertTrue(temporary.root.listFiles()!!.isEmpty())
+    }
+
     @Test fun cancellationCreatesNothingAndDoesNotOpenSource() {
         val files = ExportFiles(temporary.root)
         assertFalse(files.save(null) { error("Cancelled destination must not open source") })

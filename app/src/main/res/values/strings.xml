@@ -154,7 +154,7 @@
   <string name="aigate_not_installed">AiGate is not installed.</string>
   <string name="aigate_send_photo">Send to AiGate</string>
   <string name="aigate_enable_in_settings">Enable AiGate in AI settings first.</string>
-  <string name="aigate_task13_required">Sending is locked until sensitive-photo classification and biometric reveal are completed in the privacy delivery.</string>
+  <string name="aigate_task13_required">This photo is hidden again. Verify with biometrics before sending it to AiGate.</string>
   <string name="aigate_prompt_hint">What should AiGate answer about this photo?</string>
   <string name="aigate_send_title">Send this photo to AiGate?</string>
   <string name="aigate_send_disclosure">Lik will send a resized, metadata-free JPEG and this prompt to 127.0.0.1. AiGate may forward them to a cloud provider.</string>

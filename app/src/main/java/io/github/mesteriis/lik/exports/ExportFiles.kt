@@ -22,11 +22,23 @@ class ExportFiles(private val directory: File) {
     }
 
     /** Null destination is cancellation. Every failure closes streams and removes the snapshot. */
-    fun save(destination: (() -> OutputStream)?, source: () -> InputStream): Boolean {
+    fun save(destination: (() -> OutputStream)?, validate: () -> Unit = {}, source: () -> InputStream): Boolean {
         if (destination == null) return false
         val prepared = prepare("image/*", source)
         try {
-            destination().use { output -> prepared.inputStream().use { it.copyTo(output) }; output.flush() }
+            validate()
+            destination().use { output ->
+                prepared.inputStream().use { input ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        validate()
+                        output.write(buffer, 0, count)
+                    }
+                }
+                output.flush()
+            }
             return true
         } finally { prepared.delete() }
     }

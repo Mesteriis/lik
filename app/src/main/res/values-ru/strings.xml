@@ -154,7 +154,7 @@
   <string name="aigate_not_installed">AiGate не установлен.</string>
   <string name="aigate_send_photo">Отправить в AiGate</string>
   <string name="aigate_enable_in_settings">Сначала включите AiGate в настройках ИИ.</string>
-  <string name="aigate_task13_required">Отправка заблокирована до завершения поставки классификации чувствительных фото и биометрического показа.</string>
+  <string name="aigate_task13_required">Фото снова скрыто. Подтвердите личность биометрией, прежде чем отправлять его в AiGate.</string>
   <string name="aigate_prompt_hint">Что AiGate должен ответить об этом фото?</string>
   <string name="aigate_send_title">Отправить это фото в AiGate?</string>
   <string name="aigate_send_disclosure">Лик отправит уменьшенный JPEG без метаданных и этот запрос на 127.0.0.1. AiGate может переслать их облачному провайдеру.</string>
