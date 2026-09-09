@@ -14,15 +14,19 @@ import java.util.concurrent.TimeUnit
  * WorkManager persists the chain and startup reconciles any event before enqueue was durable. */
 class AiCatalogScheduler(private val context:Context,private val database:MediaDatabase) {
     private val executor=Executors.newSingleThreadScheduledExecutor()
+    private val workManager=WorkManager.getInstance(context)
     private var timer:ScheduledFuture<*>?=null
     private var last:Pair<Long,Map<ProfileId,Set<AiFeature>>>?=null
+    private var scheduledRootId:java.util.UUID?=null
     private val observer=object:InvalidationTracker.Observer("catalog_change_state") {
         override fun onInvalidated(tables:Set<String>)=changed()
     }
+    private val workObserver=androidx.lifecycle.Observer<List<WorkInfo>> { reconcileFailedPass(it) }
     private var modelSubscription:AutoCloseable?=null
 
     init {
         database.invalidationTracker.addObserver(observer)
+        workManager.getWorkInfosForUniqueWorkLiveData(WORK).observeForever(workObserver)
         executor.execute {
             var previous:Map<ProfileId,Set<AiFeature>>?=null
             modelSubscription=ModelCatalog.get(context).observe { state ->
@@ -41,7 +45,7 @@ class AiCatalogScheduler(private val context:Context,private val database:MediaD
     private fun enqueueLatest() {
         val plans=plans(ModelCatalog.get(context).snapshot())
         val current=CatalogChanges.revision(database) to plans
-        if(current==last)return
+        if(synchronized(this){current==last})return
         val constraints=Constraints.Builder().setRequiresCharging(true).setRequiresBatteryNotLow(true).setRequiresStorageNotLow(true).build()
         val screening=OneTimeWorkRequestBuilder<SensitiveClassifierWorker>().setInputData(workDataOf("catalog-pass" to true)).setConstraints(constraints).addTag(TAG).build()
         val requests=plans.flatMap { (profile,features) ->
@@ -51,14 +55,27 @@ class AiCatalogScheduler(private val context:Context,private val database:MediaD
                 if(features.any{it==AiFeature.OCR||it==AiFeature.PEOPLE})add(OneTimeWorkRequestBuilder<OcrPeopleIndexWorker>().setInputData(input).setConstraints(constraints).addTag(TAG).addTag("ai-ocr-people-${profile.wire}").build())
             }
         }
-        var chain=WorkManager.getInstance(context).beginUniqueWork("ai-catalog-pipeline",ExistingWorkPolicy.APPEND_OR_REPLACE,screening)
+        var chain=workManager.beginUniqueWork(WORK,ExistingWorkPolicy.APPEND_OR_REPLACE,screening)
         if(requests.isNotEmpty())chain=chain.then(requests)
         chain.enqueue().result.get()
-        last=current
+        synchronized(this){last=current;scheduledRootId=screening.id}
+        reconcileFailedPass(workManager.getWorkInfosForUniqueWork(WORK).get())
+    }
+
+    private fun reconcileFailedPass(infos:List<WorkInfo>) {
+        val retry=synchronized(this){
+            if(infos.any{shouldRepair(scheduledRootId,it.id,it.state,it.runAttemptCount)}){
+                scheduledRootId=null;last=null;true
+            }else false
+        }
+        if(retry)changed()
     }
 
     companion object {
         const val TAG="lik-catalog-ai"
+        private const val WORK="ai-catalog-pipeline"
+        internal fun shouldRepair(rootId:java.util.UUID?,candidateId:java.util.UUID,state:WorkInfo.State,runAttemptCount:Int)=
+            candidateId==rootId&&state==WorkInfo.State.FAILED&&runAttemptCount==0
         internal fun plans(state:CatalogSnapshot):Map<ProfileId,Set<AiFeature>> = buildMap {
             state.active?.let { put(it,state.enabledFeatures) }
             state.pending?.takeIf { state.profile(it.profile).phase in setOf(ProfilePhase.PREPARING,ProfilePhase.ACTIVE) }

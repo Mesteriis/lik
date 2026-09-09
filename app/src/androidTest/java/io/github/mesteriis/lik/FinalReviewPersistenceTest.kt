@@ -78,6 +78,60 @@ class FinalReviewPersistenceTest {
         }
     }
 
+    @Test fun failedPredecessorDoesNotLoseAlreadyAppendedCatalogRevision() {
+        val manager=androidx.work.WorkManager.getInstance(context)
+        val catalog=ModelCatalog.get(context);val before=catalog.snapshot();val db=MediaDatabase.get(context)
+        val id="failed-predecessor-${System.nanoTime()}"
+        ReviewFailingPipelineBlocker.entered=CountDownLatch(1);ReviewFailingPipelineBlocker.release=CountDownLatch(1)
+        try {
+            val initial=manager.getWorkInfosForUniqueWork("ai-catalog-pipeline").get(3,TimeUnit.SECONDS).map{it.id}.toSet()
+            catalog.seedForTests(CatalogSnapshot.readyForTest(ProfileId.BALANCED).copy(catalogVersion=catalog.trusted.version,
+                enabledFeatures=setOf(AiFeature.SEARCH,AiFeature.OCR,AiFeature.PEOPLE)))
+            db.media().upsert(MediaRecord(id,MediaSource.DEVICE,id,contentUri="content://invalid",lastSeenAt=1))
+            val setupDeadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5)
+            var setupTags=emptyList<String>()
+            while(System.nanoTime()<setupDeadline){
+                setupTags=manager.getWorkInfosForUniqueWork("ai-catalog-pipeline").get(3,TimeUnit.SECONDS)
+                    .filter{it.id !in initial}.flatMap{it.tags}
+                if(setupTags.any{it.endsWith("AiIndexWorker")}&&setupTags.any{it.endsWith("OcrPeopleIndexWorker")})break
+                Thread.sleep(30)
+            }
+            assertTrue("opt-in setup must be durably scheduled before failure fixture",setupTags.any{it.endsWith("AiIndexWorker")}&&setupTags.any{it.endsWith("OcrPeopleIndexWorker")})
+            val blocker=androidx.work.OneTimeWorkRequestBuilder<ReviewFailingPipelineBlocker>().build()
+            manager.beginUniqueWork("ai-catalog-pipeline",androidx.work.ExistingWorkPolicy.REPLACE,
+                blocker).enqueue().result.get(3,TimeUnit.SECONDS)
+            assertTrue("fixture worker must actually be running",ReviewFailingPipelineBlocker.entered.await(3,TimeUnit.SECONDS))
+            assertEquals(androidx.work.WorkInfo.State.RUNNING,manager.getWorkInfoById(blocker.id).get(3,TimeUnit.SECONDS)?.state)
+            val predecessorIds=manager.getWorkInfosForUniqueWork("ai-catalog-pipeline").get(3,TimeUnit.SECONDS).map{it.id}.toSet()
+            db.ocrPeople().saveExposure(AiMediaExposureRecord(id,0,AiExposure.SAFE,1))
+            val appendDeadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5)
+            var appended=emptyList<androidx.work.WorkInfo>()
+            while(System.nanoTime()<appendDeadline){
+                appended=manager.getWorkInfosForUniqueWork("ai-catalog-pipeline").get(3,TimeUnit.SECONDS).filter{it.id !in predecessorIds}
+                if(appended.size>=3)break
+                Thread.sleep(30)
+            }
+            assertEquals("catalog revision must be durably appended before predecessor fails",3,appended.size)
+            assertTrue("successor must still depend on the running predecessor",appended.all{it.state==androidx.work.WorkInfo.State.BLOCKED})
+            ReviewFailingPipelineBlocker.release.countDown()
+            val failedIds=predecessorIds+appended.map{it.id}
+            val repairDeadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(6)
+            var repaired=emptyList<androidx.work.WorkInfo>()
+            while(System.nanoTime()<repairDeadline){
+                repaired=manager.getWorkInfosForUniqueWork("ai-catalog-pipeline").get(3,TimeUnit.SECONDS).filter{it.id !in failedIds}
+                if(repaired.flatMap{it.tags}.any{it.endsWith("SensitiveClassifierWorker")})break
+                Thread.sleep(30)
+            }
+            val repairedTags=repaired.flatMap{it.tags}
+            assertTrue("failed predecessor must trigger a replacement screening pass",repairedTags.any{it.endsWith("SensitiveClassifierWorker")})
+            assertTrue("replacement must retain semantic indexing",repairedTags.any{it.endsWith("AiIndexWorker")})
+            assertTrue("replacement must retain OCR/People indexing",repairedTags.any{it.endsWith("OcrPeopleIndexWorker")})
+        }finally{
+            catalog.seedForTests(before);manager.cancelUniqueWork("ai-catalog-pipeline").result.get(3,TimeUnit.SECONDS)
+            ReviewFailingPipelineBlocker.release.countDown();db.openHelper.writableDatabase.execSQL("DELETE FROM media WHERE mediaId=?",arrayOf(id))
+        }
+    }
+
     @Test fun finalPeoplePublicationRejectsSameCountEligibilityAba() {
         val name="cluster-publication-${System.nanoTime()}.db"
         val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addCallback(MediaDatabase.SIMILARITY_CALLBACK).build()
@@ -217,5 +271,10 @@ class FinalReviewPersistenceTest {
 
 class ReviewPipelineBlocker(context:Context,parameters:androidx.work.WorkerParameters):androidx.work.Worker(context,parameters) {
     override fun doWork():Result { entered.countDown();release.await(10,TimeUnit.SECONDS);return Result.success() }
+    companion object { var entered=CountDownLatch(1);var release=CountDownLatch(1) }
+}
+
+class ReviewFailingPipelineBlocker(context:Context,parameters:androidx.work.WorkerParameters):androidx.work.Worker(context,parameters) {
+    override fun doWork():Result { entered.countDown();release.await(10,TimeUnit.SECONDS);return Result.failure() }
     companion object { var entered=CountDownLatch(1);var release=CountDownLatch(1) }
 }

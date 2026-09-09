@@ -8,6 +8,14 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 class FinalReviewRulesTest {
+    @Test fun catalogRepairOnlyReplaysARevisionWhoseRootInheritedFailure() {
+        val root=java.util.UUID.randomUUID();val downstream=java.util.UUID.randomUUID()
+        assertTrue(AiCatalogScheduler.shouldRepair(root,root,androidx.work.WorkInfo.State.FAILED,0))
+        assertFalse(AiCatalogScheduler.shouldRepair(root,downstream,androidx.work.WorkInfo.State.FAILED,0))
+        assertFalse(AiCatalogScheduler.shouldRepair(root,root,androidx.work.WorkInfo.State.FAILED,1))
+        assertFalse(AiCatalogScheduler.shouldRepair(root,root,androidx.work.WorkInfo.State.SUCCEEDED,0))
+    }
+
     @Test fun catalogPlanningKeepsServingAndPreparingFeaturesAndHonorsOptOut() {
         assertTrue(AiCatalogScheduler.plans(CatalogSnapshot.fresh("v")).isEmpty())
         val active=CatalogSnapshot.readyForTest(ProfileId.COMPACT).copy(enabledFeatures=setOf(AiFeature.SEARCH),
