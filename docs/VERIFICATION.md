@@ -365,3 +365,17 @@ Room v12 clears v1 bands/visual relations and marks fingerprints for regeneratio
 - Reviewed compiled receipt is byte-identical to a fresh compiler candidate. Policy SHA-256: `62b1862bbd85a51b3ff01cb978d91d1ef0b71b76e85d5fc1fbd50cf30287fd48`; source fingerprint: `b4f8ce21a29e6d0cfbce2dc8db171740fbc25caf568aad2790d8f495bb024fa9`. Debug/release/androidTest APK sizes are 61,728,203 / 48,543,821 / 1,991,969 bytes; all three report metadata-only delivery and zero ONNX/tokenizer payloads.
 
 No physical device was installed or modified. No model payload, automatic merge/delete path or destructive MediaStore action was added. Physical Fold quality, latency, memory and threshold calibration remain open.
+
+### Task 12 review fix round 2 · 9 September 2026
+
+The prior worker bounded each invocation but could append an unbounded number of invocations for a large library, and it revisited every media pair inside common perceptual hashes. RED analytical regressions fixed the 100,000-item limits and the 61-exact/zero-visual independent-pagination case. The production query now pages unique perceptual-hash buckets. Equal buckets use known zero distance and materialize at most eight deterministic non-exact peers per item without pair expansion; non-equal bucket comparisons reserve a durable budget before work. At 100,000 items with one common hash the analytical Hamming-comparison count is zero and relation storage remains at most 800,000 rows.
+
+Room v13 persists trigger-maintained library revision plus tranche, comparison and continuation counters. One automatic or manual tranche allows at most 8,192 distinct non-equal bucket comparisons, 1,024 bucket examinations per worker and eight jobs total. A crash can leave reserved work unused but cannot exceed the limit. Exhaustion stores `PAUSED` with incomplete live SAFE-only coverage; a manual action starts another bounded tranche. Items become complete only after their durable hash-key cursor exhausts every candidate bucket, preserving Hamming≤14 recall in the claimed-complete domain.
+
+Exact groups and visual pairs now have independent saved offsets and Next/Previous controls. Comparison invalidation synchronously revalidates only its shown pair. Checkpoint/band/scan churn with the same publication token causes no image decode; a privacy revocation immediately clears and recycles both images, metadata and actions. Lifecycle and action guards remain current revision/access/version/SAFE-aware.
+
+- `./gradlew lint testDebugUnitTest assembleDebug assembleRelease assembleDebugAndroidTest` — **PASS**, 144 JVM tests with zero failures/errors/skips.
+- Focused API 37 persistence, migration and UI run on `emulator-5580` — **PASS**, 21/21. It includes tranche exhaustion/manual resume, finite continuation claims, unique common-hash processing, v13 trigger revision, independent publication guards, indexing-churn decode count and SAFE revocation clearing.
+- The reviewed compiler receipt is byte-identical to a fresh candidate. Policy SHA-256: `2a20a99774a54a8bdc7f95baba039d1a06033b0742c902f44b40498c828bfcab`; source fingerprint: `fe4ef6320cee3c56790a8e904430a78c61a816f9a5a78f0bc8536e8e5f3ebc72`. Debug/release/androidTest APK sizes are 61,401,375 / 48,561,421 / 1,494,862 bytes; all report metadata-only delivery with zero ONNX/tokenizer payloads.
+
+No physical device, model payload, automatic merge/delete or destructive MediaStore operation was used.

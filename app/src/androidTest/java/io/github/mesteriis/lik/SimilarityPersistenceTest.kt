@@ -111,12 +111,29 @@ class SimilarityPersistenceTest {
 
     @Test fun adversarialNearHashIsFoundAndVisualScanPersistsBoundedContinuation()=fixture{db->
         val current=row("000-current",MediaSource.DEVICE);safe(db,current);val base=ByteArray(8);assertTrue(db.similarity().publishIfCurrent(fingerprint(current,"current",base)))
-        repeat(40){index->val candidate=row("candidate-${index.toString().padStart(3,'0')}",MediaSource.DEVICE);safe(db,candidate);val bits=base.copyOf().also{for(byte in it.indices)it[byte]=(1 shl (byte%8)).toByte()};assertTrue(db.similarity().publishIfCurrent(fingerprint(candidate,"sha-$index",bits)))}
+        repeat(40){index->val candidate=row("candidate-${index.toString().padStart(3,'0')}",MediaSource.DEVICE);safe(db,candidate);val bits=base.copyOf().also{it[index/8]=(1 shl (index%8)).toByte()};assertTrue(db.similarity().publishIfCurrent(fingerprint(candidate,"sha-$index",bits)))}
         val first=SimilarityRelationScanner.step(db,current.mediaId,17)
         assertEquals(17,first.examined);assertFalse(first.complete);assertNotNull(db.similarity().scan(current.mediaId));assertTrue(db.similarity().relationCount()<=SimilarityBudgets.TOP_K)
         while(!SimilarityRelationScanner.step(db,current.mediaId,17).complete){}
         assertNull(db.similarity().scan(current.mediaId));assertTrue(db.similarity().relationCount()<=SimilarityBudgets.TOP_K)
         assertEquals(SimilarityBudgets.TOP_K,db.similarity().visibleRelations(100,0).size)
+    }
+
+    @Test fun exhaustedLibraryTranchePausesWithoutClaimingCompleteAndManualTrancheResumes()=fixture{db->
+        val a=row("budget-a",MediaSource.DEVICE);val b=row("budget-b",MediaSource.DEVICE);safe(db,a);safe(db,b)
+        db.similarity().publishIfCurrent(fingerprint(a,"a",ByteArray(8){0xff.toByte()}));db.similarity().publishIfCurrent(fingerprint(b,"b",ByteArray(8){0xff.toByte()}.also{it[0]=0xfe.toByte()}))
+        db.similarity().saveCheckpoint(SimilarityCheckpoint(checkpointMediaId=null,completed=0,total=2,status=SimilarityWorkStatus.RUNNING,updatedAt=1,libraryRevision=db.similarity().libraryRevision(),comparisons=SimilarityBudgets.COMPARISONS_PER_TRANCHE-1))
+        val engine=FingerprintCalculator{_,_->throw AssertionError("fingerprints already exist")}
+        assertEquals(SimilarityRunOutcome.PAUSED_BUDGET,SimilarityProcessor(db,engine,{false}).run())
+        assertEquals(SimilarityBudgets.COMPARISONS_PER_TRANCHE,db.similarity().checkpoint()!!.comparisons);assertEquals(SimilarityWorkStatus.PAUSED,db.similarity().checkpoint()!!.status);assertFalse(db.similarity().progress().complete)
+        db.similarity().saveCheckpoint(db.similarity().checkpoint()!!.copy(status=SimilarityWorkStatus.RUNNING,continuations=SimilarityBudgets.MAX_AUTO_CONTINUATIONS));assertEquals(0,db.similarity().claimContinuation())
+        val resumed=SimilarityProcessor(db,engine,{false},newTranche=true).run();assertTrue(resumed==SimilarityRunOutcome.COMPLETE||resumed==SimilarityRunOutcome.MORE_WORK);assertTrue(db.similarity().checkpoint()!!.tranche>0)
+    }
+
+    @Test fun commonPerceptualHashUsesOneKnownDistanceBucketAndBoundedRelations()=fixture{db->
+        val current=row("common-000",MediaSource.DEVICE);safe(db,current);db.similarity().publishIfCurrent(fingerprint(current,"sha-current",ByteArray(8)))
+        repeat(100){index->val row=row("common-${(index+1).toString().padStart(3,'0')}",MediaSource.DEVICE);safe(db,row);db.similarity().publishIfCurrent(fingerprint(row,"sha-$index",ByteArray(8)))}
+        val result=SimilarityRelationScanner.step(db,current.mediaId,2);assertTrue(result.complete);assertEquals(1,result.examined);assertEquals(0,result.comparisons);assertTrue(db.similarity().relationCount()<=SimilarityBudgets.TOP_K)
     }
 
     @Test fun visibleVisualRelationsRequireBothCurrentVersionFingerprints()=fixture{db->

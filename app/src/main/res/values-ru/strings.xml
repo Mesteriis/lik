@@ -239,4 +239,9 @@
     <item quantity="other">%1$d фото</item>
   </plurals>
   <string name="undo_person_split">Отменить разделение</string>
+  <string name="similarity_budget_paused">Охват похожих фото неполный. Запустите ещё раз для следующей ограниченной порции.</string>
+  <string name="similarity_next_exact">Следующие группы совпадений</string>
+  <string name="similarity_previous_exact">Предыдущие группы совпадений</string>
+  <string name="similarity_next_visual">Следующие похожие фото</string>
+  <string name="similarity_previous_visual">Предыдущие похожие фото</string>
 </resources>

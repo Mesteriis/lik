@@ -236,4 +236,9 @@
     <item quantity="other">%1$d photos</item>
   </plurals>
   <string name="undo_person_split">Undo split</string>
+  <string name="similarity_budget_paused">Similarity coverage is incomplete. Run again to process another bounded batch.</string>
+  <string name="similarity_next_exact">Next exact groups</string>
+  <string name="similarity_previous_exact">Previous exact groups</string>
+  <string name="similarity_next_visual">Next similar photos</string>
+  <string name="similarity_previous_visual">Previous similar photos</string>
 </resources>

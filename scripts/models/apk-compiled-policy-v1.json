@@ -1,7 +1,7 @@
 {
   "provenance": "Explicitly reviewed compiler outputs; never updated by a build or inferred from an inspected APK.",
   "schemaVersion": 1,
-  "sourceFingerprint": "b4f8ce21a29e6d0cfbce2dc8db171740fbc25caf568aad2790d8f495bb024fa9",
+  "sourceFingerprint": "fe4ef6320cee3c56790a8e904430a78c61a816f9a5a78f0bc8536e8e5f3ebc72",
   "sourceInputs": {
     "files": [
       "app/build.gradle.kts",
@@ -86,8 +86,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/0/classes.dex",
-          "sha256": "fa9d3f8fde232b95f8973b5cf3287e6d02f440ca37692a648f82c6c3b2c160b0",
-          "size": 41752
+          "sha256": "9cafb78edcf05e4aaabbed420e8246b6a5fe0adec785cefb23247bb812ad1a80",
+          "size": 42204
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/11/classes.dex",
@@ -101,8 +101,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/15/classes.dex",
-          "sha256": "82a4c6ae2db9cc252819e5def252f82c4ac3a4b0a05db11ef6bdd4fa8a8d288e",
-          "size": 182124
+          "sha256": "0c1172ae82d0941df49ae9a502083236540fb40015df82fff97ae81f77543cac",
+          "size": 204748
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/4/classes.dex",
@@ -121,8 +121,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/9/classes.dex",
-          "sha256": "37a923d56aa73a71d67eacce4fde5abc42a2e98a51ac7632663d99945385f9c3",
-          "size": 616840
+          "sha256": "7683fa4a0ea3dc346610ebc87645c49470f0385c4556626e7547be5e24bc1403",
+          "size": 626512
         },
         {
           "compilerPath": "app/build/intermediates/global_synthetics_dex/debug/generateDebugGlobalSynthetics/classes.dex",
@@ -351,19 +351,19 @@
           "size": 304
         },
         "res/layout/activity_comparison.xml": {
-          "sha256": "617a9dd356efe15341a0a0962ce28d299dd348b017beddaa26b6e6bbdfae3022",
+          "sha256": "61167d5610fe0ae0c6b1b99da24db60bfb9a39d3fccd7fcb49705d2ccf599efe",
           "size": 2476
         },
         "res/layout/activity_main.xml": {
-          "sha256": "92b967d75535b09e9db7eac08e9b95f2129ffa1a5362761b4ca45c2160089149",
+          "sha256": "ab17129a8d7daf5735a0d86088c8983ac2733ccbba39d990ee0f0800b837c451",
           "size": 7816
         },
         "res/layout/activity_photo_viewer.xml": {
-          "sha256": "6a1637a0e39fc0d818f5d7d2658ba516a224bbdce3a8c4dbe2ee92d401f82a13",
+          "sha256": "b230b40f588b5fbf1890726179e2052aab907d03a30cb078219e0105f8a5a014",
           "size": 3996
         },
         "res/layout/activity_settings.xml": {
-          "sha256": "bc221b94e931497901bc1279bf5d9a2b4a58c8704674e929f5ef5bc97ebba630",
+          "sha256": "fa824e517e35a49fddde23b5583d102810a0dabab2292f0518031d15e50c2c4a",
           "size": 2024
         },
         "res/layout/custom_dialog.xml": {
@@ -383,15 +383,15 @@
           "size": 656
         },
         "res/layout/item_timeline_header.xml": {
-          "sha256": "d7d80cda5fe64c27b76eee8eb99db98cd4d66d62b13d755fabb32fcabfb61578",
+          "sha256": "17574d2c51a735b0d6010000c88c7320db12fbf087e2408381fbf41f2d7e58aa",
           "size": 640
         },
         "res/layout/item_timeline_period.xml": {
-          "sha256": "d77a95081f11f6764c78c4e16dafa4245066c95e5b983a5ecffd762e7d1ff265",
+          "sha256": "d80e2bb25f738c827ad7a4c3fe24dea8efcf4db2aea23f2dc5a4a0a791cbc49f",
           "size": 2164
         },
         "res/layout/item_timeline_photo.xml": {
-          "sha256": "a1b1c8b0f6a5fe2a93751cf83ca59c21bb7a00aead221b4bab5ccfca97f9c3d1",
+          "sha256": "15310a461eb82991e61066df913416c71a41ce96926bfe858026457c4abda9e9",
           "size": 1084
         },
         "res/layout/notification_action.xml": {
@@ -403,11 +403,11 @@
           "size": 1228
         },
         "res/layout/notification_template_custom_big.xml": {
-          "sha256": "5968305838d6bd0503ead4d3d24ea5b8c87364d9e4b1564d9d053837b9f23529",
+          "sha256": "525c164c68acee82c41c883b4d3178653749f1037abbc526c02e5a031131bea4",
           "size": 2456
         },
         "res/layout/notification_template_icon_group.xml": {
-          "sha256": "3b8a29759c336ab2b2ebf20478b322b9234d8832828ba41abf5afd45ea5e4ab7",
+          "sha256": "963b2b3bb881f2531a7490e688e08aa7bfb8927a0c77a69611ed11cc53e41194",
           "size": 988
         },
         "res/layout/notification_template_part_chronometer.xml": {
@@ -415,7 +415,7 @@
           "size": 440
         },
         "res/layout/notification_template_part_time.xml": {
-          "sha256": "1467be4809b130c437b07395f49acfd07621294572498c14a92df78bbea902b3",
+          "sha256": "5189f7c4cb52e79c7e76e2a020baddc7b015a4991005fd01ef8d6804ade460f2",
           "size": 440
         },
         "res/mipmap-anydpi-v21/ic_launcher.xml": {
@@ -471,8 +471,8 @@
           "size": 528
         },
         "resources.arsc": {
-          "sha256": "9356a9892bb1b97f694855aaa9b31668fb3e3af9c4585bcd1cb10dc651a47372",
-          "size": 179296
+          "sha256": "c5425a33dd8f5cd66024d80885790e7ddf2ce5cd107eb4788bf3063036af895a",
+          "size": 182192
         }
       },
       "resourceSemantics": {
@@ -593,8 +593,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debugAndroidTest/mergeProjectDexDebugAndroidTest/5/classes.dex",
-          "sha256": "33356f650f63d11b5af87b1c3dc89320362dbe97df637ad8fb83b715f6a4c3c5",
-          "size": 509956
+          "sha256": "97d6198a49ee7ca839ace412524db025aae0c2d042e9b2219425e017394fa778",
+          "size": 516372
         },
         {
           "compilerPath": "app/build/intermediates/global_synthetics_dex/debugAndroidTest/generateDebugAndroidTestGlobalSynthetics/classes.dex",
@@ -817,21 +817,21 @@
       "dex": [
         {
           "compilerPath": "app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex",
-          "sha256": "bae46b4fcbca54daa69016fd1d5aaaf664dbf072ce3f7302a26f6dfae4bfa5cb",
-          "size": 1366064
+          "sha256": "5c65d184c7304354d794ca5e0cfd229992b9fddcd20a8bac5c6a389baf6c05f7",
+          "size": 1375300
         }
       ],
       "kind": "app",
       "profiles": {
         "assets/dexopt/baseline.prof": {
           "compilerPath": "app/build/intermediates/binary_art_profile/release/compileReleaseArtProfile/baseline.prof",
-          "sha256": "e5519371f48fcb42b4c82c719d195ad352eb53f51d69dedf32a9a1517a304527",
-          "size": 1024
+          "sha256": "6b9e5cec7f49aa90040b85ed95c6fa0b18a0574f714a3aca416207c09b804d69",
+          "size": 1022
         },
         "assets/dexopt/baseline.profm": {
           "compilerPath": "app/build/intermediates/binary_art_profile_metadata/release/compileReleaseArtProfile/baseline.profm",
-          "sha256": "b255e1f18128277002cb8a83d1a209a4ef4af998977a94c9de914922a0e29898",
-          "size": 167
+          "sha256": "3df1ad7b4c39054ba3d6b31ef5ff60028c1fb030c5bef38ec243c2fecc80d80d",
+          "size": 168
         }
       },
       "resourceArchive": "app/build/intermediates/optimized_processed_res/release/optimizeReleaseResources/resources-release-optimize.ap_",
@@ -877,7 +877,7 @@
           "size": 408
         },
         "res/Gi.xml": {
-          "sha256": "d77a95081f11f6764c78c4e16dafa4245066c95e5b983a5ecffd762e7d1ff265",
+          "sha256": "d80e2bb25f738c827ad7a4c3fe24dea8efcf4db2aea23f2dc5a4a0a791cbc49f",
           "size": 2164
         },
         "res/IV.xml": {
@@ -889,7 +889,7 @@
           "size": 1487098
         },
         "res/N5.xml": {
-          "sha256": "617a9dd356efe15341a0a0962ce28d299dd348b017beddaa26b6e6bbdfae3022",
+          "sha256": "61167d5610fe0ae0c6b1b99da24db60bfb9a39d3fccd7fcb49705d2ccf599efe",
           "size": 2476
         },
         "res/Nj.xml": {
@@ -941,7 +941,7 @@
           "size": 1553387
         },
         "res/id.xml": {
-          "sha256": "a1b1c8b0f6a5fe2a93751cf83ca59c21bb7a00aead221b4bab5ccfca97f9c3d1",
+          "sha256": "15310a461eb82991e61066df913416c71a41ce96926bfe858026457c4abda9e9",
           "size": 1084
         },
         "res/kJ.xml": {
@@ -965,7 +965,7 @@
           "size": 408
         },
         "res/q3.xml": {
-          "sha256": "bc221b94e931497901bc1279bf5d9a2b4a58c8704674e929f5ef5bc97ebba630",
+          "sha256": "fa824e517e35a49fddde23b5583d102810a0dabab2292f0518031d15e50c2c4a",
           "size": 2024
         },
         "res/qj.xml": {
@@ -973,7 +973,7 @@
           "size": 652
         },
         "res/r0.xml": {
-          "sha256": "6a1637a0e39fc0d818f5d7d2658ba516a224bbdce3a8c4dbe2ee92d401f82a13",
+          "sha256": "b230b40f588b5fbf1890726179e2052aab907d03a30cb078219e0105f8a5a014",
           "size": 3996
         },
         "res/s9.xml": {
@@ -993,7 +993,7 @@
           "size": 548
         },
         "res/tj.xml": {
-          "sha256": "d7d80cda5fe64c27b76eee8eb99db98cd4d66d62b13d755fabb32fcabfb61578",
+          "sha256": "17574d2c51a735b0d6010000c88c7320db12fbf087e2408381fbf41f2d7e58aa",
           "size": 640
         },
         "res/ty.png": {
@@ -1005,7 +1005,7 @@
           "size": 1491481
         },
         "res/v9.xml": {
-          "sha256": "92b967d75535b09e9db7eac08e9b95f2129ffa1a5362761b4ca45c2160089149",
+          "sha256": "ab17129a8d7daf5735a0d86088c8983ac2733ccbba39d990ee0f0800b837c451",
           "size": 7816
         },
         "res/ww.xml": {
@@ -1029,8 +1029,8 @@
           "size": 408
         },
         "resources.arsc": {
-          "sha256": "5411b213c50d7737c71d5fa2d771a8c1c907446bd3ff4a6a439df016e1cfec78",
-          "size": 54232
+          "sha256": "c48c4f3316ae0c414b6648c5cdd9aab9309cc59e906a8ae599d2465265c2488c",
+          "size": 55448
         }
       },
       "resourceSemantics": {

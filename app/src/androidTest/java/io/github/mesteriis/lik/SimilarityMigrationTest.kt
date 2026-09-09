@@ -3,7 +3,8 @@ package io.github.mesteriis.lik
 import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.platform.app.InstrumentationRegistry
-import io.github.mesteriis.lik.catalog.MediaDatabase
+import io.github.mesteriis.lik.catalog.*
+import io.github.mesteriis.lik.ai.*
 import io.github.mesteriis.lik.similarity.*
 import org.json.JSONArray
 import org.json.JSONObject
@@ -19,8 +20,8 @@ class SimilarityMigrationTest {
                 val entities=schema.getJSONArray("entities");for(index in 0 until entities.length()){val entity=entities.getJSONObject(index);val table=entity.getString("tableName");sqlite.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}",table));val indices=entity.optJSONArray("indices")?:JSONArray();for(i in 0 until indices.length())sqlite.execSQL(indices.getJSONObject(i).getString("createSql").replace("\${TABLE_NAME}",table))}
                 val setup=schema.getJSONArray("setupQueries");for(i in 0 until setup.length())sqlite.execSQL(setup.getString(i));sqlite.execSQL("INSERT INTO album VALUES('kept','Семья')");sqlite.version=10
             }
-            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_10_11, MediaDatabase.MIGRATION_11_12).build()
-            try{assertEquals("Семья",db.organization().albums().single().name);assertTrue(db.similarity().visibleRelations(10,0).isEmpty());db.similarity().saveCheckpoint(SimilarityCheckpoint(checkpointMediaId=null,completed=0,total=0,status=SimilarityWorkStatus.COMPLETE,updatedAt=1));assertNotNull(db.similarity().checkpoint());assertEquals(12,db.openHelper.writableDatabase.version)}finally{db.close()}
+            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_10_11, MediaDatabase.MIGRATION_11_12, MediaDatabase.MIGRATION_12_13).build()
+            try{assertEquals("Семья",db.organization().albums().single().name);assertTrue(db.similarity().visibleRelations(10,0).isEmpty());db.similarity().saveCheckpoint(SimilarityCheckpoint(checkpointMediaId=null,completed=0,total=0,status=SimilarityWorkStatus.COMPLETE,updatedAt=1));assertNotNull(db.similarity().checkpoint());assertEquals(13,db.openHelper.writableDatabase.version)}finally{db.close()}
         }finally{context.deleteDatabase(name)}
     }
 
@@ -36,12 +37,13 @@ class SimilarityMigrationTest {
                 sqlite.execSQL("INSERT INTO similarity_relation VALUES('a','b',1,1,2,2,'VISUAL',1,1,3)")
                 sqlite.execSQL("INSERT INTO similarity_checkpoint VALUES('default','a',1,1,'COMPLETE',3,NULL)");sqlite.version=11
             }
-            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_11_12).build()
+            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_11_12, MediaDatabase.MIGRATION_12_13).build()
             try{
                 val sql=db.openHelper.writableDatabase
                 fun count(table:String)=sql.query("SELECT COUNT(*) FROM $table").use{it.moveToFirst();it.getInt(0)}
                 assertEquals(0,count("fingerprint_band"));assertEquals(0,count("similarity_relation"));assertEquals(0,db.similarity().progress().completed)
-                db.similarity().saveScan(SimilarityScanRecord("a",1,2,PerceptualFingerprintV2.VERSION,"",0,4));assertNotNull(db.similarity().scan("a"));assertEquals(12,sql.version)
+                db.similarity().saveScan(SimilarityScanRecord("a",1,2,PerceptualFingerprintV2.VERSION,"",0,4));assertNotNull(db.similarity().scan("a"));assertEquals(13,sql.version)
+                val revision=db.similarity().libraryRevision();val trigger=MediaRecord("trigger",MediaSource.DEVICE,"trigger",lastSeenAt=1);db.media().upsert(trigger);db.ocrPeople().saveExposure(AiMediaExposureRecord("trigger",0,AiExposure.SAFE,1));assertEquals(revision+2,db.similarity().libraryRevision())
             }finally{db.close()}
         }finally{context.deleteDatabase(name)}
     }

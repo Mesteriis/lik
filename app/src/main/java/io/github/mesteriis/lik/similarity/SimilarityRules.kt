@@ -80,8 +80,18 @@ object SimilarityBudgets {
     const val CANDIDATES_PER_ITEM_STEP=512
     const val CANDIDATES_PER_RUN=1024
     const val FINGERPRINTS_PER_RUN=8
+    const val COMPARISONS_PER_TRANCHE=8192
+    const val MAX_AUTO_CONTINUATIONS=7
     fun maximumStoredVisualRelations(mediaCount:Int)=mediaCount.toLong()*TOP_K
     fun maximumCandidatePagesPerRun()=(CANDIDATES_PER_RUN+CANDIDATE_PAGE-1)/CANDIDATE_PAGE
+    fun maximumAutomaticJobs()=MAX_AUTO_CONTINUATIONS+1
+    fun maximumAutomaticComparisons()=minOf(COMPARISONS_PER_TRANCHE.toLong(),CANDIDATES_PER_RUN.toLong()*maximumAutomaticJobs())
+    fun uniqueBucketComparisons(mediaCount:Int,uniqueHashes:Int)=mediaCount.toLong()*(uniqueHashes-1).coerceAtLeast(0)
+}
+
+data class SimilarityPagingState(val exactResultCount:Int,val visualResultCount:Int,val pageSize:Int){
+    val hasNextExact get()=exactResultCount>pageSize
+    val hasNextVisual get()=visualResultCount>pageSize
 }
 
 data class MediaPair(val left: String, val right: String) {

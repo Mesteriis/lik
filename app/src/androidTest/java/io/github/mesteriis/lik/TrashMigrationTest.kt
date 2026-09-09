@@ -35,11 +35,11 @@ class TrashMigrationTest {
                 sqlite.execSQL("INSERT INTO media_tag VALUES('import', 'лето', 'Лето')")
                 sqlite.version = 3
             }
-            val db = Room.databaseBuilder(context, MediaDatabase::class.java, name).addMigrations(MediaDatabase.MIGRATION_3_4, MediaDatabase.MIGRATION_4_5, MediaDatabase.MIGRATION_5_6, MediaDatabase.MIGRATION_6_7, MediaDatabase.MIGRATION_7_8, MediaDatabase.MIGRATION_8_9, MediaDatabase.MIGRATION_9_10, MediaDatabase.MIGRATION_10_11, MediaDatabase.MIGRATION_11_12).build()
+            val db = Room.databaseBuilder(context, MediaDatabase::class.java, name).addMigrations(MediaDatabase.MIGRATION_3_4, MediaDatabase.MIGRATION_4_5, MediaDatabase.MIGRATION_5_6, MediaDatabase.MIGRATION_6_7, MediaDatabase.MIGRATION_7_8, MediaDatabase.MIGRATION_8_9, MediaDatabase.MIGRATION_9_10, MediaDatabase.MIGRATION_10_11, MediaDatabase.MIGRATION_11_12, MediaDatabase.MIGRATION_12_13).build()
             try {
                 assertNull(db.media().get("import")!!.trashedAt)
                 assertEquals("import", db.organization().search(CatalogSearch(albumId = "album", favorites = true, tag = "лето").query()).single().mediaId)
-                assertEquals(12, db.openHelper.writableDatabase.version)
+                assertEquals(13, db.openHelper.writableDatabase.version)
             } finally { db.close() }
         } finally { context.deleteDatabase(name) }
     }

@@ -34,4 +34,8 @@
   <item name="aigate_check" type="id" />
   <item name="organization_similarity" type="id" />
   <item name="organization_similarity_run" type="id" />
+  <item name="organization_similarity_next_exact" type="id" />
+  <item name="organization_similarity_previous_exact" type="id" />
+  <item name="organization_similarity_next_visual" type="id" />
+  <item name="organization_similarity_previous_visual" type="id" />
 </resources>

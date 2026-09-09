@@ -19,7 +19,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     io.github.mesteriis.lik.similarity.FingerprintBandRecord::class,
     io.github.mesteriis.lik.similarity.SimilarityRelationRecord::class,
     io.github.mesteriis.lik.similarity.SimilarityScanRecord::class,
-    io.github.mesteriis.lik.similarity.SimilarityCheckpoint::class], version = 12, exportSchema = true)
+    io.github.mesteriis.lik.similarity.SimilarityCheckpoint::class,
+    io.github.mesteriis.lik.similarity.SimilarityLibraryState::class], version = 13, exportSchema = true)
 abstract class MediaDatabase : RoomDatabase() {
     abstract fun media(): MediaDao
     abstract fun organization(): OrganizationDao
@@ -32,8 +33,36 @@ abstract class MediaDatabase : RoomDatabase() {
 
         fun get(context: Context): MediaDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MediaDatabase::class.java, "media.db")
-                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                .addCallback(SIMILARITY_CALLBACK)
                 .build().also { instance = it }
+        }
+
+        private val SIMILARITY_CALLBACK=object:RoomDatabase.Callback(){
+            override fun onCreate(db:SupportSQLiteDatabase){ensureSimilarityLibraryState(db)}
+            override fun onOpen(db:SupportSQLiteDatabase){ensureSimilarityLibraryState(db)}
+        }
+
+        private fun ensureSimilarityLibraryState(db:SupportSQLiteDatabase){
+            db.execSQL("INSERT OR IGNORE INTO similarity_library_state(stateId,revision) VALUES('default',0)")
+            listOf("media" to "media","ai_media_exposure" to "exposure").forEach{(table,label)->
+                listOf("INSERT","UPDATE","DELETE").forEach{operation->
+                    db.execSQL("CREATE TRIGGER IF NOT EXISTS similarity_${label}_${operation.lowercase()} AFTER $operation ON $table BEGIN UPDATE similarity_library_state SET revision=revision+1 WHERE stateId='default'; END")
+                }
+            }
+        }
+
+        val MIGRATION_12_13=object:Migration(12,13){
+            override fun migrate(db:SupportSQLiteDatabase){
+                db.execSQL("CREATE TABLE IF NOT EXISTS similarity_library_state (stateId TEXT NOT NULL PRIMARY KEY, revision INTEGER NOT NULL)")
+                db.execSQL("INSERT OR IGNORE INTO similarity_library_state(stateId,revision) VALUES('default',0)")
+                db.execSQL("ALTER TABLE similarity_checkpoint ADD COLUMN libraryRevision INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE similarity_checkpoint ADD COLUMN tranche INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE similarity_checkpoint ADD COLUMN comparisons INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE similarity_checkpoint ADD COLUMN continuations INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE similarity_checkpoint SET status='IDLE',checkpointMediaId=NULL,completed=0,total=0,error=NULL")
+                ensureSimilarityLibraryState(db)
+            }
         }
 
         val MIGRATION_11_12 = object : Migration(11, 12) {

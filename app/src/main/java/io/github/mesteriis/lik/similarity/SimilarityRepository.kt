@@ -17,6 +17,7 @@ class SimilarityRepository(private val context:Context,private val database:Medi
     fun exactGroups(limit:Int=60,offset:Int=0)=database.similarity().exactGroups(limit,offset)
     fun exactMembers(sha256:String,after:String="",limit:Int=60)=database.similarity().exactMembers(sha256,after,limit)
     fun progress()=database.similarity().progress()
+    fun status()=database.similarity().checkpoint()?.status
 
     fun pair(left:String,right:String):ComparisonPair?=database.runInTransaction<ComparisonPair?>{
         val ordered=runCatching{MediaPair.ordered(left,right)}.getOrNull()?:return@runInTransaction null

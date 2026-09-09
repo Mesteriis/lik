@@ -17,6 +17,8 @@ import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
+private data class SimilarityLoad(val progress:io.github.mesteriis.lik.similarity.SimilarityProgress,val status:io.github.mesteriis.lik.similarity.SimilarityWorkStatus?,val groups:List<io.github.mesteriis.lik.similarity.ExactDuplicateGroup>,val pairs:List<io.github.mesteriis.lik.similarity.ComparisonPair>)
+
 /** Native, scrollable organization screens; all database work is dispatched off the UI thread. */
 class OrganizationPanel(
     private val activity: Activity,
@@ -42,6 +44,8 @@ class OrganizationPanel(
     private var similaritySha: String? = null
     private var similarityCursor = ""
     private var similarityCursorStack = mutableListOf<String>()
+    private var similarityExactOffset=0
+    private var similarityVisualOffset=0
     private var content: LinearLayout = container
     private val privacyInvalidation=object:androidx.room.InvalidationTracker.Observer("media","ai_media_exposure","ai_ocr_result","ai_face_detection","content_fingerprint","fingerprint_failure","fingerprint_band","similarity_relation","similarity_scan","similarity_checkpoint"){
         override fun onInvalidated(tables:Set<String>){activity.runOnUiThread{refresh()}}
@@ -59,6 +63,8 @@ class OrganizationPanel(
         similaritySha = state.getString("organization.similaritySha")
         similarityCursor = state.getString("organization.similarityCursor").orEmpty()
         similarityCursorStack = state.getStringArrayList("organization.similarityCursorStack")?.toMutableList() ?: mutableListOf()
+        similarityExactOffset=state.getInt("organization.similarityExactOffset")
+        similarityVisualOffset=state.getInt("organization.similarityVisualOffset")
         offset = state.getInt("organization.offset")
         val folder = state.getString("organization.volume")?.let {
             DeviceFolder(it, state.getString("organization.bucket").orEmpty(), state.getString("organization.path").orEmpty(), null, 0)
@@ -83,6 +89,8 @@ class OrganizationPanel(
         state.putString("organization.similaritySha", similaritySha)
         state.putString("organization.similarityCursor", similarityCursor)
         state.putStringArrayList("organization.similarityCursorStack",ArrayList(similarityCursorStack))
+        state.putInt("organization.similarityExactOffset",similarityExactOffset)
+        state.putInt("organization.similarityVisualOffset",similarityVisualOffset)
         state.putInt("organization.offset", offset)
         state.putString("organization.name", query.name)
         query.from?.let { state.putLong("organization.from", it) }
@@ -177,7 +185,7 @@ class OrganizationPanel(
                 root(text(R.string.nav_more))
                 button(text(R.string.search_title), R.id.organization_search) { screen = "search"; render() }
                 button(text(R.string.trash_title), R.id.organization_trash) { screen = "trash"; offset = 0; render() }
-                button(text(R.string.similarity_title), R.id.organization_similarity) { screen = "similarity"; offset = 0; render() }
+                button(text(R.string.similarity_title), R.id.organization_similarity) { screen = "similarity"; similarityExactOffset=0;similarityVisualOffset=0;render() }
                 button(text(R.string.ai_settings_title), R.id.organization_ai) { screen = "ai"; render() }
             }
         }
@@ -186,11 +194,11 @@ class OrganizationPanel(
     private fun similarity() {
         root(text(R.string.similarity_title))
         button(text(R.string.back)) { screen = "more"; render() }
-        val db=MediaDatabase.get(activity)
         button(text(R.string.similarity_run),R.id.organization_similarity_run){io.github.mesteriis.lik.similarity.SimilarityWorker.enqueue(activity,manual=true);Toast.makeText(activity,R.string.similarity_started,Toast.LENGTH_SHORT).show()}
         button(text(R.string.similarity_pause)){io.github.mesteriis.lik.similarity.SimilarityWorker.pause(activity);Toast.makeText(activity,R.string.similarity_paused,Toast.LENGTH_SHORT).show()}
-        load({val repository=io.github.mesteriis.lik.similarity.SimilarityRepository(activity);Triple(repository.progress(),repository.exactGroups(61,offset),repository.visualPairs(61,offset))}){(progress,groups,pairs)->
+        load({val repository=io.github.mesteriis.lik.similarity.SimilarityRepository(activity);SimilarityLoad(repository.progress(),repository.status(),repository.exactGroups(61,similarityExactOffset),repository.visualPairs(61,similarityVisualOffset))}){(progress,status,groups,pairs)->
             label(activity.getString(R.string.similarity_progress,progress.completed,progress.eligible))
+            if(status==io.github.mesteriis.lik.similarity.SimilarityWorkStatus.PAUSED)label(text(R.string.similarity_budget_paused))
             if(groups.isEmpty()&&pairs.isEmpty())label(text(R.string.similarity_empty))
             groups.take(60).forEach{group->button(activity.getString(R.string.similarity_exact_group,group.memberCount,group.sha256.take(12))){similaritySha=group.sha256;similarityCursor="";similarityCursorStack.clear();screen="similarity_exact";render()}}
             pairs.take(60).forEach{pair->
@@ -199,14 +207,17 @@ class OrganizationPanel(
                     activity.startActivity(Intent(activity,io.github.mesteriis.lik.similarity.ComparisonActivity::class.java).putExtra(io.github.mesteriis.lik.similarity.ComparisonActivity.EXTRA_LEFT,pair.relation.leftMediaId).putExtra(io.github.mesteriis.lik.similarity.ComparisonActivity.EXTRA_RIGHT,pair.relation.rightMediaId))
                 }
             }
-            if(offset>0)button(text(R.string.previous_page)){offset=(offset-60).coerceAtLeast(0);render()}
-            if(pairs.size>60)button(text(R.string.next_page)){offset+=60;render()}
+            val paging=io.github.mesteriis.lik.similarity.SimilarityPagingState(groups.size,pairs.size,60)
+            if(similarityExactOffset>0)button(text(R.string.similarity_previous_exact),R.id.organization_similarity_previous_exact){similarityExactOffset=(similarityExactOffset-60).coerceAtLeast(0);render()}
+            if(paging.hasNextExact)button(text(R.string.similarity_next_exact),R.id.organization_similarity_next_exact){similarityExactOffset+=60;render()}
+            if(similarityVisualOffset>0)button(text(R.string.similarity_previous_visual),R.id.organization_similarity_previous_visual){similarityVisualOffset=(similarityVisualOffset-60).coerceAtLeast(0);render()}
+            if(paging.hasNextVisual)button(text(R.string.similarity_next_visual),R.id.organization_similarity_next_visual){similarityVisualOffset+=60;render()}
         }
     }
 
     private fun exactSimilarityGroup(){
         val sha=similaritySha?:run{screen="similarity";render();return}
-        root(text(R.string.similarity_exact_members));button(text(R.string.back)){screen="similarity";offset=0;render()}
+        root(text(R.string.similarity_exact_members));button(text(R.string.back)){screen="similarity";render()}
         val repository=io.github.mesteriis.lik.similarity.SimilarityRepository(activity)
         load({repository.exactMembers(sha,"",1).firstOrNull() to repository.exactMembers(sha,similarityCursor,61)}){(reference,members)->
             if(reference==null||members.isEmpty()){label(text(R.string.similarity_pair_unavailable));return@load}

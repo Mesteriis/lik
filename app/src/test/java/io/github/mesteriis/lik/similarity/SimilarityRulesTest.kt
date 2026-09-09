@@ -9,6 +9,17 @@ import java.io.ByteArrayInputStream
 import java.security.MessageDigest
 
 class SimilarityRulesTest {
+    @Test fun automaticLibraryWorkIsFiniteAtOneHundredThousandItems(){
+        assertEquals(8,SimilarityBudgets.maximumAutomaticJobs())
+        assertEquals(8192L,SimilarityBudgets.maximumAutomaticComparisons())
+        assertEquals(0L,SimilarityBudgets.uniqueBucketComparisons(100_000,1))
+        assertEquals(800_000L,SimilarityBudgets.maximumStoredVisualRelations(100_000))
+    }
+
+    @Test fun exactAndVisualPaginationAreIndependent(){
+        val state=SimilarityPagingState(exactResultCount=61,visualResultCount=0,pageSize=60)
+        assertTrue(state.hasNextExact);assertFalse(state.hasNextVisual)
+    }
     @Test fun exactDigestIsIndependentOfCatalogIdentityAndStreamsAllBytes() {
         val bytes = ByteArray(170_003) { (it * 31).toByte() }
         val expected = MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
