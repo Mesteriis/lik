@@ -29,6 +29,9 @@ jobs:
         run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
       - name: Lint, tests and APKs
         run: ./gradlew --no-daemon lint testDebugUnitTest assembleDebug assembleRelease assembleDebugAndroidTest
+      - name: Native receipt diagnostics
+        if: failure()
+        run: find app/build -type f -name liblik_usearch.so -exec sha256sum {} \; -exec stat --printf='%s %n\n' {} \;
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
