@@ -249,7 +249,7 @@ open class MainActivity : ComponentActivity() {
         val detector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
                 scale = 1f
-                initialSpan = detector.currentSpan
+                if (initialSpan <= 0f) initialSpan = detector.currentSpan
                 cancelled = false
                 completed = false
                 return true
