@@ -240,6 +240,18 @@
       {
         "sha256": "5370398b2563c137906f057c96cf961e59c23b2585b888f311ed082907df8b28",
         "size": 659632
+      },
+      {
+        "sha256": "ff1d7eb0d2889055c88d9ecad56a8a3ba9da06e4a2d7a942577e7b1007858c8c",
+        "size": 922416
+      },
+      {
+        "sha256": "1d5e789f12cc2a22b9c6ed4488b84acfc5cfe59a65ddfb2049f58ce282b768db",
+        "size": 922600
+      },
+      {
+        "sha256": "e966812718d64fa13bd65049f56b8fd7503abecce7b1f517fcf64c782b2e8c3f",
+        "size": 659632
       }
     ],
     "lib/arm64-v8a/libonnxruntime.so": {
