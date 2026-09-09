@@ -68,11 +68,19 @@ class ProfileDownloadWorker(context: Context, parameters: WorkerParameters) : Co
         private const val NOTIFICATION_ID = 3010
         private val downloadExecutor = java.util.concurrent.Executors.newCachedThreadPool()
         fun enqueue(context: Context, profile: ProfileId) {
+            enqueue(context, profile, requiresNetwork = true)
+        }
+        fun enqueueValidation(context: Context, profile: ProfileId) {
+            enqueue(context, profile, requiresNetwork = false)
+        }
+        private fun enqueue(context: Context, profile: ProfileId, requiresNetwork: Boolean) {
             val control = java.io.File(context.filesDir, "ai/staging/operations/${profile.wire}/control")
-            if (control.delete()) control.parentFile?.let(DurableAiFiles::syncDirectory)
+            if (control.isFile) PreallocatedMetadata.clear(control)
             val request = OneTimeWorkRequestBuilder<ProfileDownloadWorker>()
                 .setInputData(workDataOf(PROFILE to profile.wire))
-                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).setRequiresStorageNotLow(true).build())
+                .setConstraints(Constraints.Builder().setRequiredNetworkType(
+                    if (requiresNetwork) NetworkType.CONNECTED else NetworkType.NOT_REQUIRED)
+                    .setRequiresStorageNotLow(true).build())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS).build()
             WorkManager.getInstance(context).enqueueUniqueWork("ai-profile-${profile.wire}", ExistingWorkPolicy.KEEP, request)
         }

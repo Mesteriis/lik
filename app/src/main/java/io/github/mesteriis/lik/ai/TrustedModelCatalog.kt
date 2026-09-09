@@ -8,7 +8,14 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.MessageDigest
 
-data class PipelineSpec(val feature: AiFeature, val fingerprint: String, val dimension: Int?)
+data class PipelineSpec(
+    val feature: AiFeature,
+    val fingerprint: String,
+    val dimension: Int?,
+    val compatibleFingerprints: Set<String>,
+) {
+    fun accepts(candidate: String) = candidate == fingerprint || candidate in compatibleFingerprints
+}
 data class SmokeExpectedSample(val index: Int, val value: Float)
 data class SmokeReferenceSpec(
     val file: String,
@@ -21,6 +28,11 @@ data class SmokeReferenceSpec(
     val rtol: Float,
     val minimumNormRatio: Float,
     val maximumNormRatio: Float,
+    val scaleAware: Boolean,
+    val sampleAbsoluteTolerance: Float,
+    val sampleRelativeTolerance: Float,
+    val minimumRangeRatio: Float,
+    val maximumRangeRatio: Float,
     val expectedSamples: List<SmokeExpectedSample>,
 ) {
     init {
@@ -29,10 +41,12 @@ data class SmokeReferenceSpec(
         require(sha256.matches(Regex("[a-f0-9]{64}")))
         require(format == "little-endian-float32-output-order")
         require(minimumNormRatio in 0f..1f && maximumNormRatio >= 1f)
+        require(sampleAbsoluteTolerance > 0 && sampleRelativeTolerance > 0)
+        require(minimumRangeRatio in 0f..1f && maximumRangeRatio >= 1f)
         require(expectedSamples.size >= 2 && expectedSamples.map { it.index }.distinct().size == expectedSamples.size)
     }
 }
-data class SmokeInputSpec(val name: String, val type: String, val shape: IntArray, val fill: Double)
+data class SmokeInputSpec(val name: String, val type: String, val shape: IntArray, val pattern: String)
 data class GraphSmokeSpec(val artifactPath: String, val inputs: List<SmokeInputSpec>,
                           val outputName: String, val outputShape: IntArray,
                           val referenceOffsetFloats: Int,
@@ -54,6 +68,7 @@ data class ProfileSpec(
 
 class TrustedModelCatalog private constructor(
     val version: String,
+    val oracleRevision: String,
     val defaultProfile: ProfileId,
     val components: Map<String, ComponentSpec>,
     val profiles: Map<ProfileId, ProfileSpec>,
@@ -94,7 +109,7 @@ class TrustedModelCatalog private constructor(
                         val inputs = graph.getJSONArray("inputs").objects().map { input ->
                             SmokeInputSpec(input.getString("name"), input.getString("type"),
                                 input.getJSONArray("smokeShape").let { values -> IntArray(values.length()) { values.getInt(it) } },
-                                input.getDouble("smokeFill"))
+                                input.getString("smokePattern").also { pattern -> require(pattern in setOf("deterministic-ramp-v1", "byte-ramp-v1", "zeros-v1", "ones-v1")) })
                         }
                         val output = graph.optString("primaryOutput").takeIf(String::isNotBlank)
                             ?: graph.getJSONArray("outputs").getJSONObject(0).getString("name")
@@ -124,7 +139,12 @@ class TrustedModelCatalog private constructor(
                                 reference.getString("format"), reference.getString("comparison"), reference.getDouble("minimumCosine").toFloat(),
                                 reference.getDouble("atol").toFloat(), reference.getDouble("rtol").toFloat(),
                                 activationReference.getDouble("minimumNormRatio").toFloat(),
-                                activationReference.getDouble("maximumNormRatio").toFloat(), samples))
+                                activationReference.getDouble("maximumNormRatio").toFloat(),
+                                activationReference.getBoolean("scaleAware"),
+                                activationReference.getDouble("sampleAbsoluteTolerance").toFloat(),
+                                activationReference.getDouble("sampleRelativeTolerance").toFloat(),
+                                activationReference.getDouble("minimumRangeRatio").toFloat(),
+                                activationReference.getDouble("maximumRangeRatio").toFloat(), samples))
                     }
                     check(put(id, ComponentSpec(id, contract.getString("sourceRepo"), value.getString("fingerprint"), roles, artifacts, smoke)) == null)
                 }
@@ -152,14 +172,17 @@ class TrustedModelCatalog private constructor(
             require(components.values.flatMap { it.smokeGraphs }.map { it.artifactPath }.toSet() == activation.keys)
             val default = ProfileId.fromWire(root.getString("defaultProfile"))
             require(default == ProfileId.BALANCED)
-            return TrustedModelCatalog(root.getString("catalogVersion"), default, components, profiles)
+            return TrustedModelCatalog(root.getString("catalogVersion"), root.getString("oracleRevision"), default, components, profiles)
         }
 
         private fun org.json.JSONArray.strings() = List(length()) { getString(it) }
         private fun org.json.JSONArray.objects() = List(length()) { getJSONObject(it) }
         private fun JSONObject.pipeline(name: String, feature: AiFeature): PipelineSpec {
             val value = getJSONObject(name)
-            return PipelineSpec(feature, value.getString("fingerprint"), value.optInt("dimension").takeIf { value.has("dimension") })
+            return PipelineSpec(feature, value.getString("fingerprint"), value.optInt("dimension").takeIf { value.has("dimension") },
+                value.optJSONArray("compatibleFingerprints")?.strings()?.toSet().orEmpty().also { fingerprints ->
+                    require(fingerprints.all { it.matches(Regex("[a-f0-9]{64}")) })
+                })
         }
     }
 }
@@ -173,6 +196,15 @@ object SmokeReferenceVerifier {
         val expectedNorm = kotlin.math.sqrt(expected.sumOf { it.toDouble() * it })
         val ratio = observedNorm / expectedNorm
         if (expectedNorm <= 0 || ratio < reference.minimumNormRatio || ratio > reference.maximumNormRatio) return false
+        if (reference.scaleAware) {
+            val expectedRange = (expected.maxOrNull() ?: return false) - (expected.minOrNull() ?: return false)
+            val observedRange = (observed.maxOrNull() ?: return false) - (observed.minOrNull() ?: return false)
+            val rangeRatio = observedRange / expectedRange
+            if (expectedRange <= reference.sampleAbsoluteTolerance || rangeRatio < reference.minimumRangeRatio ||
+                rangeRatio > reference.maximumRangeRatio) return false
+            if (observed.indices.any { kotlin.math.abs(observed[it] - expected[it]) >
+                    reference.sampleAbsoluteTolerance + reference.sampleRelativeTolerance * kotlin.math.abs(expected[it]) }) return false
+        }
         return when (reference.comparison) {
             "allclose" -> observed.indices.all { kotlin.math.abs(observed[it] - expected[it]) <=
                 reference.atol + reference.rtol * kotlin.math.abs(expected[it]) }

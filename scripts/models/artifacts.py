@@ -54,6 +54,13 @@ def validate_catalog(catalog):
     for profile in profiles:
         if not profile["components"] or len(set(profile["components"])) != len(profile["components"]):
             raise ArtifactError("Empty or duplicate profile components")
+        for pipeline in profile.get("pipelines", {}).values():
+            compatible = pipeline.get("compatibleFingerprints")
+            if (not isinstance(compatible, list) or not compatible or
+                    len(compatible) != len(set(compatible)) or
+                    any(not re.fullmatch(r"[a-f0-9]{64}", value) for value in compatible) or
+                    pipeline.get("fingerprint") in compatible):
+                raise ArtifactError("Invalid compatible pipeline fingerprints")
         for component in profile["components"]:
             if component not in components:
                 raise ArtifactError(f"Missing component {component}")
@@ -98,7 +105,15 @@ def validate_catalog(catalog):
                 not isinstance(entry.get("outputSize"), int) or entry["outputSize"] <= 0 or
                 not isinstance(entry.get("minimumNormRatio"), (int, float)) or
                 not isinstance(entry.get("maximumNormRatio"), (int, float)) or
+                not isinstance(entry.get("sampleAbsoluteTolerance"), (int, float)) or
+                not isinstance(entry.get("sampleRelativeTolerance"), (int, float)) or
+                not isinstance(entry.get("minimumRangeRatio"), (int, float)) or
+                not isinstance(entry.get("maximumRangeRatio"), (int, float)) or
+                not isinstance(entry.get("scaleAware"), bool) or
                 not 0 < entry["minimumNormRatio"] <= 1 <= entry["maximumNormRatio"] or
+                not 0 < entry["sampleAbsoluteTolerance"] < 1 or
+                not 0 < entry["sampleRelativeTolerance"] < 1 or
+                not 0 < entry["minimumRangeRatio"] <= 1 <= entry["maximumRangeRatio"] or
                 not re.fullmatch(r"[a-f0-9]{64}", entry.get("referenceSha256", ""))):
             raise ArtifactError("Invalid activation smoke reference contract")
         samples = entry.get("samples")
@@ -109,6 +124,18 @@ def validate_catalog(catalog):
                                                     index >= entry["outputSize"] for index in indices) or
                 any(not re.fullmatch(r"[0-9a-f]{8}", sample.get("floatBits", "")) for sample in samples)):
             raise ArtifactError("Invalid activation smoke samples")
+        if entry["path"].startswith("ocr-") and not entry["scaleAware"]:
+            raise ArtifactError("OCR activation smoke must use scale-aware verification")
+    if onnx_paths and (not isinstance(catalog.get("oracleRevision"), str) or not catalog["oracleRevision"]):
+        raise ArtifactError("Missing activation oracle revision")
+    for component in components.values():
+        for file in component["artifacts"]:
+            if "onnx" in file and any(i.get("smokePattern") not in
+                    {"deterministic-ramp-v1", "byte-ramp-v1", "zeros-v1", "ones-v1"} for i in file["onnx"]["inputs"]):
+                raise ArtifactError("Invalid activation smoke input")
+            if component["id"].startswith("ocr-") and "onnx" in file and not any(
+                    i.get("smokePattern") in {"deterministic-ramp-v1", "byte-ramp-v1"} for i in file["onnx"]["inputs"]):
+                raise ArtifactError("OCR activation smoke input must be informative")
     return [f for c in components.values() for f in c["artifacts"]]
 
 

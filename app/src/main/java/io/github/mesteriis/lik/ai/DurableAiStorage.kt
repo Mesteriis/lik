@@ -6,6 +6,9 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.RandomAccessFile
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.security.MessageDigest
 import java.util.concurrent.locks.ReentrantLock
 
 object DurableAiFiles {
@@ -46,6 +49,91 @@ object DurableAiFiles {
     }
 }
 
+/** Two fixed, physically allocated slots. Accepted downloads can update metadata without allocating a new block. */
+object PreallocatedMetadata {
+    @Volatile internal var rejectNewFilesForTests = false
+    private const val MAGIC = 0x4c494b4d
+    private const val HEADER = 48
+    private const val SLOT_BYTES = 128 * 1024
+    private const val FILE_BYTES = SLOT_BYTES * 2L
+
+    fun prepare(target: File) {
+        if (isPrepared(target)) return
+        check(!rejectNewFilesForTests) { "UNRESERVED_METADATA_ALLOCATION" }
+        val legacy = target.takeIf(File::isFile)?.readBytes() ?: ByteArray(0)
+        require(legacy.size <= SLOT_BYTES - HEADER) { "METADATA_TOO_LARGE" }
+        val parent = requireNotNull(target.parentFile).also(File::mkdirs)
+        val temporary = File(parent, ".${target.name}-${System.nanoTime()}.metadata")
+        RandomAccessFile(temporary, "rw").use { output ->
+            Os.posix_fallocate(output.fd, 0, FILE_BYTES)
+            output.setLength(FILE_BYTES)
+            writeSlot(output, 0, 1, legacy)
+            output.fd.sync()
+        }
+        Os.rename(temporary.absolutePath, target.absolutePath)
+        DurableAiFiles.syncDirectory(parent)
+        check(isPrepared(target)) { "METADATA_PREALLOCATION_FAILED" }
+    }
+
+    fun write(target: File, bytes: ByteArray) {
+        require(bytes.size <= SLOT_BYTES - HEADER) { "METADATA_TOO_LARGE" }
+        prepare(target)
+        RandomAccessFile(target, "rw").use { output ->
+            val slots = listOfNotNull(readSlot(output, 0), readSlot(output, 1))
+            val sequence = (slots.maxOfOrNull { it.first } ?: 0L) + 1
+            val slot = if ((readSlot(output, 0)?.first ?: Long.MIN_VALUE) <=
+                (readSlot(output, 1)?.first ?: Long.MIN_VALUE)) 0 else 1
+            writeSlot(output, slot, sequence, bytes)
+            output.fd.sync()
+        }
+    }
+
+    fun read(target: File): ByteArray {
+        if (!target.isFile) throw java.io.FileNotFoundException(target.absolutePath)
+        RandomAccessFile(target, "r").use { input ->
+            if (input.length() != FILE_BYTES) return target.readBytes()
+            return listOfNotNull(readSlot(input, 0), readSlot(input, 1)).maxByOrNull { it.first }?.second
+                ?: error("CORRUPT_PREALLOCATED_METADATA")
+        }
+    }
+
+    fun clear(target: File) = write(target, ByteArray(0))
+
+    private fun isPrepared(target: File): Boolean = runCatching {
+        if (!target.isFile || target.length() != FILE_BYTES) return@runCatching false
+        val stat = Os.stat(target.absolutePath)
+        stat.st_blocks * 512 >= FILE_BYTES && RandomAccessFile(target, "r").use {
+            readSlot(it, 0) != null || readSlot(it, 1) != null
+        }
+    }.getOrDefault(false)
+
+    private fun writeSlot(file: RandomAccessFile, slot: Int, sequence: Long, bytes: ByteArray) {
+        val offset = slot * SLOT_BYTES.toLong()
+        val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
+        file.seek(offset + HEADER)
+        file.write(bytes)
+        file.seek(offset)
+        file.write(ByteBuffer.allocate(HEADER).order(ByteOrder.BIG_ENDIAN)
+            .putInt(MAGIC).putLong(sequence).putInt(bytes.size).put(digest).array())
+    }
+
+    private fun readSlot(file: RandomAccessFile, slot: Int): Pair<Long, ByteArray>? = runCatching {
+        val offset = slot * SLOT_BYTES.toLong()
+        file.seek(offset)
+        val header = ByteArray(HEADER).also(file::readFully)
+        val buffer = ByteBuffer.wrap(header).order(ByteOrder.BIG_ENDIAN)
+        if (buffer.int != MAGIC) return@runCatching null
+        val sequence = buffer.long
+        val length = buffer.int
+        if (sequence <= 0 || length !in 0..SLOT_BYTES - HEADER) return@runCatching null
+        val digest = ByteArray(32).also(buffer::get)
+        file.seek(offset + HEADER)
+        val bytes = ByteArray(length).also(file::readFully)
+        if (!MessageDigest.isEqual(digest, MessageDigest.getInstance("SHA-256").digest(bytes))) null
+        else sequence to bytes
+    }.getOrNull()
+}
+
 /** Serializes all profile transfers in-process; the file lock covers crash/restart and future processes. */
 object DownloadCoordinator {
     private val lock = ReentrantLock(true)
@@ -64,6 +152,16 @@ object DownloadCoordinator {
 class DownloadReservationLedger(private val root: File) {
     private val file = File(root, "download-reservations-v1.json")
     private val reservationDirectory = File(root, "staging/reservations")
+
+    fun prepareMetadata(operation: String? = null) {
+        reservationDirectory.mkdirs()
+        PreallocatedMetadata.prepare(file)
+        operation?.let { id -> reservationFile(id).let { target ->
+            if (!target.exists()) FileOutputStream(target).use { it.fd.sync() }
+        } }
+        DurableAiFiles.syncDirectory(reservationDirectory)
+        DurableAiFiles.syncDirectory(requireNotNull(reservationDirectory.parentFile))
+    }
 
     fun acquire(operation: String, files: List<Pair<ArtifactSpec, Long>>, availableBytes: Long, safetyMargin: Long): DownloadReservationPlan {
         val plan = DownloadReservationPlan.create(operation, files, safetyMargin)
@@ -167,7 +265,7 @@ class DownloadReservationLedger(private val root: File) {
 
     private fun read(): Pair<Map<String, String>, Map<String, Map<String, Long>>> = runCatching {
         if (!file.isFile) return@runCatching emptyMap<String, String>() to emptyMap()
-        val root = JSONObject(file.readText())
+        val root = JSONObject(PreallocatedMetadata.read(file).toString(Charsets.UTF_8))
         require(root.getInt("schema") == 1)
         val ownersObject = root.getJSONObject("owners")
         val owners = ownersObject.keys().asSequence().associateWith { ownersObject.getString(it) }
@@ -191,7 +289,7 @@ class DownloadReservationLedger(private val root: File) {
             .put("reservations", JSONObject().apply { reservations.forEach { (operation, files) ->
                 put(operation, JSONObject().apply { files.forEach(::put) })
             } })
-        DurableAiFiles.atomicWrite(file, value.toString().toByteArray())
+        PreallocatedMetadata.write(file, value.toString().toByteArray())
     }
 
     companion object { private const val MARGIN = "@safety-margin" }

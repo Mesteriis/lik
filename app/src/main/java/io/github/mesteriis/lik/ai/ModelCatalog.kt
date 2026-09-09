@@ -12,6 +12,7 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
     @Volatile private var current = initialize()
 
     fun snapshot(): CatalogSnapshot = current
+    internal fun stateFileForMetadata(): File = stateFile
     @Synchronized fun update(transform: (CatalogSnapshot) -> CatalogSnapshot): CatalogSnapshot {
         val old = current
         val next = transform(old)
@@ -27,19 +28,22 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
     }
     fun select(profile: ProfileId): CatalogSnapshot = update { state ->
         val fingerprints = trusted.profiles.getValue(profile).pipelines.mapValues { it.value.fingerprint }
-        ProfileTransitions.select(state, profile, state.enabledFeatures, fingerprints)
+        ProfileTransitions.select(state, profile, state.enabledFeatures, fingerprints,
+            state.verifiedOracles[profile] == trusted.oracleRevision)
     }
     fun setFeature(feature: AiFeature, enabled: Boolean): CatalogSnapshot = update { state ->
         val requested = state.pending?.enabled ?: state.enabledFeatures
         val features = if (enabled) requested + feature else requested - feature
         val target = state.pending?.profile ?: state.active ?: state.selected
         val fingerprints = trusted.profiles.getValue(target).pipelines.mapValues { it.value.fingerprint }
-        ProfileTransitions.featuresChanged(state, features, fingerprints)
+        ProfileTransitions.featuresChanged(state, features, fingerprints,
+            state.verifiedOracles[target] == trusted.oracleRevision)
     }
 
     fun selfTested(profile: ProfileId): CatalogSnapshot = update { state ->
-        if (state.pending?.profile == profile) ProfileTransitions.selfTested(state, profile)
-        else state.copy(revision = state.revision + 1,
+        val verified = state.copy(verifiedOracles = state.verifiedOracles + (profile to trusted.oracleRevision))
+        if (verified.pending?.profile == profile) ProfileTransitions.selfTested(verified, profile)
+        else verified.copy(revision = verified.revision + 1,
             profiles = state.profiles + (profile to state.profile(profile).copy(
                 phase = if (state.active == profile) ProfilePhase.ACTIVE else ProfilePhase.INSTALLED, error = null)))
     }
@@ -67,7 +71,8 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
         require(state.active != profile && state.pending?.profile != profile)
         CatalogGenerationCleanup.remove(state, removedGenerations).copy(
             profiles = state.profiles + (profile to ProfileState()),
-            selected = if (state.selected == profile) (state.active ?: ProfileId.BALANCED) else state.selected)
+            selected = if (state.selected == profile) (state.active ?: ProfileId.BALANCED) else state.selected,
+            verifiedOracles = state.verifiedOracles - profile)
     }
     fun discardGenerations(ids: Set<String>): CatalogSnapshot = update { state ->
         CatalogGenerationCleanup.remove(state, ids)
@@ -89,13 +94,14 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
             else CatalogMigrations.toVersion(persisted, trusted.version,
                 { installed.getValue(it) }, ::generationCompatible)
         val artifactRepaired = CatalogArtifactRepair.repair(versioned, installed, corrupted)
-        val repaired = CatalogStorageRepair.repair(artifactRepaired, ::generationUsable)
+        val oracleRepaired = CatalogOracleRepair.requireCurrent(artifactRepaired, trusted.oracleRevision) { installed.getValue(it) }
+        val repaired = CatalogStorageRepair.repair(oracleRepaired, ::generationUsable)
         if (repaired != persisted) write(repaired)
         return repaired
     }
 
     private fun generationCompatible(profile: ProfileId, generation: IndexGeneration): Boolean =
-        trusted.profiles.getValue(profile).pipelines[generation.feature]?.fingerprint == generation.pipelineFingerprint &&
+        trusted.profiles.getValue(profile).pipelines[generation.feature]?.accepts(generation.pipelineFingerprint) == true &&
             generationUsable(generation)
 
     private fun generationUsable(generation: IndexGeneration): Boolean {
@@ -109,7 +115,7 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
 
     private fun readOrFresh(): CatalogSnapshot = runCatching {
         if (!stateFile.isFile) return@runCatching CatalogSnapshot.fresh(trusted.version)
-        decode(stateFile.readText())
+        decode(PreallocatedMetadata.read(stateFile).toString(Charsets.UTF_8))
     }.getOrElse {
         stateFile.takeIf(File::exists)?.let {
             it.renameTo(File(root, "catalog-state-corrupt-${System.currentTimeMillis()}.json"))
@@ -119,11 +125,11 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
     }
 
     private fun write(state: CatalogSnapshot) {
-        DurableAiFiles.atomicWrite(stateFile, encode(state).toByteArray(Charsets.UTF_8))
+        PreallocatedMetadata.write(stateFile, encode(state).toByteArray(Charsets.UTF_8))
     }
 
     private fun encode(state: CatalogSnapshot) = JSONObject().apply {
-        put("schema", 1); put("catalogVersion", state.catalogVersion); put("revision", state.revision)
+        put("schema", 2); put("catalogVersion", state.catalogVersion); put("revision", state.revision)
         put("selected", state.selected.wire); put("active", state.active?.wire)
         put("enabled", JSONArray(state.enabledFeatures.map { it.name }))
         put("profiles", JSONObject().apply { state.profiles.forEach { (id, value) ->
@@ -137,10 +143,11 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
             .put("id", value.id).put("feature", value.feature.name).put("pipeline", value.pipelineFingerprint)
             .put("complete", value.complete).put("completed", value.completed).put("total", value.total) }))
         put("activeGenerations", JSONObject().apply { state.activeGenerations.forEach { (feature, id) -> put(feature.name, id) } })
+        put("verifiedOracles", JSONObject().apply { state.verifiedOracles.forEach { (profile, revision) -> put(profile.wire, revision) } })
     }.toString()
 
     private fun decode(text: String): CatalogSnapshot {
-        val root = JSONObject(text); require(root.getInt("schema") == 1)
+        val root = JSONObject(text); require(root.getInt("schema") in 1..2)
         val profilesJson = root.getJSONObject("profiles")
         val profiles = ProfileId.entries.associateWith { id -> profilesJson.getJSONObject(id.wire).let {
             ProfileState(ProfilePhase.valueOf(it.getString("phase")), it.getLong("completed"), it.getLong("total"), it.optString("error").takeIf(String::isNotBlank))
@@ -156,7 +163,10 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
         return CatalogSnapshot(root.getString("catalogVersion"), root.getLong("revision"), ProfileId.fromWire(root.getString("selected")),
             root.optString("active").takeIf(String::isNotBlank)?.let(ProfileId::fromWire), profiles,
             root.getJSONArray("enabled").let { a -> List(a.length()) { AiFeature.valueOf(a.getString(it)) }.toSet() },
-            pending, generations, featureMap("activeGenerations"))
+            pending, generations, featureMap("activeGenerations"),
+            root.optJSONObject("verifiedOracles")?.let { values -> values.keys().asSequence().associate {
+                ProfileId.fromWire(it) to values.getString(it)
+            } }.orEmpty())
     }
 
     companion object {

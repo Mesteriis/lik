@@ -10,6 +10,21 @@ from artifacts import digest, validate_catalog, verify_file
 from freeze_catalog import fingerprint
 from prepare import ROOT
 
+PREVIOUS_PIPELINE_FINGERPRINTS = {
+    ('compact-v1', 'search'): '14648614c8e58f03f27ad3284fa54fc09b4289ff1afb4e260b0ce9b8a08d5199',
+    ('balanced-v1', 'search'): 'f2d786d5ce3d4dbfe79da4e561eb93c4567926767fefc9104f2fa2e71da52a46',
+    ('extended-v1', 'search'): '8e04be78106fd195556b5abadb932e86e98a6a49961b74f0b551861ad46f9342',
+    ('compact-v1', 'ocr'): '4ed00992ff50205fd6d3674b6e74d94c782f3465fffbc5ec84f55a8ec0c9d0a0',
+    ('balanced-v1', 'ocr'): '4ed00992ff50205fd6d3674b6e74d94c782f3465fffbc5ec84f55a8ec0c9d0a0',
+    ('extended-v1', 'ocr'): 'e31c88d47c28f840ddc3098d7b3d0c1764b8a41d00ab4c58d5c4434d3027eabc',
+    ('compact-v1', 'people'): 'a462e3648939f08db300d2d28e85b1eba05b696439c67ea32b6bb753c173085b',
+    ('balanced-v1', 'people'): 'a462e3648939f08db300d2d28e85b1eba05b696439c67ea32b6bb753c173085b',
+    ('extended-v1', 'people'): 'a462e3648939f08db300d2d28e85b1eba05b696439c67ea32b6bb753c173085b',
+    ('compact-v1', 'sensitive'): 'a895a3c1aed33cafc279402e7719e2d71d432554b0a11aa4116b3b30d3674ea6',
+    ('balanced-v1', 'sensitive'): 'a895a3c1aed33cafc279402e7719e2d71d432554b0a11aa4116b3b30d3674ea6',
+    ('extended-v1', 'sensitive'): 'a895a3c1aed33cafc279402e7719e2d71d432554b0a11aa4116b3b30d3674ea6',
+}
+
 
 def activation_samples(reference_path, graph, maximum=96):
     """Keep small, exact float slices as trust-anchored metadata; never package the reference tensor."""
@@ -27,9 +42,18 @@ def activation_samples(reference_path, graph, maximum=96):
               for i in range(min(count, maximum * 2 // 3))} if count > 1 else {0}
     strongest = sorted(range(count), key=lambda index: abs(primary_values[index]), reverse=True)[:maximum - len(evenly)]
     indices = sorted(evenly | set(strongest))[:maximum]
+    sampled = [primary_values[index] for index in indices]
+    rms = math.sqrt(sum(value * value for value in sampled) / len(sampled))
+    spread = max(sampled) - min(sampled)
+    absolute_tolerance = max(1e-8, rms * .002)
+    if not rms > 0 or not spread > absolute_tolerance * 2:
+        raise ValueError('Activation smoke reference is not informative')
     return {'path': graph['_artifactPath'], 'outputName': primary, 'outputSize': count,
             'referenceSha256': graph['smokeReference']['sha256'],
+            'scaleAware': graph['_artifactPath'].startswith('ocr-'),
             'minimumNormRatio': 0.5, 'maximumNormRatio': 1.5,
+            'sampleAbsoluteTolerance': absolute_tolerance, 'sampleRelativeTolerance': .02,
+            'minimumRangeRatio': .5, 'maximumRangeRatio': 1.5,
             'samples': [{'index': index,
                          'floatBits': struct.pack('<f', primary_values[index])[::-1].hex()}
                         for index in indices]}
@@ -91,12 +115,15 @@ def main():
         catalog['components'].append(component)
     for original in reference['profiles']:
         profile = {key: value for key, value in original.items() if key != 'fingerprint'}
-        for pipeline in profile['pipelines'].values():
+        for name, pipeline in profile['pipelines'].items():
             pipeline['fingerprint'] = fingerprint([next(c['fingerprint'] for c in catalog['components'] if c['id'] == key) for key in pipeline['components']])
+            # Oracle metadata changed, but weights/tokenizers/preprocessing did not.
+            pipeline['compatibleFingerprints'] = [PREVIOUS_PIPELINE_FINGERPRINTS[(profile['id'], name)]]
         profile['fingerprint'] = fingerprint(profile)
         catalog['profiles'].append(profile)
     catalog['activationSmokeReferences'] = activation_references
-    catalog['catalogVersion'] = 'lik-hf-presets-2026-09-08-v2'
+    catalog['catalogVersion'] = 'lik-hf-presets-2026-09-08-v3'
+    catalog['oracleRevision'] = 'activation-ramp-v1'
     validate_catalog(catalog)
     args.output.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + '\n')
     print('HF catalog review candidate:', args.output, digest(args.output))

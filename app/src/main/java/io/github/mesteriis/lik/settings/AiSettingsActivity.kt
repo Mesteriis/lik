@@ -187,7 +187,11 @@ class AiSettingsActivity : Activity() {
                 cancelReplacedPending(profile)
                 val next = catalog.select(profile)
                 val requested = next.pending?.enabled ?: next.enabledFeatures
-                if (next.pending != null && AiFeature.SEARCH in requested) AiIndexWorker.enqueue(this, profile, manual = true)
+                if (next.profile(profile).phase == ProfilePhase.SELF_TESTING) {
+                    ProfileDownloadWorker.enqueueValidation(this, profile)
+                } else if (next.pending != null && AiFeature.SEARCH in requested) {
+                    AiIndexWorker.enqueue(this, profile, manual = true)
+                }
             }
             ProfileAction.REMOVE -> io.execute {
                 val bytes = ModelMaintenance.removeInactive(this, profile)

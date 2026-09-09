@@ -111,10 +111,23 @@ class ModelArtifactSmokeTest {
                                     val dimensions = descriptor.getJSONArray("smokeShape")
                                     val shape = LongArray(dimensions.length()) { dimensions.getLong(it) }
                                     val count = shape.fold(1L, Math::multiplyExact).toInt()
-                                    val fill = descriptor.getInt("smokeFill")
+                                    val pattern = descriptor.getString("smokePattern")
                                     inputs[descriptor.getString("name")] = when (descriptor.getString("type")) {
-                                        "float32" -> OnnxTensor.createTensor(environment, FloatBuffer.wrap(FloatArray(count) { fill.toFloat() }), shape)
-                                        "int64" -> OnnxTensor.createTensor(environment, LongBuffer.wrap(LongArray(count) { fill.toLong() }), shape)
+                                        "float32" -> OnnxTensor.createTensor(environment, FloatBuffer.wrap(FloatArray(count) { at ->
+                                            when (pattern) {
+                                                "deterministic-ramp-v1" -> if (count == 1) .25f else -.75f + 1.5f * at / (count - 1)
+                                                "byte-ramp-v1" -> if (count == 1) 127.5f else 255f * at / (count - 1)
+                                                "zeros-v1" -> 0f
+                                                else -> error("Unsupported manifest smoke pattern")
+                                            }
+                                        }), shape)
+                                        "int64" -> OnnxTensor.createTensor(environment, LongBuffer.wrap(LongArray(count) { at ->
+                                            when (pattern) {
+                                                "ones-v1" -> 1L
+                                                "zeros-v1" -> 0L
+                                                else -> error("Unsupported manifest smoke pattern")
+                                            }
+                                        }), shape)
                                         else -> error("Unsupported manifest tensor type")
                                     }
                                 }

@@ -34,7 +34,8 @@ class OnnxValidationTest(unittest.TestCase):
             reference = result["smokeReference"]
             self.assertEqual("allclose", reference["comparison"])
             self.assertEqual(8, reference["size"])
-            self.assertEqual(bytes(8), (pathlib.Path(directory) / reference["file"]).read_bytes())
+            self.assertEqual(bytes(8),
+                             (pathlib.Path(directory) / reference["file"]).read_bytes())
             with self.assertRaisesRegex(ValueError, "non-finite"):
                 inspect_model(self.graph(directory, divide_zero=True))
 

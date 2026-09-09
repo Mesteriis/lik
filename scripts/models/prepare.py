@@ -3,6 +3,7 @@
 import argparse
 import gc
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -75,7 +76,7 @@ def download_file(target, file):
     temporary.replace(path)
 
 
-def inspect_model(path, input_shapes=None):
+def inspect_model(path, input_shapes=None, informative=False):
     import numpy as np
     import onnx
     import onnxruntime as ort
@@ -98,10 +99,24 @@ def inspect_model(path, input_shapes=None):
         if not all(isinstance(d, int) and d > 0 for d in shape):
             raise ValueError(f"Specify smoke shape for {info.name}: {shape}")
         dtype = {"tensor(float)": "float32", "tensor(float16)": "float16", "tensor(int64)": "int64"}[info.type]
-        value = 1 if info.name == "attention_mask" else 0
-        feed[info.name] = np.full(shape, value, dtype=dtype)
+        count = math.prod(shape)
+        if dtype.startswith("float") and informative:
+            detector = "-det-v1" in str(path.parent)
+            values = np.linspace(0, 255, count, dtype=np.float32).reshape(shape).astype(dtype) if detector else \
+                np.linspace(-.75, .75, count, dtype=np.float32).reshape(shape).astype(dtype)
+            pattern, value = ("byte-ramp-v1" if detector else "deterministic-ramp-v1"), 0
+        elif info.name == "attention_mask":
+            values = np.ones(shape, dtype=dtype)
+            pattern, value = "ones-v1", 1
+        elif dtype.startswith("float"):
+            values = np.zeros(shape, dtype=dtype)
+            pattern, value = "zeros-v1", 0
+        else:
+            values = np.zeros(shape, dtype=dtype)
+            pattern, value = "zeros-v1", 0
+        feed[info.name] = values
         inputs.append({"name": info.name, "type": dtype, "shape": info.shape,
-                       "smokeShape": shape, "smokeFill": value})
+                       "smokeShape": shape, "smokeFill": value, "smokePattern": pattern})
     results = session.run(None, feed)
     if not all(np.isfinite(x).all() and x.size > 0 for x in results):
         raise ValueError("ONNX smoke inference returned empty or non-finite output")
@@ -120,7 +135,8 @@ def inspect_model(path, input_shapes=None):
                                "comparison": "cosine" if all(i.name in {"embedding", "image_embeds", "text_embeds", "last_hidden_state", "pooler_output"} for i in session.get_outputs()) else "allclose",
                                "minimumCosine": .98, "atol": 1e-4, "rtol": 1e-3},
             "hostValidation": {"runtime": "onnxruntime==" + ort.__version__, "provider": "CPUExecutionProvider",
-                               "fixture": "synthetic constant tensors; not a quality or speed benchmark", "finiteOutputs": True}}
+                               "fixture": ("deterministic nonzero ramp tensors" if informative else "deterministic zero tensors") +
+                                          "; not a quality or speed benchmark", "finiteOutputs": True}}
 
 
 def store_float16_weights(source, target):

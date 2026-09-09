@@ -198,6 +198,70 @@ class AiContractsTest {
         assertEquals(ProfilePhase.PREPARING, migrated.profile(ProfileId.EXTENDED).phase)
     }
 
+    @Test fun staleOracleStampCannotRemainActiveAndIsPreparedForOfflineRevalidation() {
+        val generation = IndexGeneration("search", AiFeature.SEARCH, "search-current", true, 9, 9)
+        val old = CatalogSnapshot.readyForTest(ProfileId.EXTENDED).copy(
+            enabledFeatures = setOf(AiFeature.SEARCH),
+            generations = mapOf(generation.id to generation),
+            activeGenerations = mapOf(AiFeature.SEARCH to generation.id),
+            verifiedOracles = mapOf(ProfileId.EXTENDED to "oracle-v1"),
+        )
+
+        val migrated = CatalogOracleRepair.requireCurrent(old, "oracle-v2") { true }
+
+        assertNull(migrated.active)
+        assertEquals(ProfileId.EXTENDED, migrated.selected)
+        assertEquals(setOf(AiFeature.SEARCH), migrated.enabledFeatures)
+        assertEquals(ProfilePhase.SELF_TESTING, migrated.profile(ProfileId.EXTENDED).phase)
+        assertEquals(ProfileId.EXTENDED, migrated.pending?.profile)
+        assertEquals(mapOf(AiFeature.SEARCH to "search"), migrated.pending?.readyGenerations)
+        assertTrue(migrated.verifiedOracles.isEmpty())
+        assertEquals(mapOf("search" to generation), migrated.generations)
+    }
+
+    @Test fun currentOracleStampKeepsCompatibleActiveProfileServing() {
+        val state = CatalogSnapshot.readyForTest(ProfileId.BALANCED).copy(
+            enabledFeatures = setOf(AiFeature.SEARCH),
+            verifiedOracles = mapOf(ProfileId.BALANCED to "oracle-v3"),
+        )
+
+        val checked = CatalogOracleRepair.requireCurrent(state, "oracle-v3") { true }
+
+        assertSame(state, checked)
+        assertEquals(ProfileId.BALANCED, checked.active)
+        assertEquals(ProfilePhase.ACTIVE, checked.profile(ProfileId.BALANCED).phase)
+        assertNull(checked.pending)
+    }
+
+    @Test fun installedProfileWithoutCurrentOracleCannotActivateOnReselection() {
+        val current = CatalogSnapshot.readyForTest(ProfileId.COMPACT).copy(
+            verifiedOracles = mapOf(ProfileId.COMPACT to "oracle-v3"),
+            profiles = CatalogSnapshot.readyForTest(ProfileId.COMPACT).profiles +
+                (ProfileId.EXTENDED to ProfileState(ProfilePhase.INSTALLED)),
+        )
+
+        val selected = ProfileTransitions.select(
+            current,
+            ProfileId.EXTENDED,
+            emptySet(),
+            emptyMap(),
+            profileVerified = false,
+        )
+
+        assertEquals(ProfileId.COMPACT, selected.active)
+        assertEquals(ProfileId.EXTENDED, selected.selected)
+        assertEquals(ProfileId.EXTENDED, selected.pending?.profile)
+        assertEquals(ProfilePhase.SELF_TESTING, selected.profile(ProfileId.EXTENDED).phase)
+    }
+
+    @Test fun oracleOnlyCatalogUpdateKeepsExplicitlyCompatibleGenerationFingerprint() {
+        val pipeline = PipelineSpec(AiFeature.SEARCH, "b".repeat(64), 768, setOf("a".repeat(64)))
+
+        assertTrue(pipeline.accepts("a".repeat(64)))
+        assertTrue(pipeline.accepts("b".repeat(64)))
+        assertFalse(pipeline.accepts("c".repeat(64)))
+    }
+
     @Test fun removingGenerationsClearsEveryCatalogPointer() {
         val generation = IndexGeneration("old", AiFeature.SEARCH, "p", true, 1, 1)
         val state = CatalogSnapshot.readyForTest(ProfileId.COMPACT).copy(

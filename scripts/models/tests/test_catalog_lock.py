@@ -21,6 +21,10 @@ class CatalogIdentityTest(unittest.TestCase):
             self.assertEqual(component["fingerprint"], fingerprint({k: v for k, v in component.items() if k != "fingerprint"}))
         for profile in catalog["profiles"]:
             self.assertIn("sensitive-v1", profile["components"])
+            for name, pipeline in profile["pipelines"].items():
+                self.assertEqual(1, len(pipeline["compatibleFingerprints"]), (profile["id"], name))
+                self.assertRegex(pipeline["compatibleFingerprints"][0], r"^[a-f0-9]{64}$")
+                self.assertNotEqual(pipeline["fingerprint"], pipeline["compatibleFingerprints"][0])
             self.assertEqual(profile["fingerprint"], fingerprint({k: v for k, v in profile.items() if k != "fingerprint"}))
         dimensions = {p["id"]: p["pipelines"]["search"]["dimension"] for p in catalog["profiles"]}
         self.assertEqual({"compact-v1": 512, "balanced-v1": 768, "extended-v1": 1024}, dimensions)
@@ -28,6 +32,7 @@ class CatalogIdentityTest(unittest.TestCase):
         onnx_paths = {f["path"] for f in files if f["path"].endswith(".onnx")}
         activation = {r["path"]: r for r in catalog["activationSmokeReferences"]}
         self.assertEqual(onnx_paths, set(activation))
+        self.assertEqual("activation-ramp-v1", catalog["oracleRevision"])
         for path, reference in activation.items():
             samples = reference["samples"]
             self.assertGreaterEqual(len(samples), 2, path)
@@ -37,3 +42,17 @@ class CatalogIdentityTest(unittest.TestCase):
                                 for sample in samples), path)
             self.assertLess(reference["minimumNormRatio"], 1)
             self.assertGreater(reference["maximumNormRatio"], 1)
+            self.assertGreater(reference["sampleAbsoluteTolerance"], 0)
+            self.assertGreater(reference["sampleRelativeTolerance"], 0)
+            self.assertLess(reference["minimumRangeRatio"], 1)
+            self.assertGreater(reference["maximumRangeRatio"], 1)
+            if path.startswith("ocr-"):
+                self.assertTrue(reference["scaleAware"], path)
+        for file in files:
+            if file["path"].endswith(".onnx"):
+                self.assertTrue(all(i["smokePattern"] in
+                                    {"deterministic-ramp-v1", "byte-ramp-v1", "zeros-v1", "ones-v1"}
+                                    for i in file["onnx"]["inputs"]), file["path"])
+                if file["path"].startswith("ocr-"):
+                    self.assertTrue(any(i["smokePattern"] in {"deterministic-ramp-v1", "byte-ramp-v1"}
+                                        for i in file["onnx"]["inputs"]), file["path"])

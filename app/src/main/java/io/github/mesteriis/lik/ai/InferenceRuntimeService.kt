@@ -173,8 +173,8 @@ class InferenceRuntimeService : Service() {
         val names = data.getStringArrayList(INPUT_NAMES).orEmpty()
         val types = data.getStringArrayList(INPUT_TYPES).orEmpty()
         val shapes = data.getStringArrayList(INPUT_SHAPES).orEmpty()
-        val fills = data.getDoubleArray(INPUT_FILLS) ?: DoubleArray(0)
-        require(names.isNotEmpty() && names.size == types.size && names.size == shapes.size && names.size == fills.size)
+        val patterns = data.getStringArrayList(INPUT_PATTERNS).orEmpty()
+        require(names.isNotEmpty() && names.size == types.size && names.size == shapes.size && names.size == patterns.size)
         val environment = ai.onnxruntime.OrtEnvironment.getEnvironment()
         val tensors = linkedMapOf<String, ai.onnxruntime.OnnxTensor>()
         return try {
@@ -183,9 +183,18 @@ class InferenceRuntimeService : Service() {
                 val count = shape.fold(1L, Math::multiplyExact).also { require(it in 1..Int.MAX_VALUE) }.toInt()
                 tensors[names[index]] = when (types[index]) {
                     "float32" -> ai.onnxruntime.OnnxTensor.createTensor(environment,
-                        java.nio.FloatBuffer.wrap(FloatArray(count) { fills[index].toFloat() }), shape)
+                        java.nio.FloatBuffer.wrap(FloatArray(count) { at -> when (patterns[index]) {
+                            "deterministic-ramp-v1" -> if (count == 1) .25f else -.75f + 1.5f * at / (count - 1)
+                            "byte-ramp-v1" -> if (count == 1) 127.5f else 255f * at / (count - 1)
+                            "zeros-v1" -> 0f
+                            else -> error("UNSUPPORTED_SMOKE_PATTERN:${patterns[index]}")
+                        } }), shape)
                     "int64" -> ai.onnxruntime.OnnxTensor.createTensor(environment,
-                        LongBuffer.wrap(LongArray(count) { fills[index].toLong() }), shape)
+                        LongBuffer.wrap(LongArray(count) { at -> when (patterns[index]) {
+                            "ones-v1" -> 1L
+                            "zeros-v1" -> 0L
+                            else -> error("UNSUPPORTED_SMOKE_PATTERN:${patterns[index]}")
+                        } }), shape)
                     else -> error("UNSUPPORTED_SMOKE_INPUT:${types[index]}")
                 }
             }
@@ -243,7 +252,7 @@ class InferenceRuntimeService : Service() {
         const val INPUT_NAMES = "input-names"
         const val INPUT_TYPES = "input-types"
         const val INPUT_SHAPES = "input-shapes"
-        const val INPUT_FILLS = "input-fills"
+        const val INPUT_PATTERNS = "input-patterns"
         const val SESSIONS = "sessions"
         const val EVICT = "evict"
         private const val MAX_RESIDENT_SESSIONS = 8
@@ -315,7 +324,7 @@ class IsolatedRuntimeClient(context: Context, private val leases: RuntimeLeases 
             putStringArrayList(InferenceRuntimeService.INPUT_NAMES, ArrayList(graph.inputs.map { it.name }))
             putStringArrayList(InferenceRuntimeService.INPUT_TYPES, ArrayList(graph.inputs.map { it.type }))
             putStringArrayList(InferenceRuntimeService.INPUT_SHAPES, ArrayList(graph.inputs.map { input -> input.shape.joinToString(",") }))
-            putDoubleArray(InferenceRuntimeService.INPUT_FILLS, graph.inputs.map { it.fill }.toDoubleArray())
+            putStringArrayList(InferenceRuntimeService.INPUT_PATTERNS, ArrayList(graph.inputs.map { it.pattern }))
             putString(InferenceRuntimeService.OUTPUT, graph.outputName)
         })
 

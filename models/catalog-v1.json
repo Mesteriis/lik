@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": "lik-hf-presets-2026-09-08-v2",
+  "catalogVersion": "lik-hf-presets-2026-09-08-v3",
   "defaultProfile": "balanced-v1",
   "backendPolicy": "backend-policy-v1.json",
   "qualityAcceptance": "not-run; licensed external fixtures and calibration required",
@@ -121,7 +121,8 @@
                   224,
                   224
                 ],
-                "smokeFill": 0
+                "smokeFill": 0,
+                "smokePattern": "zeros-v1"
               }
             ],
             "outputs": [
@@ -178,7 +179,7 @@
             "hostValidation": {
               "runtime": "onnxruntime==1.22.1",
               "provider": "CPUExecutionProvider",
-              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "fixture": "deterministic zero tensors; not a quality or speed benchmark",
               "finiteOutputs": true
             },
             "primaryOutput": "image_embeds"
@@ -212,7 +213,7 @@
         "upstreamExportCommandStatus": "not disclosed in pinned conversion repositories; producer metadata is inspected in each graph",
         "conversionProvenance": "Xenova / onnx-community conversion; linked publisher model and numerical parity independently verified"
       },
-      "fingerprint": "a4274abcf9c84cc1362fb5a9ec00ecaf9a8a5c6aa221b2702e2585a7dca38805"
+      "fingerprint": "1ca5c1fe76bd5af991f4a15341df97fbe11d5a7f5c342d1f696facb11a48f6fd"
     },
     {
       "id": "multilingual-text-v1",
@@ -373,7 +374,8 @@
                   1,
                   128
                 ],
-                "smokeFill": 0
+                "smokeFill": 0,
+                "smokePattern": "zeros-v1"
               },
               {
                 "name": "attention_mask",
@@ -386,7 +388,8 @@
                   1,
                   128
                 ],
-                "smokeFill": 1
+                "smokeFill": 1,
+                "smokePattern": "ones-v1"
               }
             ],
             "outputs": [
@@ -445,7 +448,7 @@
             "hostValidation": {
               "runtime": "onnxruntime==1.22.1",
               "provider": "CPUExecutionProvider",
-              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "fixture": "deterministic zero tensors; not a quality or speed benchmark",
               "finiteOutputs": true
             },
             "primaryOutput": "last_hidden_state"
@@ -515,7 +518,7 @@
         "upstreamExportCommandStatus": "not disclosed in pinned conversion repositories; producer metadata is inspected in each graph",
         "conversionProvenance": "Original publisher Hugging Face files"
       },
-      "fingerprint": "11d4864293ac667c86ca31716574adbee82b792abb7e1cb5b52c8030fd628059"
+      "fingerprint": "7a41a106687f6b057b2d5db3b842ef8644104d143327c7d98d4aa25946b9cedd"
     },
     {
       "id": "siglip2-base-v1",
@@ -641,7 +644,8 @@
                   224,
                   224
                 ],
-                "smokeFill": 0
+                "smokeFill": 0,
+                "smokePattern": "zeros-v1"
               }
             ],
             "outputs": [
@@ -709,7 +713,7 @@
             "hostValidation": {
               "runtime": "onnxruntime==1.22.1",
               "provider": "CPUExecutionProvider",
-              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "fixture": "deterministic zero tensors; not a quality or speed benchmark",
               "finiteOutputs": true
             },
             "primaryOutput": "pooler_output"
@@ -763,7 +767,8 @@
                   1,
                   64
                 ],
-                "smokeFill": 0
+                "smokeFill": 0,
+                "smokePattern": "zeros-v1"
               }
             ],
             "outputs": [
@@ -829,7 +834,7 @@
             "hostValidation": {
               "runtime": "onnxruntime==1.22.1",
               "provider": "CPUExecutionProvider",
-              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "fixture": "deterministic zero tensors; not a quality or speed benchmark",
               "finiteOutputs": true
             },
             "primaryOutput": "pooler_output"
@@ -854,7 +859,7 @@
         "upstreamExportCommandStatus": "not disclosed in pinned conversion repositories; producer metadata is inspected in each graph",
         "conversionProvenance": "Xenova / onnx-community conversion; linked publisher model and numerical parity independently verified"
       },
-      "fingerprint": "0a312c47de7ad427e8b9a8144032880f1c859b22da51426c711e1c6a546dc347"
+      "fingerprint": "bfad600871f346f2aff63bd0e77ab7ff3cf951bc46fdb91bf8ba0ef54f5bc20b"
     },
     {
       "id": "siglip2-large-v1",
@@ -980,7 +985,8 @@
                   256,
                   256
                 ],
-                "smokeFill": 0
+                "smokeFill": 0,
+                "smokePattern": "zeros-v1"
               }
             ],
             "outputs": [
@@ -1047,7 +1053,7 @@
             "hostValidation": {
               "runtime": "onnxruntime==1.22.1",
               "provider": "CPUExecutionProvider",
-              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "fixture": "deterministic zero tensors; not a quality or speed benchmark",
               "finiteOutputs": true
             },
             "primaryOutput": "pooler_output"
@@ -1101,7 +1107,8 @@
                   1,
                   64
                 ],
-                "smokeFill": 0
+                "smokeFill": 0,
+                "smokePattern": "zeros-v1"
               }
             ],
             "outputs": [
@@ -1167,7 +1174,7 @@
             "hostValidation": {
               "runtime": "onnxruntime==1.22.1",
               "provider": "CPUExecutionProvider",
-              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "fixture": "deterministic zero tensors; not a quality or speed benchmark",
               "finiteOutputs": true
             },
             "primaryOutput": "pooler_output"
@@ -1192,7 +1199,7 @@
         "upstreamExportCommandStatus": "not disclosed in pinned conversion repositories; producer metadata is inspected in each graph",
         "conversionProvenance": "Xenova / onnx-community conversion; linked publisher model and numerical parity independently verified"
       },
-      "fingerprint": "504d3fc810f9b472e5def15fb280d8f58576aba4631a94908a61fc26cbeee301"
+      "fingerprint": "050ea1742be8d69dfc9bf0bf1c0d8f56777213edbd3c6705f1e98b84f3c515b5"
     },
     {
       "id": "ocr-mobile-det-v1",
@@ -1307,7 +1314,8 @@
                   96,
                   160
                 ],
-                "smokeFill": 0
+                "smokeFill": 0,
+                "smokePattern": "byte-ramp-v1"
               }
             ],
             "outputs": [
@@ -1345,7 +1353,7 @@
             "smokeReference": {
               "file": "model.onnx.smoke.f32",
               "size": 61440,
-              "sha256": "d3fdb679b15092425441b1682a595c608520fe5b97c7f69b3108861df25ee4f8",
+              "sha256": "5db9f09a048a2627f9b58df487f8ff1d5cb817e551da79f646123b2c41cf13a6",
               "format": "little-endian-float32-output-order",
               "comparison": "allclose",
               "minimumCosine": 0.98,
@@ -1356,7 +1364,7 @@
             "hostValidation": {
               "runtime": "onnxruntime==1.22.1",
               "provider": "CPUExecutionProvider",
-              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "fixture": "deterministic nonzero ramp tensors; not a quality or speed benchmark",
               "finiteOutputs": true
             }
           },
@@ -1392,7 +1400,7 @@
         "upstreamExportCommandStatus": "not disclosed in pinned conversion repositories; producer metadata is inspected in each graph",
         "conversionProvenance": "OllmOne community conversion; independently checked against pinned PaddlePaddle inference weights and dictionary"
       },
-      "fingerprint": "5c6ad1a0e0f21c2300a8b91ee5554f2ef1bd10041ab54e6a58f8aed78ce54577"
+      "fingerprint": "d28c477f74f8ec34c21af3a55ee0d14624535e22c6fc157e0c04be7cd0797438"
     },
     {
       "id": "ocr-server-det-v1",
@@ -1507,7 +1515,8 @@
                   96,
                   160
                 ],
-                "smokeFill": 0
+                "smokeFill": 0,
+                "smokePattern": "byte-ramp-v1"
               }
             ],
             "outputs": [
@@ -1546,7 +1555,7 @@
             "smokeReference": {
               "file": "model.onnx.smoke.f32",
               "size": 61440,
-              "sha256": "71b6b1d58bcb26e9b14951fb736b1c7df7a99686e19a0878219cb68ddbb35c69",
+              "sha256": "1819398d4f0b1040fee2ffdb757801daf726f6f315870c2610aebcb92ac48275",
               "format": "little-endian-float32-output-order",
               "comparison": "allclose",
               "minimumCosine": 0.98,
@@ -1557,7 +1566,7 @@
             "hostValidation": {
               "runtime": "onnxruntime==1.22.1",
               "provider": "CPUExecutionProvider",
-              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "fixture": "deterministic nonzero ramp tensors; not a quality or speed benchmark",
               "finiteOutputs": true
             }
           },
@@ -1593,7 +1602,7 @@
         "upstreamExportCommandStatus": "not disclosed in pinned conversion repositories; producer metadata is inspected in each graph",
         "conversionProvenance": "OllmOne community conversion; independently checked against pinned PaddlePaddle inference weights and dictionary"
       },
-      "fingerprint": "f8f4dfd8bab5309c501ba1e224ff2c933aa65840b8974ba4e883cfd7fd2f4190"
+      "fingerprint": "dd31a3715fd31b98f36f3d8cef7221b09d65499bb3a59066a8796f909411cfc6"
     },
     {
       "id": "ocr-cyrillic-rec-v1",
@@ -1710,7 +1719,8 @@
                   48,
                   320
                 ],
-                "smokeFill": 0
+                "smokeFill": 0,
+                "smokePattern": "deterministic-ramp-v1"
               }
             ],
             "outputs": [
@@ -1758,7 +1768,7 @@
             "smokeReference": {
               "file": "model.onnx.smoke.f32",
               "size": 136320,
-              "sha256": "b9f600a1df7a7ddbc11b2b510b4f07f3af73392e61efffa5fb0c92cd55c11c0a",
+              "sha256": "9062594e961507191804fc4c38ba353d290b1de19fc82410752d3e2ddd0d4554",
               "format": "little-endian-float32-output-order",
               "comparison": "allclose",
               "minimumCosine": 0.98,
@@ -1769,7 +1779,7 @@
             "hostValidation": {
               "runtime": "onnxruntime==1.22.1",
               "provider": "CPUExecutionProvider",
-              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "fixture": "deterministic nonzero ramp tensors; not a quality or speed benchmark",
               "finiteOutputs": true
             }
           },
@@ -1804,7 +1814,7 @@
         "upstreamExportCommandStatus": "not disclosed in pinned conversion repositories; producer metadata is inspected in each graph",
         "conversionProvenance": "OllmOne community conversion; independently checked against pinned PaddlePaddle inference weights and dictionary"
       },
-      "fingerprint": "7da28806dd6cdb1f21f063f9b9475543abcb85c52f563629caa1d9a6efc8997e"
+      "fingerprint": "1e857ec0ddefd6f175ce5d6d5c0bf5c210656b472faec3bff4cd490b24aa0fe9"
     },
     {
       "id": "yunet-v1",
@@ -1903,7 +1913,8 @@
                   640,
                   640
                 ],
-                "smokeFill": 0
+                "smokeFill": 0,
+                "smokePattern": "zeros-v1"
               }
             ],
             "outputs": [
@@ -2100,7 +2111,7 @@
             "hostValidation": {
               "runtime": "onnxruntime==1.22.1",
               "provider": "CPUExecutionProvider",
-              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "fixture": "deterministic zero tensors; not a quality or speed benchmark",
               "finiteOutputs": true
             }
           },
@@ -2118,7 +2129,7 @@
         "upstreamExportCommandStatus": "not disclosed in pinned conversion repositories; producer metadata is inspected in each graph",
         "conversionProvenance": "Official OpenCV HF ONNX; byte-identical to pinned OpenCV Zoo source"
       },
-      "fingerprint": "97533fb8f6f5f19e67b6259639c645eab3fb67fd4177c8d221bed474616f1f20"
+      "fingerprint": "2ec4928dfbeeec245c14a96ba0c9e43340694e9f90f1226997eb60e7754a5f93"
     },
     {
       "id": "sface-v1",
@@ -2226,7 +2237,8 @@
                   112,
                   112
                 ],
-                "smokeFill": 0
+                "smokeFill": 0,
+                "smokePattern": "zeros-v1"
               }
             ],
             "outputs": [
@@ -2267,7 +2279,7 @@
             "hostValidation": {
               "runtime": "onnxruntime==1.22.1",
               "provider": "CPUExecutionProvider",
-              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "fixture": "deterministic zero tensors; not a quality or speed benchmark",
               "finiteOutputs": true
             }
           },
@@ -2285,7 +2297,7 @@
         "upstreamExportCommandStatus": "not disclosed in pinned conversion repositories; producer metadata is inspected in each graph",
         "conversionProvenance": "Official OpenCV HF ONNX; byte-identical to pinned OpenCV Zoo source"
       },
-      "fingerprint": "79ab39fe4f4f9e5a3c8acf63a67ee3b34eba9c083cdd60cfa0fd1f5e5fce5640"
+      "fingerprint": "b5e1617469ada68c30ba49a3ada3f84656d2617e68c6c2e26d67705b148248b6"
     },
     {
       "id": "sensitive-v1",
@@ -2405,7 +2417,8 @@
                   384,
                   384
                 ],
-                "smokeFill": 0
+                "smokeFill": 0,
+                "smokePattern": "zeros-v1"
               }
             ],
             "outputs": [
@@ -2464,7 +2477,7 @@
             "hostValidation": {
               "runtime": "onnxruntime==1.22.1",
               "provider": "CPUExecutionProvider",
-              "fixture": "synthetic constant tensors; not a quality or speed benchmark",
+              "fixture": "deterministic zero tensors; not a quality or speed benchmark",
               "finiteOutputs": true
             },
             "primaryOutput": "logits"
@@ -2489,7 +2502,7 @@
         "upstreamExportCommandStatus": "not disclosed in pinned conversion repositories; producer metadata is inspected in each graph",
         "conversionProvenance": "HF ONNX export bot on behalf of intellichain, immutable unmerged PR #5 commit; parent 0c26ec22111b83f106d72a55f611ec35962bcb65; independently validated against publisher safetensors"
       },
-      "fingerprint": "fad22f5abb9d77ebc666d20db5868a5c333fe807108baf05dcc4ca0d8cba87ec"
+      "fingerprint": "2a8e3b0e106727a3fb6b6a09ba97e1ae10fb2d5f71c761f1b6824d61bf5c7cf9"
     },
     {
       "id": "siglip2-tokenizer-v1",
@@ -2641,14 +2654,20 @@
             "multilingual-text-v1"
           ],
           "dimension": 512,
-          "fingerprint": "14648614c8e58f03f27ad3284fa54fc09b4289ff1afb4e260b0ce9b8a08d5199"
+          "fingerprint": "3121491ca01450e19d7f06a969b816d1a94477a2b57ba06909150523b1ff7602",
+          "compatibleFingerprints": [
+            "14648614c8e58f03f27ad3284fa54fc09b4289ff1afb4e260b0ce9b8a08d5199"
+          ]
         },
         "ocr": {
           "components": [
             "ocr-mobile-det-v1",
             "ocr-cyrillic-rec-v1"
           ],
-          "fingerprint": "4ed00992ff50205fd6d3674b6e74d94c782f3465fffbc5ec84f55a8ec0c9d0a0"
+          "fingerprint": "b772c964b913b4cc50f96453192bbf9805373a6656bbab5416f22c516decb6ae",
+          "compatibleFingerprints": [
+            "4ed00992ff50205fd6d3674b6e74d94c782f3465fffbc5ec84f55a8ec0c9d0a0"
+          ]
         },
         "people": {
           "components": [
@@ -2656,17 +2675,23 @@
             "sface-v1"
           ],
           "dimension": 128,
-          "fingerprint": "a462e3648939f08db300d2d28e85b1eba05b696439c67ea32b6bb753c173085b"
+          "fingerprint": "4518136e54248f256a128ca99b52221e88c0f46eaeb365735ffa48a46c1ed4f7",
+          "compatibleFingerprints": [
+            "a462e3648939f08db300d2d28e85b1eba05b696439c67ea32b6bb753c173085b"
+          ]
         },
         "sensitive": {
           "components": [
             "sensitive-v1"
           ],
           "calibration": "not-run",
-          "fingerprint": "a895a3c1aed33cafc279402e7719e2d71d432554b0a11aa4116b3b30d3674ea6"
+          "fingerprint": "7b656d5e7d23c72d4caca94b7f9b08087b43e2466f6a5ddd24a7f1a1b58130ba",
+          "compatibleFingerprints": [
+            "a895a3c1aed33cafc279402e7719e2d71d432554b0a11aa4116b3b30d3674ea6"
+          ]
         }
       },
-      "fingerprint": "7574fdf582e68d18c0b95a87749924359e3de575c76171778fefd204d329d5e5"
+      "fingerprint": "3fd804f10e5c54c4befcda957cbc381265b6fb146741aede22ccd475bef0942f"
     },
     {
       "id": "balanced-v1",
@@ -2686,14 +2711,20 @@
             "siglip2-tokenizer-v1"
           ],
           "dimension": 768,
-          "fingerprint": "f2d786d5ce3d4dbfe79da4e561eb93c4567926767fefc9104f2fa2e71da52a46"
+          "fingerprint": "c9747161eae5af68455f635cc704783d1d97284f15a41b04cea25f2d57e29ff5",
+          "compatibleFingerprints": [
+            "f2d786d5ce3d4dbfe79da4e561eb93c4567926767fefc9104f2fa2e71da52a46"
+          ]
         },
         "ocr": {
           "components": [
             "ocr-mobile-det-v1",
             "ocr-cyrillic-rec-v1"
           ],
-          "fingerprint": "4ed00992ff50205fd6d3674b6e74d94c782f3465fffbc5ec84f55a8ec0c9d0a0"
+          "fingerprint": "b772c964b913b4cc50f96453192bbf9805373a6656bbab5416f22c516decb6ae",
+          "compatibleFingerprints": [
+            "4ed00992ff50205fd6d3674b6e74d94c782f3465fffbc5ec84f55a8ec0c9d0a0"
+          ]
         },
         "people": {
           "components": [
@@ -2701,17 +2732,23 @@
             "sface-v1"
           ],
           "dimension": 128,
-          "fingerprint": "a462e3648939f08db300d2d28e85b1eba05b696439c67ea32b6bb753c173085b"
+          "fingerprint": "4518136e54248f256a128ca99b52221e88c0f46eaeb365735ffa48a46c1ed4f7",
+          "compatibleFingerprints": [
+            "a462e3648939f08db300d2d28e85b1eba05b696439c67ea32b6bb753c173085b"
+          ]
         },
         "sensitive": {
           "components": [
             "sensitive-v1"
           ],
           "calibration": "not-run",
-          "fingerprint": "a895a3c1aed33cafc279402e7719e2d71d432554b0a11aa4116b3b30d3674ea6"
+          "fingerprint": "7b656d5e7d23c72d4caca94b7f9b08087b43e2466f6a5ddd24a7f1a1b58130ba",
+          "compatibleFingerprints": [
+            "a895a3c1aed33cafc279402e7719e2d71d432554b0a11aa4116b3b30d3674ea6"
+          ]
         }
       },
-      "fingerprint": "0562269eb777219abc43720a1744cd2514b71912aea5e43ed1617039c0565307"
+      "fingerprint": "c5ec4513e635c1142669ce2318e5f51886290ff41078963797bff19b4d6e36d4"
     },
     {
       "id": "extended-v1",
@@ -2731,14 +2768,20 @@
             "siglip2-tokenizer-v1"
           ],
           "dimension": 1024,
-          "fingerprint": "8e04be78106fd195556b5abadb932e86e98a6a49961b74f0b551861ad46f9342"
+          "fingerprint": "43f8f8962704e52ac2c6b463b73728fa97ec8acd5405116e9e6503146d709543",
+          "compatibleFingerprints": [
+            "8e04be78106fd195556b5abadb932e86e98a6a49961b74f0b551861ad46f9342"
+          ]
         },
         "ocr": {
           "components": [
             "ocr-server-det-v1",
             "ocr-cyrillic-rec-v1"
           ],
-          "fingerprint": "e31c88d47c28f840ddc3098d7b3d0c1764b8a41d00ab4c58d5c4434d3027eabc"
+          "fingerprint": "3367a5c838764d81d226edcf838fbc9d734a4baf048e15887d1535a94707ae14",
+          "compatibleFingerprints": [
+            "e31c88d47c28f840ddc3098d7b3d0c1764b8a41d00ab4c58d5c4434d3027eabc"
+          ]
         },
         "people": {
           "components": [
@@ -2746,17 +2789,23 @@
             "sface-v1"
           ],
           "dimension": 128,
-          "fingerprint": "a462e3648939f08db300d2d28e85b1eba05b696439c67ea32b6bb753c173085b"
+          "fingerprint": "4518136e54248f256a128ca99b52221e88c0f46eaeb365735ffa48a46c1ed4f7",
+          "compatibleFingerprints": [
+            "a462e3648939f08db300d2d28e85b1eba05b696439c67ea32b6bb753c173085b"
+          ]
         },
         "sensitive": {
           "components": [
             "sensitive-v1"
           ],
           "calibration": "not-run",
-          "fingerprint": "a895a3c1aed33cafc279402e7719e2d71d432554b0a11aa4116b3b30d3674ea6"
+          "fingerprint": "7b656d5e7d23c72d4caca94b7f9b08087b43e2466f6a5ddd24a7f1a1b58130ba",
+          "compatibleFingerprints": [
+            "a895a3c1aed33cafc279402e7719e2d71d432554b0a11aa4116b3b30d3674ea6"
+          ]
         }
       },
-      "fingerprint": "1987b149b8cb19499c58176c7deec5e6b71c47b31c5c791d3436f3cdcc85f2cf"
+      "fingerprint": "54489a369a748846142f7954bbe3b5d61526825f251d8668d6bd704937dc5f9f"
     }
   ],
   "activationSmokeReferences": [
@@ -2765,8 +2814,13 @@
       "outputName": "image_embeds",
       "outputSize": 512,
       "referenceSha256": "a82fcf8ab3ff2763b8572f55ec3475c92f8ee691a6665b473b048633239ee7f1",
+      "scaleAware": false,
       "minimumNormRatio": 0.5,
       "maximumNormRatio": 1.5,
+      "sampleAbsoluteTolerance": 0.00199924261251649,
+      "sampleRelativeTolerance": 0.02,
+      "minimumRangeRatio": 0.5,
+      "maximumRangeRatio": 1.5,
       "samples": [
         {
           "index": 0,
@@ -3155,8 +3209,13 @@
       "outputName": "last_hidden_state",
       "outputSize": 98304,
       "referenceSha256": "c157c79691feba9d102ed02cfa0961c359b77f11b4a5f0a5b107e1e23c0e91fb",
+      "scaleAware": false,
       "minimumNormRatio": 0.5,
       "maximumNormRatio": 1.5,
+      "sampleAbsoluteTolerance": 0.004230952715140852,
+      "sampleRelativeTolerance": 0.02,
+      "minimumRangeRatio": 0.5,
+      "maximumRangeRatio": 1.5,
       "samples": [
         {
           "index": 0,
@@ -3549,8 +3608,13 @@
       "outputName": "pooler_output",
       "outputSize": 768,
       "referenceSha256": "ffa04b19a7a5c610cf3293995e51a9c2e703cbe87ad71a5a1b1b90017266b6c8",
+      "scaleAware": false,
       "minimumNormRatio": 0.5,
       "maximumNormRatio": 1.5,
+      "sampleAbsoluteTolerance": 0.002638445002493754,
+      "sampleRelativeTolerance": 0.02,
+      "minimumRangeRatio": 0.5,
+      "maximumRangeRatio": 1.5,
       "samples": [
         {
           "index": 0,
@@ -3923,8 +3987,13 @@
       "outputName": "pooler_output",
       "outputSize": 768,
       "referenceSha256": "ac14a407c15d9b606a464b88d87ebfcb50458ff959a7df541e9128e7b05ab63b",
+      "scaleAware": false,
       "minimumNormRatio": 0.5,
       "maximumNormRatio": 1.5,
+      "sampleAbsoluteTolerance": 0.005561008850983921,
+      "sampleRelativeTolerance": 0.02,
+      "minimumRangeRatio": 0.5,
+      "maximumRangeRatio": 1.5,
       "samples": [
         {
           "index": 0,
@@ -4309,8 +4378,13 @@
       "outputName": "pooler_output",
       "outputSize": 1024,
       "referenceSha256": "97990205e199b703c2781cc7eec03fd31a7c3b565fa8e37390502a95bdfd6b34",
+      "scaleAware": false,
       "minimumNormRatio": 0.5,
       "maximumNormRatio": 1.5,
+      "sampleAbsoluteTolerance": 0.0036382051221559115,
+      "sampleRelativeTolerance": 0.02,
+      "minimumRangeRatio": 0.5,
+      "maximumRangeRatio": 1.5,
       "samples": [
         {
           "index": 0,
@@ -4699,8 +4773,13 @@
       "outputName": "pooler_output",
       "outputSize": 1024,
       "referenceSha256": "178eca07466a8403b3391d660e782cdd1fcb9993779524bf8423f4997a1da175",
+      "scaleAware": false,
       "minimumNormRatio": 0.5,
       "maximumNormRatio": 1.5,
+      "sampleAbsoluteTolerance": 0.009515832267529724,
+      "sampleRelativeTolerance": 0.02,
+      "minimumRangeRatio": 0.5,
+      "maximumRangeRatio": 1.5,
       "samples": [
         {
           "index": 0,
@@ -5076,25 +5155,154 @@
       "path": "ocr-mobile-det-v1/model.onnx",
       "outputName": "fetch_name_0",
       "outputSize": 15360,
-      "referenceSha256": "d3fdb679b15092425441b1682a595c608520fe5b97c7f69b3108861df25ee4f8",
+      "referenceSha256": "5db9f09a048a2627f9b58df487f8ff1d5cb817e551da79f646123b2c41cf13a6",
+      "scaleAware": true,
       "minimumNormRatio": 0.5,
       "maximumNormRatio": 1.5,
+      "sampleAbsoluteTolerance": 0.00158112667068916,
+      "sampleRelativeTolerance": 0.02,
+      "minimumRangeRatio": 0.5,
+      "maximumRangeRatio": 1.5,
       "samples": [
         {
           "index": 0,
-          "floatBits": "34f00000"
+          "floatBits": "b3800000"
+        },
+        {
+          "index": 4,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 5,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 6,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 7,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 8,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 9,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 10,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 11,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 12,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 13,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 14,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 15,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 16,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 17,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 18,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 19,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 20,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 21,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 22,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 23,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 24,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 25,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 26,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 27,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 28,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 29,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 30,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 31,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 32,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 48,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 52,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 53,
+          "floatBits": "3f800000"
         },
         {
           "index": 244,
-          "floatBits": "35200000"
+          "floatBits": "3f7fdd8e"
         },
         {
           "index": 488,
-          "floatBits": "35200000"
-        },
-        {
-          "index": 639,
-          "floatBits": "35380000"
+          "floatBits": "b3800000"
         },
         {
           "index": 731,
@@ -5106,7 +5314,7 @@
         },
         {
           "index": 1219,
-          "floatBits": "35280000"
+          "floatBits": "b3800000"
         },
         {
           "index": 1463,
@@ -5114,103 +5322,39 @@
         },
         {
           "index": 1707,
-          "floatBits": "35000000"
+          "floatBits": "b3800000"
         },
         {
           "index": 1950,
-          "floatBits": "34f00000"
-        },
-        {
-          "index": 2031,
-          "floatBits": "35480000"
-        },
-        {
-          "index": 2144,
-          "floatBits": "35380000"
-        },
-        {
-          "index": 2148,
-          "floatBits": "35380000"
-        },
-        {
-          "index": 2191,
-          "floatBits": "35480000"
+          "floatBits": "b3800000"
         },
         {
           "index": 2194,
-          "floatBits": "35380000"
-        },
-        {
-          "index": 2195,
-          "floatBits": "35480000"
+          "floatBits": "b3800000"
         },
         {
           "index": 2438,
           "floatBits": "35200000"
         },
         {
-          "index": 2510,
-          "floatBits": "35480000"
-        },
-        {
-          "index": 2514,
-          "floatBits": "35480000"
-        },
-        {
           "index": 2682,
-          "floatBits": "34f00000"
-        },
-        {
-          "index": 2835,
-          "floatBits": "35580000"
-        },
-        {
-          "index": 2879,
-          "floatBits": "35800000"
+          "floatBits": "3f800000"
         },
         {
           "index": 2926,
           "floatBits": "34f00000"
         },
         {
-          "index": 3039,
-          "floatBits": "35600000"
-        },
-        {
-          "index": 3110,
-          "floatBits": "35480000"
-        },
-        {
-          "index": 3150,
-          "floatBits": "35400000"
-        },
-        {
-          "index": 3154,
-          "floatBits": "35400000"
-        },
-        {
           "index": 3169,
-          "floatBits": "35280000"
-        },
-        {
-          "index": 3199,
-          "floatBits": "35800000"
+          "floatBits": "3f800000"
         },
         {
           "index": 3413,
           "floatBits": "35280000"
         },
         {
-          "index": 3519,
-          "floatBits": "35400000"
-        },
-        {
           "index": 3657,
-          "floatBits": "35080000"
-        },
-        {
-          "index": 3839,
-          "floatBits": "35600000"
+          "floatBits": "3f800000"
         },
         {
           "index": 3901,
@@ -5218,15 +5362,15 @@
         },
         {
           "index": 4144,
-          "floatBits": "35200000"
+          "floatBits": "3c382140"
         },
         {
           "index": 4388,
-          "floatBits": "35180000"
+          "floatBits": "35200000"
         },
         {
           "index": 4632,
-          "floatBits": "34f00000"
+          "floatBits": "b3800000"
         },
         {
           "index": 4876,
@@ -5234,7 +5378,7 @@
         },
         {
           "index": 5120,
-          "floatBits": "34f00000"
+          "floatBits": "b3800000"
         },
         {
           "index": 5363,
@@ -5242,7 +5386,7 @@
         },
         {
           "index": 5607,
-          "floatBits": "35280000"
+          "floatBits": "b3800000"
         },
         {
           "index": 5851,
@@ -5254,15 +5398,15 @@
         },
         {
           "index": 6339,
-          "floatBits": "35280000"
+          "floatBits": "3f800000"
         },
         {
           "index": 6582,
-          "floatBits": "35200000"
+          "floatBits": "b3800000"
         },
         {
           "index": 6826,
-          "floatBits": "34f00000"
+          "floatBits": "3f800000"
         },
         {
           "index": 7070,
@@ -5270,7 +5414,7 @@
         },
         {
           "index": 7314,
-          "floatBits": "35200000"
+          "floatBits": "3f800000"
         },
         {
           "index": 7558,
@@ -5278,191 +5422,131 @@
         },
         {
           "index": 7801,
-          "floatBits": "35080000"
+          "floatBits": "3f800000"
         },
         {
           "index": 8045,
-          "floatBits": "35080000"
+          "floatBits": "3f800000"
         },
         {
           "index": 8289,
-          "floatBits": "35280000"
+          "floatBits": "3f800000"
         },
         {
           "index": 8533,
-          "floatBits": "35280000"
+          "floatBits": "3f800000"
         },
         {
           "index": 8777,
-          "floatBits": "35080000"
+          "floatBits": "3f800000"
         },
         {
           "index": 9020,
-          "floatBits": "34f00000"
+          "floatBits": "3f800000"
         },
         {
           "index": 9264,
-          "floatBits": "35200000"
+          "floatBits": "3f800000"
         },
         {
           "index": 9508,
-          "floatBits": "35200000"
+          "floatBits": "3f800000"
         },
         {
           "index": 9752,
-          "floatBits": "34f00000"
+          "floatBits": "b3800000"
         },
         {
           "index": 9996,
-          "floatBits": "34f00000"
+          "floatBits": "3f800000"
         },
         {
           "index": 10239,
-          "floatBits": "35280000"
+          "floatBits": "b3800000"
         },
         {
           "index": 10483,
-          "floatBits": "35280000"
+          "floatBits": "3f800000"
         },
         {
           "index": 10727,
-          "floatBits": "35280000"
+          "floatBits": "b3800000"
         },
         {
           "index": 10971,
-          "floatBits": "35080000"
+          "floatBits": "3f800000"
         },
         {
           "index": 11215,
-          "floatBits": "35080000"
+          "floatBits": "3f800000"
         },
         {
           "index": 11458,
-          "floatBits": "35200000"
+          "floatBits": "3f800000"
         },
         {
           "index": 11702,
-          "floatBits": "35200000"
+          "floatBits": "b3800000"
         },
         {
           "index": 11946,
-          "floatBits": "34f00000"
+          "floatBits": "3f800000"
         },
         {
           "index": 12190,
-          "floatBits": "34f00000"
+          "floatBits": "3f800000"
         },
         {
           "index": 12433,
-          "floatBits": "35280000"
+          "floatBits": "3f800000"
         },
         {
           "index": 12677,
-          "floatBits": "35280000"
+          "floatBits": "3f800000"
         },
         {
           "index": 12921,
-          "floatBits": "35080000"
+          "floatBits": "b3800000"
         },
         {
           "index": 13165,
-          "floatBits": "35080000"
+          "floatBits": "3f800000"
         },
         {
           "index": 13409,
-          "floatBits": "35280000"
-        },
-        {
-          "index": 13442,
-          "floatBits": "35480000"
-        },
-        {
-          "index": 13600,
-          "floatBits": "35500000"
-        },
-        {
-          "index": 13602,
-          "floatBits": "35500000"
+          "floatBits": "3aaee000"
         },
         {
           "index": 13652,
-          "floatBits": "35200000"
+          "floatBits": "3f800000"
         },
         {
           "index": 13896,
-          "floatBits": "34f00000"
-        },
-        {
-          "index": 13922,
-          "floatBits": "35400000"
+          "floatBits": "b3800000"
         },
         {
           "index": 14140,
-          "floatBits": "34f00000"
+          "floatBits": "3f800000"
         },
         {
           "index": 14384,
-          "floatBits": "35200000"
-        },
-        {
-          "index": 14399,
-          "floatBits": "35480000"
+          "floatBits": "b3800000"
         },
         {
           "index": 14628,
-          "floatBits": "35200000"
-        },
-        {
-          "index": 14717,
-          "floatBits": "35500000"
-        },
-        {
-          "index": 14720,
-          "floatBits": "35500000"
-        },
-        {
-          "index": 14722,
-          "floatBits": "35500000"
+          "floatBits": "b3800000"
         },
         {
           "index": 14871,
-          "floatBits": "35080000"
-        },
-        {
-          "index": 14880,
-          "floatBits": "35680000"
-        },
-        {
-          "index": 14881,
-          "floatBits": "35780000"
-        },
-        {
-          "index": 14882,
-          "floatBits": "35940000"
-        },
-        {
-          "index": 14883,
-          "floatBits": "35900000"
-        },
-        {
-          "index": 15043,
-          "floatBits": "35500000"
+          "floatBits": "b3800000"
         },
         {
           "index": 15115,
-          "floatBits": "35080000"
-        },
-        {
-          "index": 15201,
-          "floatBits": "35580000"
-        },
-        {
-          "index": 15203,
-          "floatBits": "35940000"
+          "floatBits": "3f800000"
         },
         {
           "index": 15359,
-          "floatBits": "35280000"
+          "floatBits": "b3800000"
         }
       ]
     },
@@ -5470,393 +5554,394 @@
       "path": "ocr-server-det-v1/model.onnx",
       "outputName": "fetch_name_0",
       "outputSize": 15360,
-      "referenceSha256": "71b6b1d58bcb26e9b14951fb736b1c7df7a99686e19a0878219cb68ddbb35c69",
+      "referenceSha256": "1819398d4f0b1040fee2ffdb757801daf726f6f315870c2610aebcb92ac48275",
+      "scaleAware": true,
       "minimumNormRatio": 0.5,
       "maximumNormRatio": 1.5,
+      "sampleAbsoluteTolerance": 0.001353331093537531,
+      "sampleRelativeTolerance": 0.02,
+      "minimumRangeRatio": 0.5,
+      "maximumRangeRatio": 1.5,
       "samples": [
         {
           "index": 0,
-          "floatBits": "39e19800"
+          "floatBits": "3efffa9b"
         },
         {
           "index": 244,
-          "floatBits": "3794e000"
+          "floatBits": "3eff1dfd"
+        },
+        {
+          "index": 246,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 250,
+          "floatBits": "3f800000"
         },
         {
           "index": 488,
-          "floatBits": "39fae200"
+          "floatBits": "b3800000"
+        },
+        {
+          "index": 710,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 714,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 718,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 719,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 722,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 723,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 726,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 727,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 730,
+          "floatBits": "3f800000"
         },
         {
           "index": 731,
-          "floatBits": "38109000"
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 734,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 735,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 738,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 742,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 743,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 746,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 750,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 754,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 758,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 762,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 766,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 770,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 774,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 778,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 782,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 786,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 806,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 807,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 808,
+          "floatBits": "3f800000"
+        },
+        {
+          "index": 854,
+          "floatBits": "3f800000"
         },
         {
           "index": 975,
-          "floatBits": "38ce9800"
+          "floatBits": "3effffff"
         },
         {
           "index": 1219,
-          "floatBits": "36838000"
+          "floatBits": "3effffff"
         },
         {
           "index": 1463,
-          "floatBits": "38e5f800"
+          "floatBits": "b3800000"
         },
         {
           "index": 1707,
-          "floatBits": "37080000"
+          "floatBits": "3effffff"
         },
         {
           "index": 1950,
-          "floatBits": "3988e600"
+          "floatBits": "b3800000"
         },
         {
           "index": 2194,
-          "floatBits": "376c0000"
+          "floatBits": "b3800000"
         },
         {
           "index": 2438,
-          "floatBits": "38cc3800"
+          "floatBits": "b3800000"
         },
         {
           "index": 2682,
-          "floatBits": "37fb0000"
+          "floatBits": "b3800000"
         },
         {
           "index": 2926,
-          "floatBits": "382d1000"
+          "floatBits": "b3800000"
         },
         {
           "index": 3169,
-          "floatBits": "381e0000"
+          "floatBits": "b3800000"
         },
         {
           "index": 3413,
-          "floatBits": "38810800"
+          "floatBits": "b3800000"
         },
         {
           "index": 3657,
-          "floatBits": "3898c800"
+          "floatBits": "b3800000"
         },
         {
           "index": 3901,
-          "floatBits": "38be7800"
+          "floatBits": "b3800000"
         },
         {
           "index": 4144,
-          "floatBits": "390d5400"
+          "floatBits": "b3800000"
         },
         {
           "index": 4388,
-          "floatBits": "387d5000"
+          "floatBits": "b3800000"
         },
         {
           "index": 4632,
-          "floatBits": "3900a400"
+          "floatBits": "b3800000"
         },
         {
           "index": 4876,
-          "floatBits": "38d69000"
+          "floatBits": "b3800000"
         },
         {
           "index": 5120,
-          "floatBits": "39141400"
+          "floatBits": "3effffff"
         },
         {
           "index": 5363,
-          "floatBits": "3922b000"
+          "floatBits": "b3800000"
         },
         {
           "index": 5607,
-          "floatBits": "38a13800"
+          "floatBits": "3b9138a0"
         },
         {
           "index": 5851,
-          "floatBits": "39b47200"
+          "floatBits": "b3800000"
         },
         {
           "index": 6095,
-          "floatBits": "3a149200"
+          "floatBits": "b3800000"
         },
         {
           "index": 6339,
-          "floatBits": "3991b000"
+          "floatBits": "b3800000"
         },
         {
           "index": 6582,
-          "floatBits": "39a8d800"
+          "floatBits": "b3800000"
         },
         {
           "index": 6826,
-          "floatBits": "39ac5600"
+          "floatBits": "b3800000"
         },
         {
           "index": 7070,
-          "floatBits": "39a74200"
+          "floatBits": "b3800000"
         },
         {
           "index": 7314,
-          "floatBits": "39f8c000"
+          "floatBits": "b3800000"
         },
         {
           "index": 7558,
-          "floatBits": "39936800"
+          "floatBits": "b3800000"
         },
         {
           "index": 7801,
-          "floatBits": "38f40800"
+          "floatBits": "b3800000"
         },
         {
           "index": 8045,
-          "floatBits": "38d14800"
+          "floatBits": "b3800000"
         },
         {
           "index": 8289,
-          "floatBits": "39765000"
+          "floatBits": "b3800000"
         },
         {
           "index": 8533,
-          "floatBits": "38b14800"
+          "floatBits": "b3800000"
         },
         {
           "index": 8777,
-          "floatBits": "3956d400"
+          "floatBits": "b3800000"
         },
         {
           "index": 9020,
-          "floatBits": "39056000"
+          "floatBits": "3efffe75"
         },
         {
           "index": 9264,
-          "floatBits": "39c29a00"
+          "floatBits": "b3800000"
         },
         {
           "index": 9508,
-          "floatBits": "389ab800"
+          "floatBits": "3effffff"
         },
         {
           "index": 9752,
-          "floatBits": "392e2000"
+          "floatBits": "b3800000"
         },
         {
           "index": 9996,
-          "floatBits": "38739000"
+          "floatBits": "b3800000"
         },
         {
           "index": 10239,
-          "floatBits": "38fdd800"
+          "floatBits": "b3800000"
         },
         {
           "index": 10483,
-          "floatBits": "38fa0800"
+          "floatBits": "3effffff"
         },
         {
           "index": 10727,
-          "floatBits": "3889e000"
+          "floatBits": "b3800000"
         },
         {
           "index": 10971,
-          "floatBits": "395ad000"
-        },
-        {
-          "index": 10987,
-          "floatBits": "3ae67500"
-        },
-        {
-          "index": 11144,
-          "floatBits": "3af68380"
-        },
-        {
-          "index": 11145,
-          "floatBits": "3aebf080"
-        },
-        {
-          "index": 11146,
-          "floatBits": "3b0f3dc0"
-        },
-        {
-          "index": 11147,
-          "floatBits": "3b247180"
-        },
-        {
-          "index": 11148,
-          "floatBits": "3b26e100"
-        },
-        {
-          "index": 11149,
-          "floatBits": "3b0dd7c0"
-        },
-        {
-          "index": 11150,
-          "floatBits": "3b0170c0"
-        },
-        {
-          "index": 11151,
-          "floatBits": "3ae5eb00"
-        },
-        {
-          "index": 11152,
-          "floatBits": "3b055540"
+          "floatBits": "3effffff"
         },
         {
           "index": 11215,
-          "floatBits": "38d66000"
-        },
-        {
-          "index": 11304,
-          "floatBits": "3b124780"
-        },
-        {
-          "index": 11305,
-          "floatBits": "3afddf00"
-        },
-        {
-          "index": 11308,
-          "floatBits": "3b281400"
-        },
-        {
-          "index": 11309,
-          "floatBits": "3af58f80"
-        },
-        {
-          "index": 11312,
-          "floatBits": "3ae47400"
+          "floatBits": "3f800000"
         },
         {
           "index": 11458,
-          "floatBits": "3a5b2900"
-        },
-        {
-          "index": 11460,
-          "floatBits": "3af3fe80"
-        },
-        {
-          "index": 11464,
-          "floatBits": "3b4465c0"
-        },
-        {
-          "index": 11465,
-          "floatBits": "3b3286c0"
-        },
-        {
-          "index": 11468,
-          "floatBits": "3b453480"
-        },
-        {
-          "index": 11469,
-          "floatBits": "3b1cb4c0"
-        },
-        {
-          "index": 11472,
-          "floatBits": "3b023700"
-        },
-        {
-          "index": 11476,
-          "floatBits": "3af3b580"
-        },
-        {
-          "index": 11623,
-          "floatBits": "3b0d11c0"
-        },
-        {
-          "index": 11626,
-          "floatBits": "3b09b840"
-        },
-        {
-          "index": 11627,
-          "floatBits": "3b2a6a80"
-        },
-        {
-          "index": 11628,
-          "floatBits": "3aea0580"
+          "floatBits": "b3800000"
         },
         {
           "index": 11702,
-          "floatBits": "390aa000"
-        },
-        {
-          "index": 11784,
-          "floatBits": "3af62280"
-        },
-        {
-          "index": 11785,
-          "floatBits": "3af55b80"
-        },
-        {
-          "index": 11788,
-          "floatBits": "3b08ea40"
-        },
-        {
-          "index": 11944,
-          "floatBits": "3b009740"
-        },
-        {
-          "index": 11945,
-          "floatBits": "3afc7d00"
+          "floatBits": "3f800000"
         },
         {
           "index": 11946,
-          "floatBits": "3a97e580"
+          "floatBits": "3effffff"
         },
         {
           "index": 12190,
-          "floatBits": "3921d800"
+          "floatBits": "3f800000"
         },
         {
           "index": 12433,
-          "floatBits": "39f0c000"
+          "floatBits": "3f800000"
         },
         {
           "index": 12677,
-          "floatBits": "39554800"
+          "floatBits": "3effffff"
         },
         {
           "index": 12921,
-          "floatBits": "39dcb800"
+          "floatBits": "3effffff"
         },
         {
           "index": 13165,
-          "floatBits": "390dac00"
+          "floatBits": "3f800000"
         },
         {
           "index": 13409,
-          "floatBits": "391ccc00"
+          "floatBits": "3effffff"
         },
         {
           "index": 13652,
-          "floatBits": "3936f000"
+          "floatBits": "3f800000"
         },
         {
           "index": 13896,
-          "floatBits": "39334000"
+          "floatBits": "3f800000"
         },
         {
           "index": 14140,
-          "floatBits": "38fcc000"
+          "floatBits": "3effffff"
         },
         {
           "index": 14384,
-          "floatBits": "3a0bf900"
+          "floatBits": "3effffff"
         },
         {
           "index": 14628,
-          "floatBits": "3902d400"
+          "floatBits": "3effffff"
         },
         {
           "index": 14871,
-          "floatBits": "39514c00"
+          "floatBits": "b3800000"
         },
         {
           "index": 15115,
-          "floatBits": "39286400"
-        },
-        {
-          "index": 15356,
-          "floatBits": "3ae83480"
+          "floatBits": "3effffff"
         },
         {
           "index": 15359,
-          "floatBits": "392cf000"
+          "floatBits": "b3800000"
         }
       ]
     },
@@ -5864,393 +5949,398 @@
       "path": "ocr-cyrillic-rec-v1/model.onnx",
       "outputName": "fetch_name_0",
       "outputSize": 34080,
-      "referenceSha256": "b9f600a1df7a7ddbc11b2b510b4f07f3af73392e61efffa5fb0c92cd55c11c0a",
+      "referenceSha256": "9062594e961507191804fc4c38ba353d290b1de19fc82410752d3e2ddd0d4554",
+      "scaleAware": true,
       "minimumNormRatio": 0.5,
       "maximumNormRatio": 1.5,
+      "sampleAbsoluteTolerance": 0.0010865666223567206,
+      "sampleRelativeTolerance": 0.02,
+      "minimumRangeRatio": 0.5,
+      "maximumRangeRatio": 1.5,
       "samples": [
         {
           "index": 0,
-          "floatBits": "3f773d17"
+          "floatBits": "3f6831ae"
         },
         {
           "index": 541,
-          "floatBits": "3443f7cc"
+          "floatBits": "31713b01"
+        },
+        {
+          "index": 852,
+          "floatBits": "3f7d7a6c"
         },
         {
           "index": 1082,
-          "floatBits": "3902b4ea"
+          "floatBits": "373085b4"
         },
         {
           "index": 1623,
-          "floatBits": "34733994"
+          "floatBits": "31c8df06"
         },
         {
           "index": 1704,
-          "floatBits": "3f7ce904"
+          "floatBits": "3f7f58d1"
         },
         {
           "index": 2164,
-          "floatBits": "3610a53a"
+          "floatBits": "309d458e"
         },
         {
           "index": 2705,
-          "floatBits": "37496ad3"
+          "floatBits": "346ad222"
         },
         {
           "index": 3246,
-          "floatBits": "36b96828"
+          "floatBits": "330bb8c5"
         },
         {
           "index": 3408,
-          "floatBits": "3f7d78ab"
+          "floatBits": "3f6cb5c2"
         },
         {
           "index": 3787,
-          "floatBits": "33e79028"
+          "floatBits": "31d08c7d"
+        },
+        {
+          "index": 4260,
+          "floatBits": "3f6f9076"
         },
         {
           "index": 4327,
-          "floatBits": "3826fcc8"
+          "floatBits": "346b04a2"
         },
         {
           "index": 4868,
-          "floatBits": "340a47a7"
+          "floatBits": "30c143fd"
+        },
+        {
+          "index": 5112,
+          "floatBits": "3f6b4245"
         },
         {
           "index": 5409,
-          "floatBits": "34636ba9"
+          "floatBits": "31fbad87"
         },
         {
           "index": 5950,
-          "floatBits": "33e92096"
+          "floatBits": "31e23d84"
         },
         {
           "index": 5964,
-          "floatBits": "3f7c6f6b"
+          "floatBits": "3f7026da"
         },
         {
           "index": 6491,
-          "floatBits": "32b04763"
+          "floatBits": "31c6773e"
         },
         {
           "index": 6816,
-          "floatBits": "3f7c3ac0"
+          "floatBits": "3f73f1f6"
         },
         {
           "index": 7032,
-          "floatBits": "35b6a188"
+          "floatBits": "32332915"
         },
         {
           "index": 7573,
-          "floatBits": "33c5b8e1"
+          "floatBits": "31b6d047"
         },
         {
           "index": 7668,
-          "floatBits": "3f7c0b3a"
+          "floatBits": "3f6fdcad"
         },
         {
           "index": 8114,
-          "floatBits": "349c57f3"
-        },
-        {
-          "index": 8520,
-          "floatBits": "3f7c62a1"
+          "floatBits": "32dd6efc"
         },
         {
           "index": 8655,
-          "floatBits": "33cb04b2"
+          "floatBits": "31a2532b"
         },
         {
           "index": 9196,
-          "floatBits": "33cb04b2"
+          "floatBits": "31a2532b"
         },
         {
           "index": 9372,
-          "floatBits": "3f7c6a33"
+          "floatBits": "3f6beb29"
         },
         {
           "index": 9737,
-          "floatBits": "33f0bb48"
-        },
-        {
-          "index": 10224,
-          "floatBits": "3f7c6e43"
+          "floatBits": "32e8459f"
         },
         {
           "index": 10278,
-          "floatBits": "38855f46"
+          "floatBits": "3448d95e"
         },
         {
           "index": 10819,
-          "floatBits": "32d61117"
-        },
-        {
-          "index": 11076,
-          "floatBits": "3f7c6e43"
+          "floatBits": "320ef1dc"
         },
         {
           "index": 11360,
-          "floatBits": "340827f1"
+          "floatBits": "30156e14"
         },
         {
           "index": 11901,
-          "floatBits": "33d53c1e"
+          "floatBits": "31b42d6e"
         },
         {
           "index": 11928,
-          "floatBits": "3f7c6e43"
+          "floatBits": "3f6924af"
         },
         {
           "index": 12442,
-          "floatBits": "36d7c88b"
+          "floatBits": "35985422"
         },
         {
           "index": 12780,
-          "floatBits": "3f7c6e43"
+          "floatBits": "3f692580"
         },
         {
           "index": 12982,
-          "floatBits": "33d53c1e"
+          "floatBits": "31b4225d"
         },
         {
           "index": 13523,
-          "floatBits": "33d53c1e"
+          "floatBits": "31b4225d"
         },
         {
           "index": 13632,
-          "floatBits": "3f7c6e43"
+          "floatBits": "3f69265a"
         },
         {
           "index": 14064,
-          "floatBits": "34a77745"
+          "floatBits": "31ca03f7"
         },
         {
           "index": 14484,
-          "floatBits": "3f7c6e43"
+          "floatBits": "3f692731"
         },
         {
           "index": 14605,
-          "floatBits": "347b2901"
+          "floatBits": "3122ee47"
         },
         {
           "index": 15146,
-          "floatBits": "33d53c1e"
+          "floatBits": "31b41701"
         },
         {
           "index": 15336,
-          "floatBits": "3f7c6e43"
+          "floatBits": "3f692806"
         },
         {
           "index": 15687,
-          "floatBits": "33d53c1e"
+          "floatBits": "31b4113a"
         },
         {
           "index": 16188,
-          "floatBits": "3f7c6e43"
+          "floatBits": "3f6928dc"
         },
         {
           "index": 16228,
-          "floatBits": "3a247ff3"
+          "floatBits": "36302e12"
         },
         {
           "index": 16769,
-          "floatBits": "33b02461"
+          "floatBits": "32ff7bfb"
         },
         {
           "index": 17040,
-          "floatBits": "3f7c6e43"
+          "floatBits": "3f6929ab"
         },
         {
           "index": 17310,
-          "floatBits": "341ffe3c"
+          "floatBits": "304ee420"
         },
         {
           "index": 17851,
-          "floatBits": "33d53c1e"
+          "floatBits": "31b405ee"
         },
         {
           "index": 17892,
-          "floatBits": "3f7c6e43"
+          "floatBits": "3f692a8e"
         },
         {
           "index": 18392,
-          "floatBits": "37490f5d"
+          "floatBits": "343872ef"
         },
         {
           "index": 18744,
-          "floatBits": "3f7c6e43"
+          "floatBits": "3f692b66"
         },
         {
           "index": 18933,
-          "floatBits": "33d53c1e"
+          "floatBits": "31b3fa6e"
         },
         {
           "index": 19474,
-          "floatBits": "33d53c1e"
+          "floatBits": "31b3fa6e"
         },
         {
           "index": 19596,
-          "floatBits": "3f7c6e43"
+          "floatBits": "3f692c39"
         },
         {
           "index": 20015,
-          "floatBits": "33f9daae"
+          "floatBits": "30b608b7"
         },
         {
           "index": 20448,
-          "floatBits": "3f7c6e43"
+          "floatBits": "3f692d12"
         },
         {
           "index": 20556,
-          "floatBits": "34003258"
+          "floatBits": "3407f28f"
         },
         {
           "index": 21097,
-          "floatBits": "32e11f17"
+          "floatBits": "30ba5df5"
         },
         {
           "index": 21300,
-          "floatBits": "3f7c6e43"
+          "floatBits": "3f692dec"
         },
         {
           "index": 21637,
-          "floatBits": "33d53c1e"
+          "floatBits": "31b3e97c"
         },
         {
           "index": 22152,
-          "floatBits": "3f7c6e43"
+          "floatBits": "3f692ed2"
         },
         {
           "index": 22178,
-          "floatBits": "388c4f26"
+          "floatBits": "35d59295"
         },
         {
           "index": 22719,
-          "floatBits": "33d53c1e"
+          "floatBits": "31b3e3c4"
         },
         {
           "index": 23004,
-          "floatBits": "3f7c6e43"
+          "floatBits": "3f692f9e"
         },
         {
           "index": 23260,
-          "floatBits": "349bad18"
+          "floatBits": "314abbc7"
         },
         {
           "index": 23801,
-          "floatBits": "33d53c1e"
-        },
-        {
-          "index": 23856,
-          "floatBits": "3f7c6863"
+          "floatBits": "31b3dec3"
         },
         {
           "index": 24342,
-          "floatBits": "36b4e357"
+          "floatBits": "325b6b30"
         },
         {
           "index": 24708,
-          "floatBits": "3f7c628d"
+          "floatBits": "3f696216"
         },
         {
           "index": 24883,
-          "floatBits": "342d24f2"
+          "floatBits": "31ef18ef"
         },
         {
           "index": 25424,
-          "floatBits": "33d568e8"
+          "floatBits": "31892836"
         },
         {
           "index": 25560,
-          "floatBits": "3f7c452a"
+          "floatBits": "3f69ee34"
         },
         {
           "index": 25965,
-          "floatBits": "33d7567f"
+          "floatBits": "3008128a"
         },
         {
           "index": 26412,
-          "floatBits": "3f7bf839"
+          "floatBits": "3f6b6cb6"
         },
         {
           "index": 26506,
-          "floatBits": "35def08d"
+          "floatBits": "3262673e"
         },
         {
           "index": 27047,
-          "floatBits": "33e19902"
+          "floatBits": "31c2b5f0"
+        },
+        {
+          "index": 27264,
+          "floatBits": "3f711181"
         },
         {
           "index": 27588,
-          "floatBits": "335b8b99"
+          "floatBits": "2f758d96"
         },
         {
           "index": 28129,
-          "floatBits": "39104c56"
+          "floatBits": "38370b2b"
         },
         {
           "index": 28670,
-          "floatBits": "34881e0c"
+          "floatBits": "323c8982"
+        },
+        {
+          "index": 28968,
+          "floatBits": "3f6e7443"
         },
         {
           "index": 29211,
-          "floatBits": "34339581"
+          "floatBits": "311d3890"
         },
         {
           "index": 29752,
-          "floatBits": "33c57694"
+          "floatBits": "31789173"
         },
         {
           "index": 29820,
-          "floatBits": "3f7cd471"
+          "floatBits": "3f75bfb6"
         },
         {
           "index": 30292,
-          "floatBits": "371b3319"
+          "floatBits": "318da66a"
         },
         {
           "index": 30672,
-          "floatBits": "3f7f7363"
+          "floatBits": "3f71e727"
         },
         {
           "index": 30833,
-          "floatBits": "329b5261"
+          "floatBits": "312f6b95"
         },
         {
           "index": 31374,
-          "floatBits": "329b5261"
+          "floatBits": "312f6b95"
         },
         {
           "index": 31524,
-          "floatBits": "3f7f5c17"
+          "floatBits": "3f6a614a"
         },
         {
           "index": 31915,
-          "floatBits": "2f6b5147"
+          "floatBits": "2db6c7dc"
         },
         {
           "index": 32376,
-          "floatBits": "3f7fd47f"
+          "floatBits": "3f74bf78"
         },
         {
           "index": 32456,
-          "floatBits": "3551b5de"
+          "floatBits": "38263a53"
         },
         {
           "index": 32997,
-          "floatBits": "302976be"
-        },
-        {
-          "index": 33228,
-          "floatBits": "3f7e151c"
+          "floatBits": "31a71733"
         },
         {
           "index": 33538,
-          "floatBits": "36bcbe5c"
+          "floatBits": "35ccc9d4"
         },
         {
           "index": 34079,
-          "floatBits": "37e7690d"
+          "floatBits": "36984f58"
         }
       ]
     },
@@ -6259,8 +6349,13 @@
       "outputName": "cls_8",
       "outputSize": 6400,
       "referenceSha256": "5f115b26219ce6b8324e7f1b43893c8fbc4467b5e928f3d86d542994735dedfe",
+      "scaleAware": false,
       "minimumNormRatio": 0.5,
       "maximumNormRatio": 1.5,
+      "sampleAbsoluteTolerance": 0.0016538043014018048,
+      "sampleRelativeTolerance": 0.02,
+      "minimumRangeRatio": 0.5,
+      "maximumRangeRatio": 1.5,
       "samples": [
         {
           "index": 0,
@@ -6653,8 +6748,13 @@
       "outputName": "fc1",
       "outputSize": 128,
       "referenceSha256": "d64f60f83feedfa7a7c0cf5671769a41e7171c1806866868ed91c795452f085b",
+      "scaleAware": false,
       "minimumNormRatio": 0.5,
       "maximumNormRatio": 1.5,
+      "sampleAbsoluteTolerance": 0.0004695976483192899,
+      "sampleRelativeTolerance": 0.02,
+      "minimumRangeRatio": 0.5,
+      "maximumRangeRatio": 1.5,
       "samples": [
         {
           "index": 0,
@@ -6979,8 +7079,13 @@
       "outputName": "logits",
       "outputSize": 2,
       "referenceSha256": "83b82e4897e94ebf740eb26319cf3f0cc1bc0e08ce19157d1e7a0ffbe6efc5b7",
+      "scaleAware": false,
       "minimumNormRatio": 0.5,
       "maximumNormRatio": 1.5,
+      "sampleAbsoluteTolerance": 0.0032059809430694335,
+      "sampleRelativeTolerance": 0.02,
+      "minimumRangeRatio": 0.5,
+      "maximumRangeRatio": 1.5,
       "samples": [
         {
           "index": 0,
@@ -6992,5 +7097,6 @@
         }
       ]
     }
-  ]
+  ],
+  "oracleRevision": "activation-ramp-v1"
 }

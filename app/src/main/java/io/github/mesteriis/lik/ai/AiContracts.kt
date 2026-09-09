@@ -43,6 +43,7 @@ data class CatalogSnapshot(
     val pending: PendingProfile? = null,
     val generations: Map<String, IndexGeneration> = emptyMap(),
     val activeGenerations: Map<AiFeature, String> = emptyMap(),
+    val verifiedOracles: Map<ProfileId, String> = emptyMap(),
 ) {
     fun profile(id: ProfileId) = profiles.getValue(id)
 
@@ -72,6 +73,7 @@ object ProfileTransitions {
         target: ProfileId,
         enabled: Set<AiFeature>,
         pipelineFingerprints: Map<AiFeature, String> = emptyMap(),
+        profileVerified: Boolean = true,
     ): CatalogSnapshot {
         val targetInstalled = current.profile(target).phase in setOf(ProfilePhase.INSTALLED, ProfilePhase.ACTIVE, ProfilePhase.PREPARING)
         val reused = enabled.mapNotNull { feature ->
@@ -80,7 +82,7 @@ object ProfileTransitions {
                 it.feature == feature && it.pipelineFingerprint == fingerprint && it.complete
             }?.let { feature to it.id }
         }.toMap()
-        val canActivate = targetInstalled && reused.keys.containsAll(enabled)
+        val canActivate = targetInstalled && profileVerified && reused.keys.containsAll(enabled)
         val previousPending = current.pending?.profile?.takeIf { it != target && it != current.active }
         val demoted = previousPending?.let { previous ->
             val state = current.profile(previous)
@@ -94,7 +96,8 @@ object ProfileTransitions {
         val profiles = current.profiles + listOfNotNull(demoted) + (target to current.profile(target).copy(
             phase = when {
                 canActivate || target == current.active -> ProfilePhase.ACTIVE
-                targetInstalled -> ProfilePhase.PREPARING
+                targetInstalled && profileVerified -> ProfilePhase.PREPARING
+                targetInstalled -> ProfilePhase.SELF_TESTING
                 else -> ProfilePhase.DOWNLOADING
             },
             error = null,
@@ -123,12 +126,13 @@ object ProfileTransitions {
         current: CatalogSnapshot,
         enabled: Set<AiFeature>,
         pipelineFingerprints: Map<AiFeature, String>,
+        profileVerified: Boolean = true,
     ): CatalogSnapshot {
         if (current.active == null && current.pending == null) return current.copy(
             revision = current.revision + 1, enabledFeatures = enabled,
         )
         val target = current.pending?.profile ?: current.active ?: current.selected
-        return select(current, target, enabled, pipelineFingerprints)
+        return select(current, target, enabled, pipelineFingerprints, profileVerified)
     }
 
     fun generationReady(current: CatalogSnapshot, target: ProfileId, feature: AiFeature, generation: String): CatalogSnapshot {
@@ -212,6 +216,43 @@ object CatalogGenerationCleanup {
     )
 }
 
+object CatalogOracleRepair {
+    fun requireCurrent(state: CatalogSnapshot, oracleRevision: String,
+                       profileInstalled: (ProfileId) -> Boolean): CatalogSnapshot {
+        val verified = state.verifiedOracles.filter { (profile, revision) ->
+            revision == oracleRevision && profileInstalled(profile)
+        }
+        val stale = ProfileId.entries.filterTo(mutableSetOf()) { profile ->
+            profileInstalled(profile) && state.verifiedOracles[profile] != oracleRevision &&
+                state.profile(profile).phase in setOf(ProfilePhase.INSTALLED, ProfilePhase.ACTIVE,
+                    ProfilePhase.PREPARING, ProfilePhase.SELF_TESTING)
+        }
+        if (stale.isEmpty() && verified == state.verifiedOracles) return state
+        val formerActive = state.active?.takeIf { it in stale }
+        val target = state.pending?.profile?.takeIf { it in stale }
+            ?: state.selected.takeIf { it in stale }
+            ?: formerActive
+        val requested = state.pending?.enabled ?: state.enabledFeatures
+        val ready = if (target == null) emptyMap() else
+            (state.pending?.takeIf { it.profile == target }?.readyGenerations.orEmpty() +
+                state.activeGenerations.takeIf { formerActive == target }.orEmpty()).filterKeys { it in requested }
+        val profiles = state.profiles.mapValues { (profile, value) -> when {
+            profile == target -> value.copy(phase = ProfilePhase.SELF_TESTING, error = null)
+            profile in stale && value.phase == ProfilePhase.ACTIVE -> value.copy(phase = ProfilePhase.INSTALLED, error = null)
+            else -> value
+        } }
+        return state.copy(
+            revision = state.revision + 1,
+            active = state.active?.takeUnless { it in stale },
+            profiles = profiles,
+            pending = target?.let { PendingProfile(it, requested, ready) }
+                ?: state.pending?.takeUnless { it.profile in stale },
+            activeGenerations = if (formerActive == null) state.activeGenerations else emptyMap(),
+            verifiedOracles = verified,
+        )
+    }
+}
+
 object CatalogMigrations {
     fun toVersion(state: CatalogSnapshot, version: String,
                   profileInstalled: (ProfileId) -> Boolean = { false },
@@ -292,7 +333,8 @@ object CatalogArtifactRepair {
             active = state.active?.takeUnless { it in invalid }, profiles = profiles,
             enabledFeatures = if (brokenActive == null) state.enabledFeatures else state.pending?.enabled ?: state.enabledFeatures,
             pending = state.pending?.takeUnless { it.profile in invalid },
-            activeGenerations = if (brokenActive == null) state.activeGenerations else emptyMap())
+            activeGenerations = if (brokenActive == null) state.activeGenerations else emptyMap(),
+            verifiedOracles = state.verifiedOracles - invalid)
     }
 }
 

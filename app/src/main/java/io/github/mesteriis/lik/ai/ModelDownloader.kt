@@ -31,6 +31,7 @@ class ModelDownloader(
         val specs = catalog.trusted.artifacts(profile)
         val total = specs.sumOf { it.size }
         val operationId = profile.wire
+        store.prepareDownloadMetadata(operationId, specs, catalog.stateFileForMetadata())
         val operation = store.operation(operationId)
         val ledger = DownloadReservationLedger(store.root)
         activeOperation = operation
@@ -49,10 +50,11 @@ class ModelDownloader(
             missing.forEach { spec ->
                 val journal = store.sharedJournal(spec.sha256)
                 if (journal.isFile && !journalMatches(journal, spec)) {
-                    store.sharedPart(spec.sha256).delete(); journal.delete()
+                    store.sharedPart(spec.sha256).delete(); PreallocatedMetadata.clear(journal)
                 }
             }
             val resumeBytes = missing.associateWith { recoveredBytes(operationId, it, ledger) }
+            store.prepareMissingTransferEntries(missing)
             ledger.acquire(operationId, missing.map { it to resumeBytes.getValue(it) },
                 store.availableBytes(), SAFETY_MARGIN)
             for (spec in missing) {
@@ -141,7 +143,7 @@ class ModelDownloader(
         }
         val journal = store.sharedJournal(spec.sha256)
         if (journalMatches(journal, spec)) {
-            val value = JSONObject(journal.readText()).getLong("bytes")
+            val value = JSONObject(PreallocatedMetadata.read(journal).toString(Charsets.UTF_8)).getLong("bytes")
             if (value in 0..spec.size) return value
         }
         val part = store.sharedPart(spec.sha256)
@@ -212,7 +214,9 @@ class ModelDownloader(
 
     private fun checkControl() {
         if (Thread.currentThread().isInterrupted) cancelled.set(true)
-        val command = activeOperation?.let { File(it, "control").takeIf(File::isFile)?.readText()?.trim() }
+        val command = activeOperation?.let { File(it, "control").takeIf(File::isFile)?.let { control ->
+            runCatching { PreallocatedMetadata.read(control).toString(Charsets.UTF_8).trim() }.getOrNull()
+        } }
         if (command == "cancel") cancelled.set(true)
         if (command == "pause") paused.set(true)
         if (cancelled.get()) throw DownloadCancelled()
@@ -220,13 +224,11 @@ class ModelDownloader(
     }
 
     private fun writeJournal(file: File, spec: ArtifactSpec, stage: DownloadJournalStage, bytes: Long) {
-        val value = JSONObject().put("schema", 1).put("path", spec.path).put("size", spec.size)
-            .put("sha256", spec.sha256).put("url", spec.url.toString()).put("stage", stage.name).put("bytes", bytes)
-        DurableAiFiles.atomicWrite(file, value.toString().toByteArray())
+        store.writeSharedJournal(spec, stage, bytes)
     }
 
     private fun journalMatches(file: File, spec: ArtifactSpec): Boolean = runCatching {
-        val value = JSONObject(file.readText())
+        val value = JSONObject(PreallocatedMetadata.read(file).toString(Charsets.UTF_8))
         value.getInt("schema") == 1 && value.getString("path") == spec.path &&
             value.getLong("size") == spec.size && value.getString("sha256") == spec.sha256 &&
             value.getString("url") == spec.url.toString() &&
@@ -249,13 +251,13 @@ class ModelDownloader(
 
 object ProfileDownloadControls {
     private fun control(context: Context, profile: ProfileId) = File(context.filesDir, "ai/staging/operations/${profile.wire}/control")
-    fun pause(context: Context, profile: ProfileId) { DurableAiFiles.atomicWrite(control(context, profile), "pause".toByteArray()) }
+    fun pause(context: Context, profile: ProfileId) { PreallocatedMetadata.write(control(context, profile), "pause".toByteArray()) }
     fun cancel(context: Context, profile: ProfileId) {
-        DurableAiFiles.atomicWrite(control(context, profile), "cancel".toByteArray())
+        PreallocatedMetadata.write(control(context, profile), "cancel".toByteArray())
         ProfileDownloadWorker.cancel(context, profile)
         ProfileAbandonWorker.enqueue(context, profile)
     }
-    fun resume(context: Context, profile: ProfileId) { control(context, profile).delete(); ProfileDownloadWorker.enqueue(context, profile) }
+    fun resume(context: Context, profile: ProfileId) { PreallocatedMetadata.clear(control(context, profile)); ProfileDownloadWorker.enqueue(context, profile) }
 }
 
 /** Exact file verification plus sequential ORT graph opening; sessions never overlap. */

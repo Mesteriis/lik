@@ -3,6 +3,7 @@ package io.github.mesteriis.lik.ai
 import android.os.StatFs
 import java.io.File
 import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.io.RandomAccessFile
 import java.security.MessageDigest
 import org.json.JSONObject
@@ -40,6 +41,33 @@ class ArtifactStore(val root: File) {
     fun operation(id: String) = File(operations, id).also(File::mkdirs)
     fun sharedPart(digest: String) = File(shared.also(File::mkdirs), "$digest.part")
     fun sharedJournal(digest: String) = File(shared.also(File::mkdirs), "$digest.json")
+    fun prepareDownloadMetadata(operation: String, specs: List<ArtifactSpec>, catalogState: File) {
+        listOf(root, artifacts, staging, shared, operations, File(operations, operation), receipts,
+            File(root, "quarantine"), File(staging, "reservations")).forEach(File::mkdirs)
+        PreallocatedMetadata.prepare(catalogState)
+        PreallocatedMetadata.prepare(File(operations, operation).resolve("control"))
+        specs.forEach { spec ->
+            PreallocatedMetadata.prepare(sharedJournal(spec.sha256))
+            PreallocatedMetadata.prepare(receipt(spec.sha256))
+        }
+        DownloadReservationLedger(root).prepareMetadata(operation)
+        listOf(root, artifacts, staging, shared, operations, File(operations, operation), receipts,
+            File(root, "quarantine"), File(staging, "reservations")).forEach(DurableAiFiles::syncDirectory)
+    }
+    fun prepareMissingTransferEntries(specs: List<ArtifactSpec>) {
+        specs.forEach { spec ->
+            listOf(sharedPart(spec.sha256), file(spec.sha256)).forEach { target ->
+                if (!target.exists()) FileOutputStream(target).use { it.fd.sync() }
+            }
+        }
+        DurableAiFiles.syncDirectory(shared)
+        DurableAiFiles.syncDirectory(artifacts)
+    }
+    fun writeSharedJournal(spec: ArtifactSpec, stage: DownloadJournalStage, bytes: Long) {
+        val value = JSONObject().put("schema", 1).put("path", spec.path).put("size", spec.size)
+            .put("sha256", spec.sha256).put("url", spec.url.toString()).put("stage", stage.name).put("bytes", bytes)
+        PreallocatedMetadata.write(sharedJournal(spec.sha256), value.toString().toByteArray())
+    }
     @Synchronized fun repair(spec: ArtifactSpec, checkpoint: () -> Unit = {}): Boolean {
         val target = file(spec.sha256)
         if (!target.exists()) return false
@@ -69,10 +97,10 @@ class ArtifactStore(val root: File) {
             stat.st_ctim.tv_sec == verified.ctimeSec && stat.st_ctim.tv_nsec == verified.ctimeNsec) { "VERIFIED_STAGING_CHANGED" }
         artifacts.mkdirs()
         val target = file(spec.sha256)
-        if (target.exists()) {
+        if (target.exists() && target.length() > 0) {
             require(installed(spec.sha256, spec.size)) { "ARTIFACT_COLLISION" }
             check(part.delete())
-        } else check(part.renameTo(target)) { "PUBLISH_FAILED" }
+        } else Os.rename(part.absolutePath, target.absolutePath)
         DurableAiFiles.syncDirectory(artifacts)
         writeReceipt(target, spec.sha256, spec.size)
         knownInvalid.remove(spec.sha256)
@@ -96,7 +124,7 @@ class ArtifactStore(val root: File) {
         stat.st_ctim.tv_sec, stat.st_ctim.tv_nsec) }
     private fun receiptMatches(target: File, digest: String, size: Long): Boolean = runCatching {
         val stat = Os.stat(target.absolutePath)
-        val value = JSONObject(receipt(digest).readText())
+        val value = JSONObject(PreallocatedMetadata.read(receipt(digest)).toString(Charsets.UTF_8))
         value.getInt("schema") == 1 && value.getString("sha256") == digest && value.getLong("size") == size &&
             value.getLong("device") == stat.st_dev && value.getLong("inode") == stat.st_ino &&
             value.getLong("mtimeSec") == stat.st_mtim.tv_sec && value.getLong("mtimeNsec") == stat.st_mtim.tv_nsec &&
@@ -111,7 +139,7 @@ class ArtifactStore(val root: File) {
             .put("mtimeSec", stat.st_mtim.tv_sec).put("mtimeNsec", stat.st_mtim.tv_nsec)
             .put("ctimeSec", stat.st_ctim.tv_sec).put("ctimeNsec", stat.st_ctim.tv_nsec)
             .put("sampleSha256", sampleSha256(target))
-        DurableAiFiles.atomicWrite(receipt(digest), value.toString().toByteArray())
+        PreallocatedMetadata.write(receipt(digest), value.toString().toByteArray())
     }
 
     /** Detects rapid same-size replacement on filesystems whose stat timestamps are coarse. */

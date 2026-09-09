@@ -142,6 +142,38 @@ class AiRuntimeTest {
         } finally { root.deleteRecursively() }
     }
 
+    @Test fun exactBoundaryUsesOnlyPreallocatedMetadataAfterAcceptance() {
+        val root = File(context.cacheDir, "metadata-boundary-${System.nanoTime()}").apply { mkdirs() }
+        val payload = "payload".toByteArray()
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(payload)
+            .joinToString("") { "%02x".format(it) }
+        val spec = ArtifactSpec("test/model.onnx", payload.size.toLong(), digest,
+            URI("https://huggingface.co/org/repo/resolve/${"a".repeat(40)}/model.onnx"))
+        val store = ArtifactStore(root)
+        val ledger = DownloadReservationLedger(root)
+        val catalogState = File(root, "catalog-state-v1.json")
+        try {
+            store.prepareDownloadMetadata("test", listOf(spec), catalogState)
+            store.prepareMissingTransferEntries(listOf(spec))
+            val unit = android.system.Os.statvfs(root.absolutePath).let { maxOf(512L, it.f_bsize, it.f_frsize) }
+            ledger.acquire("test", listOf(spec to 0L), unit * 2, 1)
+            PreallocatedMetadata.rejectNewFilesForTests = true
+            val part = store.sharedPart(digest)
+            java.io.RandomAccessFile(part, "rw").use { it.seek(0); it.write(payload); it.fd.sync() }
+            store.writeSharedJournal(spec, DownloadJournalStage.VERIFYING, payload.size.toLong())
+            ledger.update("test", digest, 0)
+            PreallocatedMetadata.write(catalogState, "{\"state\":1}".toByteArray())
+            store.publish(store.verifyStaging(part, spec), spec)
+            assertTrue(store.installed(digest, payload.size.toLong()))
+            assertThrows(IllegalStateException::class.java) {
+                PreallocatedMetadata.write(File(root, "late-metadata"), byteArrayOf(1))
+            }
+        } finally {
+            PreallocatedMetadata.rejectNewFilesForTests = false
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun roomPublicationRejectsSameGenerationRevisionRaceWithoutAdvancingCheckpoint() {
         val mediaId = "d".repeat(63) + "1"
         val file = PhotoLibrary.store(context).fileFor(mediaId).apply {
@@ -208,6 +240,7 @@ class AiRuntimeTest {
             enabledFeatures = emptySet(),
             pending = PendingProfile(ProfileId.COMPACT, setOf(AiFeature.OCR, AiFeature.PEOPLE)),
             activeGenerations = emptyMap(),
+            verifiedOracles = state.verifiedOracles + (ProfileId.COMPACT to catalog.trusted.oracleRevision),
         ) }
         try {
             ActivityScenario.launch(AiSettingsActivity::class.java).use { scenario ->

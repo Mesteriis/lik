@@ -52,7 +52,7 @@ def validate_component(cache, component, requests, candidate_directory="hf-runti
                         "--source", str(source), "--model", str(path), "--component", component,
                         "--output", str(out)], check=True)
         shape = [1, 3, 48, 320] if component == "ocr-cyrillic-rec-v1" else [1, 3, 96, 160]
-        evidence["models"][path.name] = inspect_model(path, {"x": shape})
+        evidence["models"][path.name] = inspect_model(path, {"x": shape}, informative=True)
         evidence["parity"][path.name] = json.loads(out.read_text())
     elif component in ("yunet-v1", "sface-v1"):
         path = cache / candidate_directory / files[0]["path"]

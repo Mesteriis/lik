@@ -14,7 +14,8 @@ class SemanticAndRuntimeTest {
         val file = File.createTempFile("lik-smoke", ".f32").apply { writeBytes(bytes) }
         val sha = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
         val reference = SmokeReferenceSpec("model.onnx.smoke.f32", bytes.size.toLong(), sha,
-            "little-endian-float32-output-order", "allclose", .98f, .0001f, .001f, .5f, 1.5f,
+            "little-endian-float32-output-order", "allclose", .98f, .0001f, .001f, .5f, 1.5f, true,
+            .0001f, .001f, .5f, 1.5f,
             listOf(SmokeExpectedSample(0, .25f), SmokeExpectedSample(1, .75f)))
         try {
             assertTrue(SmokeReferenceVerifier.matches(reference, floatArrayOf(.25f, .75f), file))
@@ -25,6 +26,16 @@ class SemanticAndRuntimeTest {
             file.writeBytes(ByteArray(bytes.size))
             assertFalse(SmokeReferenceVerifier.matches(reference, floatArrayOf(.25f, .75f), file))
         } finally { file.delete() }
+    }
+
+    @Test fun scaleAwareOracleRejectsNearZeroConstantWithinLegacyAbsoluteTolerance() {
+        val reference = SmokeReferenceSpec("ocr.smoke.f32", 12, "a".repeat(64),
+            "little-endian-float32-output-order", "allclose", .98f, .0001f, .001f, .5f, 1.5f, true,
+            1e-8f, .02f, .5f, 1.5f,
+            listOf(SmokeExpectedSample(0, 1e-6f), SmokeExpectedSample(1, -2e-6f), SmokeExpectedSample(2, 4e-6f)))
+
+        assertTrue(SmokeReferenceVerifier.matchesExpectedSamples(reference, floatArrayOf(1e-6f, -2e-6f, 4e-6f)))
+        assertFalse(SmokeReferenceVerifier.matchesExpectedSamples(reference, floatArrayOf(1.1e-6f, 1.1e-6f, 1.1e-6f)))
     }
 
     @Test fun exactSearchUsesCosineAndStableMediaIdTies() {
