@@ -87,12 +87,19 @@ class ModelCatalog private constructor(private val root: File, val trusted: Trus
     fun operationPhase(profile: ProfileId, phase: ProfilePhase, completed: Long = 0, total: Long = 0, error: String? = null) = update { state ->
         state.copy(revision = state.revision + 1, profiles = state.profiles + (profile to ProfileState(phase, completed, total, error)))
     }
-    fun removeInactive(profile: ProfileId, removedGenerations: Set<String> = emptySet()): CatalogSnapshot = update { state ->
-        require(state.active != profile && state.pending?.profile != profile)
-        CatalogGenerationCleanup.remove(state, removedGenerations).copy(
-            profiles = state.profiles + (profile to ProfileState()),
-            selected = if (state.selected == profile) (state.active ?: ProfileId.BALANCED) else state.selected,
-            verifiedOracles = state.verifiedOracles - profile)
+    @Synchronized fun removeInactiveAtomically(
+        profile: ProfileId,
+        requestedGenerations: Set<String>,
+        beforeCommit: (Set<String>) -> Unit = {},
+    ): CatalogInactiveRemovalResult {
+        val planned = CatalogInactiveRemoval.apply(current, profile, requestedGenerations)
+        if (!planned.accepted) return planned
+        val next = CatalogGenerationBounds.prune(planned.snapshot, acceptedPipelineFingerprints)
+        beforeCommit(planned.removable)
+        write(next)
+        current = next
+        listeners.toList().forEach { it(next) }
+        return planned.copy(snapshot = next)
     }
     fun discardGenerations(ids: Set<String>): CatalogSnapshot = update { state ->
         CatalogGenerationCleanup.remove(state, ids)

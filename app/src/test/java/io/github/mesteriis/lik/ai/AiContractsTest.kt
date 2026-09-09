@@ -315,6 +315,26 @@ class AiContractsTest {
         assertTrue(bounded.generations.values.any { it.complete && it.pipelineFingerprint == current })
     }
 
+    @Test fun inactiveCleanupRechecksSharedGenerationAfterConcurrentActivation() {
+        val generation = IndexGeneration("shared", AiFeature.SEARCH, "p", true, 1, 1)
+        val requestedBeforeActivation = setOf(generation.id)
+        val concurrentlyActivated = CatalogSnapshot.readyForTest(ProfileId.EXTENDED).copy(
+            profiles = CatalogSnapshot.readyForTest(ProfileId.EXTENDED).profiles +
+                (ProfileId.COMPACT to ProfileState(ProfilePhase.INSTALLED)),
+            generations = mapOf(generation.id to generation),
+            activeGenerations = mapOf(AiFeature.SEARCH to generation.id),
+        )
+
+        val planned = CatalogInactiveRemoval.apply(concurrentlyActivated, ProfileId.COMPACT,
+            requestedBeforeActivation)
+
+        assertTrue(planned.accepted)
+        assertTrue(planned.removable.isEmpty())
+        assertEquals(generation, planned.snapshot.generations[generation.id])
+        assertEquals(generation.id, planned.snapshot.activeGenerations[AiFeature.SEARCH])
+        assertEquals(ProfilePhase.NOT_INSTALLED, planned.snapshot.profile(ProfileId.COMPACT).phase)
+    }
+
     @Test fun removingGenerationsClearsEveryCatalogPointer() {
         val generation = IndexGeneration("old", AiFeature.SEARCH, "p", true, 1, 1)
         val state = CatalogSnapshot.readyForTest(ProfileId.COMPACT).copy(

@@ -41,9 +41,10 @@ enum class GenerationRetirementStep { JOURNALED, ROOM_REMOVED, NATIVE_REMOVED }
 object GenerationRetirement {
     @Volatile internal var afterStepForTests: ((GenerationRetirementStep, String) -> Unit)? = null
 
-    fun journal(root: File, profile: ProfileId, ids: Set<String>) {
+    fun journal(root: File, profile: ProfileId, ids: Set<String>,
+                reason: GenerationRemovalReason = GenerationRemovalReason.SUPERSEDED) {
         if (ids.isEmpty()) return
-        GenerationRemovalJournal(root).begin(profile, ids)
+        GenerationRemovalJournal(root).begin(profile, ids, reason)
         ids.forEach { afterStepForTests?.invoke(GenerationRetirementStep.JOURNALED, it) }
     }
 
@@ -53,6 +54,7 @@ object GenerationRetirement {
         ids: Set<String>,
         catalog: ModelCatalog = ModelCatalog.get(context),
         database: MediaDatabase = MediaDatabase.get(context),
+        reason: GenerationRemovalReason = GenerationRemovalReason.SUPERSEDED,
     ) {
         val journal = GenerationRemovalJournal(File(context.filesDir, "ai"))
         ids.sorted().forEach { id ->
@@ -63,7 +65,7 @@ object GenerationRetirement {
                     NativeIndexFiles.remove(context, id)
                     afterStepForTests?.invoke(GenerationRetirementStep.NATIVE_REMOVED, id)
                 }
-                if (removed) journal.complete(profile, setOf(id))
+                if (removed) journal.complete(profile, setOf(id), reason)
             }
         }
     }
@@ -74,8 +76,9 @@ object GenerationRetirement {
         ids: Set<String>,
         catalog: ModelCatalog = ModelCatalog.get(context),
         database: MediaDatabase = MediaDatabase.get(context),
+        reason: GenerationRemovalReason = GenerationRemovalReason.SUPERSEDED,
     ) {
-        journal(File(context.filesDir, "ai"), profile, ids)
-        drain(context, profile, ids, catalog, database)
+        journal(File(context.filesDir, "ai"), profile, ids, reason)
+        drain(context, profile, ids, catalog, database, reason)
     }
 }

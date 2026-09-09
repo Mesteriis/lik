@@ -219,6 +219,28 @@ object CatalogGenerationCleanup {
     )
 }
 
+data class CatalogInactiveRemovalResult(
+    val snapshot: CatalogSnapshot,
+    val removable: Set<String>,
+    val accepted: Boolean,
+)
+
+object CatalogInactiveRemoval {
+    fun apply(state: CatalogSnapshot, profile: ProfileId, requested: Set<String>): CatalogInactiveRemovalResult {
+        if (state.active == profile || state.pending?.profile == profile) {
+            return CatalogInactiveRemovalResult(state, emptySet(), false)
+        }
+        val referenced = state.activeGenerations.values.toSet() + state.pending?.readyGenerations.orEmpty().values
+        val removable = requested - referenced
+        val next = CatalogGenerationCleanup.remove(state, removable).copy(
+            profiles = state.profiles + (profile to ProfileState()),
+            selected = if (state.selected == profile) (state.active ?: ProfileId.BALANCED) else state.selected,
+            verifiedOracles = state.verifiedOracles - profile,
+        )
+        return CatalogInactiveRemovalResult(next, removable, true)
+    }
+}
+
 /** Keeps the durable snapshot within its fixed metadata slot without losing serving or reusable generations. */
 object CatalogGenerationBounds {
     fun prune(state: CatalogSnapshot, accepted: Map<AiFeature, Set<String>>): CatalogSnapshot {

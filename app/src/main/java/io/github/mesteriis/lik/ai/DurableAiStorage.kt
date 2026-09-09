@@ -306,41 +306,55 @@ class DownloadReservationLedger(private val root: File) {
     companion object { private const val MARGIN = "@safety-margin" }
 }
 
+enum class GenerationRemovalReason(val wire: String) { INACTIVE_PROFILE("inactive"), SUPERSEDED("superseded") }
+data class GenerationRemovalEntry(val profile: ProfileId, val ids: Set<String>, val reason: GenerationRemovalReason)
+
 class GenerationRemovalJournal(private val root: File) {
     private val directory = File(root, "generation-removals")
-    fun begin(profile: ProfileId, ids: Set<String>) = synchronized(lock) {
+    fun begin(profile: ProfileId, ids: Set<String>, reason: GenerationRemovalReason = GenerationRemovalReason.INACTIVE_PROFILE) = synchronized(lock) {
         if (ids.isEmpty()) return
-        val merged = read(profile) + ids
+        val merged = read(profile, reason) + ids
         val value = JSONObject().put("schema", 1).put("profile", profile.wire)
+            .put("reason", reason.wire)
             .put("ids", org.json.JSONArray(merged.sorted()))
-        DurableAiFiles.atomicWrite(File(directory, "${profile.wire}.json"), value.toString().toByteArray())
+        DurableAiFiles.atomicWrite(file(profile, reason), value.toString().toByteArray())
     }
-    fun pending(): List<Pair<ProfileId, Set<String>>> = synchronized(lock) {
+    fun pending(): List<GenerationRemovalEntry> = synchronized(lock) {
         directory.listFiles().orEmpty().filter { it.isFile && !it.name.startsWith(".") && it.extension == "json" }.map { file ->
             val value = JSONObject(file.readText()); require(value.getInt("schema") == 1)
             val array = value.getJSONArray("ids")
-            ProfileId.fromWire(value.getString("profile")) to List(array.length()) { array.getString(it) }.toSet()
+            val reason = value.optString("reason").takeIf(String::isNotBlank)
+                ?.let { wire -> GenerationRemovalReason.entries.first { it.wire == wire } }
+                ?: GenerationRemovalReason.INACTIVE_PROFILE
+            GenerationRemovalEntry(ProfileId.fromWire(value.getString("profile")),
+                List(array.length()) { array.getString(it) }.toSet(), reason)
         }
     }
-    fun ids(): Set<String> = pending().flatMap { it.second }.toSet()
-    fun complete(profile: ProfileId, ids: Set<String>) = synchronized(lock) {
-        val remaining = read(profile) - ids
+    fun ids(): Set<String> = pending().flatMap { it.ids }.toSet()
+    fun complete(profile: ProfileId, ids: Set<String>, reason: GenerationRemovalReason = GenerationRemovalReason.INACTIVE_PROFILE) = synchronized(lock) {
+        val remaining = read(profile, reason) - ids
         if (remaining.isNotEmpty()) {
             val value = JSONObject().put("schema", 1).put("profile", profile.wire)
+                .put("reason", reason.wire)
                 .put("ids", org.json.JSONArray(remaining.sorted()))
-            DurableAiFiles.atomicWrite(File(directory, "${profile.wire}.json"), value.toString().toByteArray())
-        } else File(directory, "${profile.wire}.json").delete()
+            DurableAiFiles.atomicWrite(file(profile, reason), value.toString().toByteArray())
+        } else file(profile, reason).delete()
         DurableAiFiles.syncDirectory(directory)
     }
-    fun finish(profile: ProfileId) = synchronized(lock) { complete(profile, read(profile)) }
+    fun finish(profile: ProfileId) = synchronized(lock) {
+        complete(profile, read(profile, GenerationRemovalReason.INACTIVE_PROFILE), GenerationRemovalReason.INACTIVE_PROFILE)
+    }
 
-    private fun read(profile: ProfileId): Set<String> {
-        val file = File(directory, "${profile.wire}.json")
-        if (!file.isFile) return emptySet()
-        val value = JSONObject(file.readText()); require(value.getInt("schema") == 1)
+    private fun read(profile: ProfileId, reason: GenerationRemovalReason): Set<String> {
+        val target = file(profile, reason).takeIf(File::isFile) ?: return emptySet()
+        val value = JSONObject(target.readText()); require(value.getInt("schema") == 1)
         val array = value.getJSONArray("ids")
         return List(array.length()) { array.getString(it) }.toSet()
     }
+
+    private fun file(profile: ProfileId, reason: GenerationRemovalReason) = File(directory,
+        if (reason == GenerationRemovalReason.INACTIVE_PROFILE) "${profile.wire}.json"
+        else "${profile.wire}-${reason.wire}.json")
 
     private companion object { val lock = Any() }
 }

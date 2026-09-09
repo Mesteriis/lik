@@ -527,7 +527,8 @@ class AiRuntimeTest {
         } finally {
             release.countDown()
             GenerationRetirement.afterStepForTests = null
-            GenerationRemovalJournal(File(context.filesDir, "ai")).complete(profile, setOf(oldId))
+            GenerationRemovalJournal(File(context.filesDir, "ai")).complete(profile, setOf(oldId),
+                GenerationRemovalReason.SUPERSEDED)
             catalog.update { original.copy(revision = it.revision + 1) }
             dao.deleteGenerations(setOf(oldId, newId))
             database.media().trash(setOf(mediaId), 1); database.media().claimPurge(setOf(mediaId))
@@ -567,7 +568,45 @@ class AiRuntimeTest {
             assertFalse(id in GenerationRemovalJournal(File(context.filesDir, "ai")).ids())
         } finally {
             GenerationRetirement.afterStepForTests = null
-            GenerationRemovalJournal(File(context.filesDir, "ai")).complete(profile, setOf(id))
+            GenerationRemovalJournal(File(context.filesDir, "ai")).complete(profile, setOf(id),
+                GenerationRemovalReason.SUPERSEDED)
+            catalog.update { original.copy(revision = it.revision + 1) }
+            dao.deleteGenerations(setOf(id)); NativeIndexFiles.remove(context, id)
+        }
+    }
+
+    @Test fun inactiveCleanupRecoveryPreservesGenerationActivatedByAnotherProfile() {
+        val catalog = ModelCatalog.get(context)
+        val original = catalog.snapshot()
+        val database = MediaDatabase.get(context)
+        val dao = database.aiIndexes()
+        val owner = ProfileId.COMPACT
+        val serving = ProfileId.EXTENDED
+        val id = "shared-recovery-${System.nanoTime()}"
+        val pipeline = catalog.trusted.profiles.getValue(owner).pipelines.getValue(AiFeature.PEOPLE)
+        val record = AiIndexGenerationRecord(id, owner.wire, AiFeature.PEOPLE.name, pipeline.fingerprint,
+            GenerationStatus.COMPLETE, 0, 0, null, null, 1)
+        val native = NativeIndexFiles.generation(context, id).apply { mkdirs(); File(this, "marker").writeText("shared") }
+        val journal = GenerationRemovalJournal(File(context.filesDir, "ai"))
+        try {
+            dao.saveGeneration(record)
+            catalog.update { state -> state.copy(revision = state.revision + 1, selected = serving, active = serving,
+                profiles = state.profiles + (owner to ProfileState(ProfilePhase.INSTALLED)) +
+                    (serving to ProfileState(ProfilePhase.ACTIVE)),
+                enabledFeatures = setOf(AiFeature.PEOPLE), pending = null,
+                generations = state.generations + (id to record.toContractForTest()),
+                activeGenerations = state.activeGenerations + (AiFeature.PEOPLE to id)) }
+            journal.begin(owner, setOf(id), GenerationRemovalReason.INACTIVE_PROFILE)
+
+            ModelMaintenance.recover(context)
+
+            assertEquals(id, catalog.snapshot().activeGenerations[AiFeature.PEOPLE])
+            assertEquals(record, dao.generation(id))
+            assertTrue(native.exists())
+            assertFalse(id in journal.ids())
+            assertEquals(ProfilePhase.NOT_INSTALLED, catalog.snapshot().profile(owner).phase)
+        } finally {
+            journal.complete(owner, setOf(id), GenerationRemovalReason.INACTIVE_PROFILE)
             catalog.update { original.copy(revision = it.revision + 1) }
             dao.deleteGenerations(setOf(id)); NativeIndexFiles.remove(context, id)
         }

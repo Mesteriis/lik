@@ -14,17 +14,18 @@ object ModelMaintenance {
 
     private fun removeInactiveLocked(context: Context, profile: ProfileId, catalog: ModelCatalog): Long {
         val before = catalog.snapshot()
-        require(before.active != profile && before.pending?.profile != profile)
+        if (before.active == profile || before.pending?.profile == profile) return 0
         val database = MediaDatabase.get(context)
         val profileGenerations = database.aiIndexes().generations().filter { it.profileId == profile.wire }
         val retainedGenerations = before.activeGenerations.values.toSet() + before.pending?.readyGenerations.orEmpty().values
-        val removedGenerationIds = profileGenerations.map { it.generationId }.filter { it !in retainedGenerations }.toSet()
+        val requestedGenerationIds = profileGenerations.map { it.generationId }.filter { it !in retainedGenerations }.toSet()
         val removalJournal = GenerationRemovalJournal(File(context.filesDir, "ai"))
-        removalJournal.begin(profile, removedGenerationIds)
-        // Catalog is the serving authority: clear every pointer first. A crash after this point can
-        // leave only unreachable Room/file garbage, never a stale generation that can be reselected.
-        catalog.removeInactive(profile, removedGenerationIds)
-        GenerationRetirement.drain(context, profile, removedGenerationIds, catalog, database)
+        val removal = catalog.removeInactiveAtomically(profile, requestedGenerationIds) { removable ->
+            removalJournal.begin(profile, removable, GenerationRemovalReason.INACTIVE_PROFILE)
+        }
+        if (!removal.accepted) return 0
+        GenerationRetirement.drain(context, profile, removal.removable, catalog, database,
+            GenerationRemovalReason.INACTIVE_PROFILE)
         IsolatedRuntimeClient(context).evict(catalog.trusted.artifacts(profile).map { it.sha256 }.toSet()).getOrThrow()
         val after = catalog.snapshot()
         val installed = after.profiles.filterValues { it.phase !in setOf(ProfilePhase.NOT_INSTALLED, ProfilePhase.ERROR) }
@@ -40,12 +41,20 @@ object ModelMaintenance {
         val journal = GenerationRemovalJournal(File(context.filesDir, "ai"))
         val catalog = ModelCatalog.get(context)
         val database = MediaDatabase.get(context)
-        journal.pending().forEach { (profile, ids) ->
-            withPipelineLocks(catalog, profile) {
-                if (catalog.snapshot().active != profile && catalog.snapshot().pending?.profile != profile) {
-                    catalog.removeInactive(profile, ids)
+        journal.pending().forEach { entry ->
+            withPipelineLocks(catalog, entry.profile) {
+                if (entry.reason == GenerationRemovalReason.SUPERSEDED) {
+                    GenerationRetirement.drain(context, entry.profile, entry.ids, catalog, database, entry.reason)
+                } else {
+                    val removal = catalog.removeInactiveAtomically(entry.profile, entry.ids)
+                    if (!removal.accepted) {
+                        journal.complete(entry.profile, entry.ids, entry.reason)
+                    } else {
+                        journal.complete(entry.profile, entry.ids - removal.removable, entry.reason)
+                        GenerationRetirement.drain(context, entry.profile, removal.removable,
+                            catalog, database, entry.reason)
+                    }
                 }
-                GenerationRetirement.drain(context, profile, ids, catalog, database)
             }
         }
     }
