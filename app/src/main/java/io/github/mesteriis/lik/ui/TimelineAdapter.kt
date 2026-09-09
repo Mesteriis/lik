@@ -77,6 +77,17 @@ class TimelineAdapter(
     private val accessEpoch = ThumbnailAccessEpoch()
     private var chronologicalPhotoIds: List<String> = emptyList()
     private var closed = false
+    private val boundImages = mutableSetOf<ImageView>()
+    private val imageDatabase = MediaDatabase.get(context)
+    private val imageInvalidation = object : androidx.room.InvalidationTracker.Observer("media","sensitive_manual","sensitive_automatic","ai_media_exposure") {
+        override fun onInvalidated(tables:Set<String>) { main.post {
+            if(!closed) {
+                thumbnailLoader.invalidate { true }
+                boundImages.toList().forEach { view -> cancelLoad(view);view.setImageDrawable(null) }
+                if(entries.isNotEmpty())notifyItemRangeChanged(0,entries.size)
+            }
+        } }
+    }
     private val pagingScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var pagingJob: Job? = null
     private var pagingLevel: TimelineLevel? = null
@@ -138,6 +149,7 @@ class TimelineAdapter(
     }
 
     init {
+        imageDatabase.invalidationTracker.addObserver(imageInvalidation)
         timelineController = TimelineController(timelineWorker, zoneId) { revision ->
             val difference = calculateDiff(revision.previous, revision.entries, revision.level)
             main.post {
@@ -384,14 +396,22 @@ class TimelineAdapter(
         val existing = view.tag as? ThumbnailBinding
         if (!forceReload && existing?.key == key && existing.priority == priority) return
         cancelLoad(view)
+        boundImages += view
         view.setOnClickListener(null)
         view.isClickable = false
         view.setImageBitmap(null)
+        val requiredRevealEpoch=privacyEpoch.takeIf { includeProtected }
         val request = thumbnailLoader.loadForBinding(key, view.isAttachedToWindow, {
-            try { GalleryCatalog.decode(context, photo, edge) } catch (_: Exception) { null }
+            if(!io.github.mesteriis.lik.privacy.SensitiveImagePublication.accepts(imageDatabase,photo,requiredRevealEpoch))null
+            else try { GalleryCatalog.decode(context, photo, edge)?.takeIf { bitmap ->
+                io.github.mesteriis.lik.privacy.SensitiveImagePublication.accepts(imageDatabase,photo,requiredRevealEpoch).also { if(!it)bitmap.recycle() }
+            } } catch (_: Exception) { null }
         }) { result ->
             main.post {
                 if (!closed && acceptsThumbnailResult(photo, key) && (view.tag as? ThumbnailBinding)?.let{it.key==key&&it.privacyEpoch==privacyEpoch}==true) {
+                    if(!io.github.mesteriis.lik.privacy.SensitiveImagePublication.accepts(imageDatabase,photo,requiredRevealEpoch)) {
+                        thumbnailLoader.invalidate { it==key };view.setImageDrawable(null);return@post
+                    }
                     if (result.value != null) {
                         view.setImageBitmap(result.value)
                     } else {
@@ -410,12 +430,15 @@ class TimelineAdapter(
 
     fun close() {
         closed = true
+        imageDatabase.invalidationTracker.removeObserver(imageInvalidation)
+        boundImages.clear()
         pagingScope.cancel()
         timelineController.close()
         timelineWorker.shutdownNow()
         thumbnailLoader.close()
     }
     private fun cancelLoad(view: ImageView) {
+        boundImages -= view
         (view.tag as? ThumbnailBinding)?.request?.cancel()
         view.tag = null
     }

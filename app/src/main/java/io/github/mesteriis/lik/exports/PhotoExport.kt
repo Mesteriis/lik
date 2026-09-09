@@ -14,6 +14,8 @@ import java.io.InputStream
 
 class ExportProvider : FileProvider()
 
+data class SaveCopyRequest(val id: String, val revision: Long, val accessEpoch: Long, val protected: Boolean)
+
 class PhotoExport(private val context: Context) {
     private val directory get() = File(context.cacheDir, "prepared_exports")
     private val files get() = ExportFiles(directory)
@@ -53,13 +55,16 @@ class PhotoExport(private val context: Context) {
         } catch (error: Exception) { prepared.forEach(File::delete); throw error }
     }
 
-    fun save(id: String, destination: Uri?): Boolean {
+    fun save(id: String, destination: Uri?, request: SaveCopyRequest? = null,
+             privacy: io.github.mesteriis.lik.privacy.RevealSnapshot = io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot()): Boolean {
         if (destination == null) return false
         // A malicious/replaced result must not redirect a write into Lik's own shared cache.
         require(destination.scheme == "content" && destination.authority != "${context.packageName}.exports")
         return synchronized(store) {
-            val privacy=io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot()
             val row = record(id, MediaOperation.EXPORT,privacy)
+            if(request!=null && (request.id!=id || request.revision!=row.contentRevision || request.accessEpoch!=row.accessGrantEpoch ||
+                (request.protected && (!privacy.revealed || !io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.accepts(privacy.epoch)))))
+                throw IOException("Save request changed or relocked")
             // CREATE_DOCUMENT does not prove this URI is new or owned by Lik. Never delete or
             // truncate it as failure cleanup. ExportFiles removes only our prepared snapshot.
             files.save({ context.contentResolver.openOutputStream(destination, "wt") ?: throw IOException("Destination unavailable") }, validate = {
@@ -70,9 +75,13 @@ class PhotoExport(private val context: Context) {
         }
     }
 
-    fun destinationIntent(id: String): Intent {
+    fun destinationIntent(id: String): Intent = prepareSave(id).second
+
+    fun prepareSave(id: String): Pair<SaveCopyRequest, Intent> {
         val row = record(id, MediaOperation.EXPORT,io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot())
-        return Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+        val request = SaveCopyRequest(id,row.contentRevision,row.accessGrantEpoch,
+            io.github.mesteriis.lik.privacy.SensitiveMediaRepository(context).decision(id)!=io.github.mesteriis.lik.privacy.SensitiveDecision.SAFE)
+        return request to Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = mime(row)
             val extension = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(type) ?: "image"

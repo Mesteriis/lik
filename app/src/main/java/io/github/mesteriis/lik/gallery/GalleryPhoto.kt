@@ -18,6 +18,7 @@ data class GalleryPhoto(
     val takenAt: Long? = null,
     val addedAt: Long = 0,
     val sourceRevision: Long = 0,
+    val accessGrantEpoch: Long = 1,
     val displayName: String? = null,
     val modifiedAt: Long? = null,
     val dateSource: MediaDateSource = MediaDateSource.UNKNOWN,

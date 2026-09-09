@@ -53,6 +53,17 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
     private val repository get() = MediaRepository(MediaDatabase.get(getApplication()))
     private val navigationPending = AtomicInteger()
     private val scanSignal = android.os.CancellationSignal()
+    private val imageDatabase = MediaDatabase.get(application)
+    private val imageInvalidation = object : androidx.room.InvalidationTracker.Observer("media","sensitive_manual","sensitive_automatic","ai_media_exposure") {
+        override fun onInvalidated(tables:Set<String>) { main.post {
+            val current=updates.value?:return@post
+            val photo=current.cursor?.current?:return@post
+            if(!closed&&!io.github.mesteriis.lik.privacy.SensitiveImagePublication.accepts(imageDatabase,photo,current.requiredRevealEpoch))
+                updates.value=if(current.deleting)current.copy(bitmap=null,details=null)else ViewerState(error=true)
+        } }
+    }
+
+    init { imageDatabase.invalidationTracker.addObserver(imageInvalidation) }
 
     private fun window(id: String?): PhotoCursor {
         id?.let(dao::get)?.takeIf { it.availability == io.github.mesteriis.lik.catalog.MediaAvailability.AVAILABLE && it.exifRevision != it.contentRevision }?.let { record ->
@@ -197,13 +208,16 @@ class PhotoViewerViewModel(application: Application) : AndroidViewModel(applicat
         main.post {
             if(!isCurrent(request,revision))return@post
             val epoch=state.requiredRevealEpoch
-            updates.value=if(epoch==null||io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.accepts(epoch))state
+            val photo=state.cursor?.current
+            val current=photo==null||io.github.mesteriis.lik.privacy.SensitiveImagePublication.accepts(imageDatabase,photo,epoch)
+            updates.value=if(current&&(epoch==null||io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.accepts(epoch)))state
                 else ViewerState(error=true,requiredRevealEpoch=epoch)
         }
     }
 
     override fun onCleared() {
         closed = true
+        imageDatabase.invalidationTracker.removeObserver(imageInvalidation)
         generation.incrementAndGet()
         contentRevision.incrementAndGet()
         scanSignal.cancel()

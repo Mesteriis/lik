@@ -58,25 +58,17 @@ open class MainActivity : ComponentActivity() {
     private lateinit var organization: OrganizationPanel
     private val organizationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var capabilityRevision = 0
-    private var pendingExportId: String? = null
+    private var pendingExport: io.github.mesteriis.lik.exports.SaveCopyRequest? = null
+    private var pendingExportDestination: Uri? = null
+    private var exportAuthenticationRequested = false
     private var exporting = false
     private var privacySubscription:AutoCloseable?=null
     private var biometricCancellation:android.os.CancellationSignal?=null
     private var privacyInitialized=false
     private val exportDestination = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val id = pendingExportId
-        pendingExportId = null
+        pendingExportDestination = result.data?.data.takeIf { result.resultCode == RESULT_OK }
+        if(pendingExportDestination==null) clearPendingExport() else resumePendingExport(true)
         updateSelection()
-        val uri = result.data?.data.takeIf { result.resultCode == RESULT_OK }
-        if (id != null && uri != null) organizationScope.launch {
-            exporting = true; updateSelection()
-            try {
-                withContext(Dispatchers.IO) { io.github.mesteriis.lik.exports.PhotoExport(this@MainActivity).save(id, uri) }
-                Toast.makeText(this@MainActivity, R.string.export_saved, Toast.LENGTH_SHORT).show()
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { Toast.makeText(this@MainActivity, R.string.export_failed, Toast.LENGTH_LONG).show() }
-            finally { exporting = false; updateSelection() }
-        }
     }
 
     private val photoPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -92,7 +84,12 @@ open class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        pendingExportId = savedInstanceState?.getString("export.pending")
+        savedInstanceState?.getString("export.pending")?.let { id ->
+            pendingExport = io.github.mesteriis.lik.exports.SaveCopyRequest(id,
+                savedInstanceState.getLong("export.revision",-1),savedInstanceState.getLong("export.access",-1),
+                savedInstanceState.getBoolean("export.protected",true))
+            pendingExportDestination = savedInstanceState.getParcelable("export.destination",Uri::class.java)
+        }
         setContentView(R.layout.activity_main)
         findViewById<View>(R.id.main_content).applySystemBarInsets()
         model = ViewModelProvider(this)[ImportViewModel::class.java]
@@ -215,6 +212,7 @@ open class MainActivity : ComponentActivity() {
         privacyInitialized=true
         if(invalidate)selection=GallerySelection()
         timeline.setSensitiveReveal(snapshot);updateSelection();organization.refresh();pendingRestore=true;renderTimeline()
+        if(snapshot.revealed)resumePendingExport(false)
     }
 
     private fun bindNavigation() {
@@ -455,7 +453,7 @@ open class MainActivity : ComponentActivity() {
         findViewById<View>(R.id.delete_selected).isEnabled = false
         findViewById<View>(R.id.organize_selected).isEnabled = ids.isNotEmpty() && model.state.value?.busy != true
         findViewById<View>(R.id.share_selected).isEnabled = ids.isNotEmpty() && !exporting && model.state.value?.busy != true
-        findViewById<View>(R.id.save_copy).isEnabled = ids.size == 1 && !exporting && pendingExportId == null && model.state.value?.busy != true
+        findViewById<View>(R.id.save_copy).isEnabled = ids.size == 1 && !exporting && pendingExport == null && model.state.value?.busy != true
         if (ids.isNotEmpty() && model.state.value?.busy != true) organizationScope.launch {
             val eligible = withContext(Dispatchers.IO) {
                 runCatching { OrganizationRepository(MediaDatabase.get(this@MainActivity)).eligible(ids, MediaOperation.DELETE_COPY) }.getOrDefault(emptySet())
@@ -466,23 +464,68 @@ open class MainActivity : ComponentActivity() {
 
     private fun exportSelection(save: Boolean) {
         val ids = selection.ids
-        if (ids.isEmpty() || exporting || (save && (ids.size != 1 || pendingExportId != null))) return
+        if (ids.isEmpty() || exporting || (save && (ids.size != 1 || pendingExport != null))) return
         val privacyEpoch = SensitiveMediaSession.current.snapshot().epoch
         exporting = true; updateSelection()
         organizationScope.launch {
             try {
                 val export = io.github.mesteriis.lik.exports.PhotoExport(this@MainActivity)
-                val intent = withContext(Dispatchers.IO) { if (save) export.destinationIntent(ids.single()) else export.share(ids) }
+                val prepared = withContext(Dispatchers.IO) { if (save) export.prepareSave(ids.single()) else null to export.share(ids) }
+                val intent = prepared.second
                 if (SensitiveMediaSession.current.snapshot().epoch != privacyEpoch) return@launch
                 if (save) {
-                    pendingExportId = ids.single()
+                    pendingExport = prepared.first
                     exportDestination.launch(intent)
                 } else startActivity(Intent.createChooser(intent, getString(R.string.share_selected)))
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) {
-                pendingExportId = null
+                clearPendingExport()
                 Toast.makeText(this@MainActivity, R.string.export_failed, Toast.LENGTH_LONG).show()
             } finally { exporting = false; updateSelection() }
+        }
+    }
+
+    private fun clearPendingExport() {
+        pendingExport=null;pendingExportDestination=null;exportAuthenticationRequested=false
+    }
+
+    /** The picker grants a destination, never a reveal lease. Keep the original revision until fresh authentication. */
+    private fun resumePendingExport(requestAuthentication:Boolean) {
+        val request=pendingExport?:return
+        val destination=pendingExportDestination?:return
+        if(exporting)return
+        exporting=true;updateSelection()
+        val privacy=SensitiveMediaSession.current.snapshot()
+        organizationScope.launch {
+            var needsAuthentication=false
+            try {
+                val saved=withContext(Dispatchers.IO) {
+                    val database=MediaDatabase.get(this@MainActivity)
+                    val row=database.media().get(request.id)
+                    if(row==null||row.contentRevision!=request.revision||row.accessGrantEpoch!=request.accessEpoch)
+                        throw java.io.IOException("Save source changed")
+                    val protected=request.protected||SensitiveMediaRepository(this@MainActivity).decision(request.id)!=SensitiveDecision.SAFE
+                    if(protected&&!privacy.revealed)false
+                    else io.github.mesteriis.lik.exports.PhotoExport(this@MainActivity).save(request.id,destination,request,privacy)
+                }
+                if(saved) {
+                    clearPendingExport()
+                    Toast.makeText(this@MainActivity,R.string.export_saved,Toast.LENGTH_SHORT).show()
+                } else needsAuthentication=true
+            } catch(cancelled:CancellationException) { throw cancelled }
+            catch(_:Exception) {
+                clearPendingExport()
+                Toast.makeText(this@MainActivity,R.string.export_failed,Toast.LENGTH_LONG).show()
+            } finally {
+                exporting=false;updateSelection()
+            }
+            if(needsAuthentication) {
+                if(SensitiveMediaSession.current.snapshot().revealed)resumePendingExport(false)
+                else if(requestAuthentication&&!exportAuthenticationRequested) {
+                    exportAuthenticationRequested=true
+                    authenticateSensitiveReveal()
+                }
+            }
         }
     }
 
@@ -570,12 +613,19 @@ open class MainActivity : ComponentActivity() {
         findViewById<ImageView>(R.id.app_emblem).setImageResource(AppIconManager(this).selected().emblemRes)
         refreshGallery()
         organization.refresh()
+        resumePendingExport(true)
     }
 
     override fun onStop() { biometricCancellation?.cancel();biometricCancellation=null;model.stopObserving(); super.onStop() }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        outState.putString("export.pending", pendingExportId)
+        pendingExport?.let {
+            outState.putString("export.pending",it.id)
+            outState.putLong("export.revision",it.revision)
+            outState.putLong("export.access",it.accessEpoch)
+            outState.putBoolean("export.protected",it.protected)
+            outState.putParcelable("export.destination",pendingExportDestination)
+        }
         captureAnchor()?.let { ui = ui.copy(anchorId = it.photoId, anchorOffset = it.relativeOffset, anchorChronologicalIndex = it.chronologicalIndex) }
         outState.putString(STATE_LEVEL, ui.level.name)
         outState.putString(STATE_SECTION, ui.section.name)

@@ -81,6 +81,12 @@ class PhotoViewerActivity : ComponentActivity() {
     }
 
     private fun render(state: ViewerState) {
+        state.cursor?.current?.let { photo ->
+            if(!SensitiveImagePublication.accepts(MediaDatabase.get(this),photo,state.requiredRevealEpoch)) {
+                render(ViewerState(error=true))
+                return
+            }
+        }
         state.requiredRevealEpoch?.let{epoch->
             if(!SensitiveMediaSession.current.accepts(epoch)){
                 image.setImageDrawable(null);shownBitmap=null;currentMediaId=null;currentRevision=-1;finish();return

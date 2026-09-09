@@ -71,6 +71,7 @@ fun MediaRecord.toGalleryPhoto(privateFile: (String) -> File): GalleryPhoto = Ga
     file = privateFileId?.let(privateFile),
     mimeType = mimeType.orEmpty(), width = width ?: 0, height = height ?: 0, bytes = byteSize ?: 0,
     takenAt = takenAt, addedAt = addedAt ?: 0, sourceRevision = contentRevision,
+    accessGrantEpoch = accessGrantEpoch,
     displayName = displayName, modifiedAt = modifiedAt, dateSource = dateSource,
     dateOffsetSeconds = dateOffsetSeconds, bucketId = bucketId, bucketName = bucketName,
     relativePath = relativePath,
