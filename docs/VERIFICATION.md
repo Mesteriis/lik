@@ -488,3 +488,10 @@ The final branch re-review found one remaining WorkManager edge: a catalog revis
 - Final debug/release/androidTest APKs are **61,670,187 / 48,630,885 / 1,707,692 bytes**. SHA-256: `c21c1fa71ab3c27e7a5b8e596ffbc8bf9068c79feba89763cffad9fe61932adb` / `c83348b3dbc748dd731786439812c1802c07fedd7714cfcc72c98dbfb2a03741` / `e62858d0a1b138aae7cf8d04a3cfb0b81578b86965527e97c14db6cbfbf2fb5e`.
 
 The open physical/OEM/Google Photos/visual/performance/quality/calibration boundaries above are unchanged. No physical device, original, reference submodule or packaged model payload was touched.
+
+### GitHub Actions native-receipt reconciliation — 9 September 2026
+
+The first complete GitHub Actions run correctly failed closed because the source-built USearch ELF did not match the macOS receipt. A diagnostic retry established exact stripped Linux debug and release outputs without enrolling unstripped intermediates. The content policy now lists each reviewed macOS checkout and GitHub Actions Linux output as an exact size/SHA-256 pair; it has no wildcard, platform guess or build-generated trust update. The Linux debug receipt is `ff1d7eb0d2889055c88d9ecad56a8a3ba9da06e4a2d7a942577e7b1007858c8c` / 922,416 bytes and release is `9d2fbe6a5a9c5cf158ea389dec6680d73d83c4bb6fef7eb44e98951e4a8f8585` / 659,448 bytes. Reviewed content-policy SHA-256: `f4f40520d25377f7018b72a65efa2fd7482d961d78e770c35624bc79d80e230a`.
+
+- The receipt additions retained **15/15** focused APK/compiler-policy tests and a local metadata-only `assembleDistribution` pass with all debug, release and instrumentation payload gates enabled.
+- GitHub Actions run `34347099524` supplied the fail-closed Linux release evidence after the Linux debug receipt was accepted. The following main-branch run is the final build and Android 17 emulator acceptance gate; its result is reported in the release handoff rather than predeclared here.
