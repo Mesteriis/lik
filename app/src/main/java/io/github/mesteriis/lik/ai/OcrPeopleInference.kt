@@ -250,15 +250,70 @@ object DbRegions {
         val minX=floor(points.minOf{it.x}).toInt().coerceIn(0,width-1);val maxX=ceil(points.maxOf{it.x}).toInt().coerceIn(0,width-1)
         val minY=floor(points.minOf{it.y}).toInt().coerceIn(0,height-1);val maxY=ceil(points.maxOf{it.y}).toInt().coerceIn(0,height-1)
         val local=points.map{OcrPoint((it.x-minX).toInt().toFloat(),(it.y-minY).toInt().toFloat())}
-        val mask=BooleanArray((maxX-minX+1)*(maxY-minY+1));val maskWidth=maxX-minX+1
-        for(y in minY..maxY)for(x in minX..maxX)if(insideInclusive(OcrPoint((x-minX).toFloat(),(y-minY).toFloat()),local))mask[(y-minY)*maskWidth+x-minX]=true
-        local.indices.forEach{i->rasterLine(local[i],local[(i+1)%local.size]){x,y->if(x in 0 until maskWidth&&y in 0..maxY-minY)mask[y*maskWidth+x]=true}}
+        val maskWidth=maxX-minX+1;val mask=fillPolyLine8(maskWidth,maxY-minY+1,local)
         var sum=0.0;var count=0
         for(y in minY..maxY)for(x in minX..maxX)if(mask[(y-minY)*maskWidth+x-minX]){sum+=probability[y*width+x];count++}
         return if(count==0)0f else (sum/count).toFloat()
     }
-    private fun insideInclusive(point:OcrPoint,polygon:List<OcrPoint>):Boolean {var inside=false;var j=polygon.lastIndex;for(i in polygon.indices){val a=polygon[i];val b=polygon[j];val cross=(point.x-a.x)*(b.y-a.y)-(point.y-a.y)*(b.x-a.x);if(cross==0f&&point.x in min(a.x,b.x)..max(a.x,b.x)&&point.y in min(a.y,b.y)..max(a.y,b.y))return true;if((a.y>point.y)!=(b.y>point.y)&&point.x<(b.x-a.x)*(point.y-a.y)/(b.y-a.y)+a.x)inside=!inside;j=i};return inside}
-    private inline fun rasterLine(start:OcrPoint,end:OcrPoint,visit:(Int,Int)->Unit){var x0=start.x.toInt();var y0=start.y.toInt();val x1=end.x.toInt();val y1=end.y.toInt();val dx=kotlin.math.abs(x1-x0);val sx=if(x0<x1)1 else -1;val dy=-kotlin.math.abs(y1-y0);val sy=if(y0<y1)1 else -1;var error=dx+dy;while(true){visit(x0,y0);if(x0==x1&&y0==y1)return;val twice=2*error;if(twice>=dy){error+=dy;x0+=sx};if(twice<=dx){error+=dx;y0+=sy}}}
+    internal fun fillPolyLine8ForTests(width:Int,height:Int,points:List<OcrPoint>)=fillPolyLine8(width,height,points)
+
+    /**
+     * Port of OpenCV 4.10.0 `drawing.cpp` CollectPolyEdges/FillEdgeCollection and LineIterator
+     * for one convex LINE_8 polygon. The pinned source is Apache-2.0 and retains its Intel
+     * permissive notice: https://github.com/opencv/opencv/blob/4.10.0/modules/imgproc/src/drawing.cpp
+     */
+    private fun fillPolyLine8(width:Int,height:Int,points:List<OcrPoint>):BooleanArray {
+        require(width>0&&height>0);val mask=BooleanArray(width*height);if(points.isEmpty())return mask
+        val vertices=points.map{IntPoint(it.x.toInt(),it.y.toInt())};val edges=mutableListOf<ScanEdge>();var previous=vertices.last()
+        vertices.forEach{current->
+            drawLine8(mask,width,height,previous,current)
+            var p0x=previous.x.toLong() shl XY_SHIFT;var p1x=current.x.toLong() shl XY_SHIFT
+            var p0y=previous.y.toLong();var p1y=current.y.toLong()
+            if(!insideImage(previous,width,height)||!insideImage(current,width,height)){
+                val clipped=clipLine(width,height,previous,current)
+                if(clipped.first.y!=clipped.second.y){p0x=clipped.first.x shl XY_SHIFT;p1x=clipped.second.x shl XY_SHIFT;p0y=clipped.first.y;p1y=clipped.second.y}
+            }else{p0x+=XY_HALF;p1x+=XY_HALF}
+            if(previous.y!=current.y){val dx=(p1x-p0x)/(p1y-p0y);if(previous.y<current.y)edges+=ScanEdge(previous.y,current.y,p0x+(previous.y-p0y)*dx,dx)else edges+=ScanEdge(current.y,previous.y,p1x+(current.y-p1y)*dx,dx)}
+            previous=current
+        }
+        if(edges.size<2)return mask
+        val yMin=edges.minOf{it.y0};val yMax=min(edges.maxOf{it.y1},height)
+        for(y in yMin until yMax){val active=edges.filter{it.y0<=y&&y<it.y1}.sortedWith(compareBy<ScanEdge>{it.x}.thenBy{it.dx})
+            for(at in 0 until active.lastIndex step 2){var x1=(active[at].x shr XY_SHIFT).toInt();var x2=(active[at+1].x shr XY_SHIFT).toInt();if(x1>x2){val swap=x1;x1=x2;x2=swap};if(y>=0&&x1<width&&x2>=0){x1=max(0,x1);x2=min(width-1,x2);for(x in x1..x2)mask[y*width+x]=true}}
+            active.forEach{it.x+=it.dx}
+        }
+        return mask
+    }
+    private fun drawLine8(mask:BooleanArray,width:Int,height:Int,start:IntPoint,end:IntPoint){
+        val clipped=clipLine(width,height,start,end);if(!clipped.accepted)return
+        var x=clipped.first.x.toInt();var y=clipped.first.y.toInt();val endX=clipped.second.x.toInt();val endY=clipped.second.y.toInt()
+        var dx=endX-x;var dy=endY-y;var deltaX=1;var deltaY=1
+        if(dx<0){dx=-dx;dy=-dy;x=endX;y=endY}
+        if(dy<0){dy=-dy;deltaY=-1}
+        val vertical=dy>dx
+        if(vertical){val swap=dx;dx=dy;dy=swap;val step=deltaX;deltaX=deltaY;deltaY=step}
+        var error=dx-2*dy;val plusDelta=2*dx;val minusDelta=-2*dy;var minusShift=deltaX;var plusShift=0;var minusStep=0;var plusStep=deltaY
+        if(vertical){var swap=plusStep;plusStep=plusShift;plusShift=swap;swap=minusStep;minusStep=minusShift;minusShift=swap}
+        repeat(dx+1){mask[y*width+x]=true;val negative=error<0;error+=minusDelta+if(negative)plusDelta else 0;x+=minusShift+if(negative)plusShift else 0;y+=minusStep+if(negative)plusStep else 0}
+    }
+    private fun clipLine(width:Int,height:Int,start:IntPoint,end:IntPoint):ClippedLine{
+        var x1=start.x.toLong();var y1=start.y.toLong();var x2=end.x.toLong();var y2=end.y.toLong();val right=width-1L;val bottom=height-1L
+        fun code(x:Long,y:Long):Int{return (if(x<0)1 else 0)+(if(x>right)2 else 0)+(if(y<0)4 else 0)+(if(y>bottom)8 else 0)}
+        var c1=code(x1,y1);var c2=code(x2,y2)
+        if((c1 and c2)==0&&(c1 or c2)!=0){
+            var a:Long
+            if((c1 and 12)!=0){a=if(c1<8)0L else bottom;x1+=((a-y1).toDouble()*(x2-x1)/(y2-y1)).toLong();y1=a;c1=code(x1,y1) and 3}
+            if((c2 and 12)!=0){a=if(c2<8)0L else bottom;x2+=((a-y2).toDouble()*(x2-x1)/(y2-y1)).toLong();y2=a;c2=code(x2,y2) and 3}
+            if((c1 and c2)==0&&(c1 or c2)!=0){
+                if(c1!=0){a=if(c1==1)0L else right;y1+=((a-x1).toDouble()*(y2-y1)/(x2-x1)).toLong();x1=a;c1=0}
+                if(c2!=0){a=if(c2==1)0L else right;y2+=((a-x2).toDouble()*(y2-y1)/(x2-x1)).toLong();x2=a;c2=0}
+            }
+        }
+        return ClippedLine((c1 or c2)==0,LongPoint(x1,y1),LongPoint(x2,y2))
+    }
+    private fun insideImage(point:IntPoint,width:Int,height:Int)=point.x in 0 until width&&point.y in 0 until height
+    private data class IntPoint(val x:Int,val y:Int);private data class LongPoint(val x:Long,val y:Long);private data class ClippedLine(val accepted:Boolean,val first:LongPoint,val second:LongPoint);private data class ScanEdge(val y0:Int,val y1:Int,var x:Long,val dx:Long)
+    private const val XY_SHIFT=16;private const val XY_HALF=1L shl (XY_SHIFT-1)
     private fun polygonArea(points:List<OcrPoint>)=abs(points.indices.sumOf{i->val a=points[i];val b=points[(i+1)%points.size];(a.x*b.y-a.y*b.x).toDouble()}/2).toFloat()
     private fun perimeter(points:List<OcrPoint>)=points.indices.sumOf{i->val a=points[i];val b=points[(i+1)%points.size];hypot(a.x-b.x,a.y-b.y).toDouble()}.toFloat()
     private fun shortSide(points:List<OcrPoint>)=points.indices.minOf{i->val a=points[i];val b=points[(i+1)%points.size];hypot(a.x-b.x,a.y-b.y)}

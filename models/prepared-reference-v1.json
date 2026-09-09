@@ -2492,6 +2492,11 @@
       "sha256": "987e63b32f6c89ff5160e429458a872ff048e6860b590a3912e938f9da8f14db"
     },
     {
+      "path": "licenses/OpenCV-drawing-Intel.txt",
+      "size": 1715,
+      "sha256": "828e14df0bce1b1a1f256ca367093b5315d54c15fb7c864becaf8394c34c4da4"
+    },
+    {
       "path": "licenses/YuNet-MIT.txt",
       "size": 1085,
       "sha256": "c83b8120c50ccbd4c4f96edf53141bdd566ebb8f8e9227e415326aa1b1aba958"

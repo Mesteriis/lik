@@ -76,6 +76,21 @@ class OcrPeopleRulesTest {
         assertEquals(.599999997f,DbRegions.polygonScoreForTests(ramp(5,4,.42272727f),5,4,clipped),1e-7f)
     }
 
+    @Test fun fillPolyLine8MatchesPinnedOpenCvCorpusAndReviewerCounterexample() {
+        val lines=requireNotNull(javaClass.classLoader?.getResourceAsStream("db-fillpoly-opencv-4.10.tsv"))
+            .bufferedReader().readLines().filterNot{it.startsWith("#")||it.isBlank()}
+        lines.forEach{line->
+            val columns=line.split('\t');val name=columns[0];val width=columns[1].toInt();val height=columns[2].toInt()
+            val points=columns[3].split(';').map{pair->pair.split(',').let{OcrPoint(it[0].toFloat(),it[1].toFloat())}}
+            val expected=columns[4].replace("/","").map{it=='1'}.toBooleanArray()
+            val actual=DbRegions.fillPolyLine8ForTests(width,height,points)
+            assertArrayEquals(name,expected.toTypedArray(),actual.toTypedArray())
+            val base=java.lang.Double.valueOf(columns[5]).toFloat();val probability=FloatArray(width*height){at->base+(at%width+2*(at/width))/100f}
+            assertEquals(name,java.lang.Double.valueOf(columns[6]).toFloat(),DbRegions.polygonScoreForTests(probability,width,height,points),1e-7f)
+            if(name=="reviewer_counterexample") listOf(7 to 1,2 to 2,1 to 6,0 to 10).forEach{(x,y)->assertTrue("$name must include ($x,$y)",actual[y*width+x])}
+        }
+    }
+
     @Test fun fiveLandmarkSimilarityAlignmentUsesAllPinnedPoints() {
         val target=floatArrayOf(38.2946f,51.6963f,73.5318f,51.5014f,56.0252f,71.7366f,41.5493f,92.3655f,70.7299f,92.2041f)
         val source=FloatArray(10){i->if(i%2==0)(target[i]-7f)/1.2f else (target[i]+4f)/1.2f}

@@ -1,7 +1,7 @@
 {
   "provenance": "Explicitly reviewed compiler outputs; never updated by a build or inferred from an inspected APK.",
   "schemaVersion": 1,
-  "sourceFingerprint": "e3dc21b5492d1b81340285ff01f6c99f2deb0dd9077d4fe330fb970a9c5b5c99",
+  "sourceFingerprint": "3cdff4a6c9d772eb92d7f56733c72fcc5993d6d334e1a51ae2b829ba310b605f",
   "sourceInputs": {
     "files": [
       "app/build.gradle.kts",
@@ -96,8 +96,8 @@
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/14/classes.dex",
-          "sha256": "466a0d44211ef005b8061652427b604abe55309758d858f288cacbc1c0c25a7d",
-          "size": 1075164
+          "sha256": "fb75db5909a52884d5e267d4f23a5de16a4ebc0963eadc81fff259d9afa25958",
+          "size": 1086152
         },
         {
           "compilerPath": "app/build/intermediates/dex/debug/mergeProjectDexDebug/4/classes.dex",
@@ -807,21 +807,21 @@
       "dex": [
         {
           "compilerPath": "app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex",
-          "sha256": "566a698ba993ef0793735f44a568739b2d8c796ae4c46cf137a4ee2b29fd840e",
-          "size": 1301424
+          "sha256": "7d27fceab91109f8db9342451eab4c0067c7931ec9822c87bf22bd4ebb802da9",
+          "size": 1305224
         }
       ],
       "kind": "app",
       "profiles": {
         "assets/dexopt/baseline.prof": {
           "compilerPath": "app/build/intermediates/binary_art_profile/release/compileReleaseArtProfile/baseline.prof",
-          "sha256": "3552943eec47200072f0a55e19b0ea685db1b215920f42ea2a2ab9e238839b69",
-          "size": 1000
+          "sha256": "5eaff745e92a6236711aaa6acdc53ceec432da7143a3428d161fd9efe00913c2",
+          "size": 1011
         },
         "assets/dexopt/baseline.profm": {
           "compilerPath": "app/build/intermediates/binary_art_profile_metadata/release/compileReleaseArtProfile/baseline.profm",
-          "sha256": "c2db86fc30012b2e4c0bcfe0473a59da896302036d0646a486888d9e13de93a1",
-          "size": 170
+          "sha256": "d15b6858f5ac0710052aa9fe898662c986b1f0fa4185b9fb0ac5229b955f84b3",
+          "size": 167
         }
       },
       "resourceArchive": "app/build/intermediates/optimized_processed_res/release/optimizeReleaseResources/resources-release-optimize.ap_",
