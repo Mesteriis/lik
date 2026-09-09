@@ -51,7 +51,7 @@ class OcrPeopleRulesTest {
         for(y in 3..9) for(x in (y-1)..(y+5)) map[y*width+x]=.92f
         val quad=DbRegions.quadrilaterals(map,width,height).single()
         assertEquals(4,quad.points.size)
-        assertTrue(quad.score>=.7f)
+        assertTrue(quad.score>=.6f)
         assertTrue(quad.points.zipWithNext().any { (a,b) -> kotlin.math.abs(a.y-b.y)>.01f && kotlin.math.abs(a.x-b.x)>.01f })
         assertTrue((quad.box.right-quad.box.left) > 7f/width)
     }
@@ -64,6 +64,16 @@ class OcrPeopleRulesTest {
         val threshold=FloatArray(8*8);for(y in 2..5)for(x in 2..5)threshold[y*8+x]=.59f
         assertTrue(DbRegions.quadrilaterals(threshold,8,8).isEmpty());for(y in 2..5)for(x in 2..5)threshold[y*8+x]=.61f
         assertEquals(1,DbRegions.quadrilaterals(threshold,8,8).size)
+    }
+
+    @Test fun polygonScoreMatchesPinnedOpenCvInclusiveFillPolyGoldens() {
+        fun ramp(width:Int,height:Int,base:Float)=FloatArray(width*height){at->val x=at%width;val y=at/width;base+(x+2*y)/20f}
+        val small=listOf(OcrPoint(1.8f,1.2f),OcrPoint(3.9f,1.1f),OcrPoint(3.8f,2.7f),OcrPoint(1.7f,2.8f))
+        assertEquals(.600000004f,DbRegions.polygonScoreForTests(ramp(6,5,.35f),6,5,small),1e-7f)
+        val slanted=listOf(OcrPoint(.7f,2.2f),OcrPoint(5.8f,.9f),OcrPoint(6.4f,3.1f),OcrPoint(1.3f,4.6f))
+        assertEquals(.599999993f,DbRegions.polygonScoreForTests(ramp(8,6,.22391304f),8,6,slanted),1e-7f)
+        val clipped=listOf(OcrPoint(-1.2f,.4f),OcrPoint(2.8f,-.2f),OcrPoint(3.4f,2.2f),OcrPoint(-.5f,2.9f))
+        assertEquals(.599999997f,DbRegions.polygonScoreForTests(ramp(5,4,.42272727f),5,4,clipped),1e-7f)
     }
 
     @Test fun fiveLandmarkSimilarityAlignmentUsesAllPinnedPoints() {

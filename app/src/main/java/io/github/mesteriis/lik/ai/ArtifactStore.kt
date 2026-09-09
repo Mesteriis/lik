@@ -45,6 +45,7 @@ class ArtifactStore(val root: File) {
         listOf(root, artifacts, staging, shared, operations, File(operations, operation), receipts,
             File(root, "quarantine"), File(staging, "reservations")).forEach(File::mkdirs)
         PreallocatedMetadata.prepare(catalogState)
+        PreallocatedMetadata.prepare(File(root,"catalog-activation-intent-v1.json"))
         PreallocatedMetadata.prepare(File(operations, operation).resolve("control"))
         specs.forEach { spec ->
             PreallocatedMetadata.prepare(sharedJournal(spec.sha256))

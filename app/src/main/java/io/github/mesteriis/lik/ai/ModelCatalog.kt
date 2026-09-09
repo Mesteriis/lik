@@ -8,6 +8,7 @@ import java.io.File
 /** Sole durable source for profile selection, feature opt-in, installation and active generations. */
 class ModelCatalog private constructor(private val root: File, private val databaseFile: File, val trusted: TrustedModelCatalog) {
     private val stateFile = File(root, "catalog-state-v1.json")
+    private val activationIntentFile = File(root, "catalog-activation-intent-v1.json")
     private val listeners = mutableSetOf<(CatalogSnapshot) -> Unit>()
     private val acceptedPipelineFingerprints: Map<AiFeature, Set<String>> by lazy {
         AiFeature.entries.associateWith { feature ->
@@ -94,8 +95,7 @@ class ModelCatalog private constructor(private val root: File, private val datab
         finalizePayload: (OcrPeopleDao) -> Unit = {},
     ): RoomGenerationCompletion? {
         require(feature == AiFeature.OCR || feature == AiFeature.PEOPLE)
-        var completed: AiIndexGenerationRecord? = null
-        var pruned = emptySet<String>()
+        var completed: AiIndexGenerationRecord? = null;var pruned=emptySet<String>()
         val old=current
         var next:CatalogSnapshot?=null
         try {
@@ -111,7 +111,6 @@ class ModelCatalog private constructor(private val root: File, private val datab
                 finalizePayload(payload)
                 if (payload.currentIndexableRunCount(generationId) != total || index.aiIndexableCount() != total) return@runInTransaction
                 val ready = record.copy(status=GenerationStatus.COMPLETE,completed=total,total=total,error=null)
-                index.saveGeneration(ready)
                 val candidate = CatalogGenerationBounds.prune(run { val state=old
                 val contract=IndexGeneration(ready.generationId,feature,ready.pipelineFingerprint,true,total,total)
                 val withGeneration=state.copy(generations=state.generations+(contract.id to contract))
@@ -122,13 +121,21 @@ class ModelCatalog private constructor(private val root: File, private val datab
                 }, acceptedPipelineFingerprints)
                 require(candidate.revision>old.revision)
                 pruned=CatalogPrunedGenerations.between(old.generations.keys,candidate.generations.keys)
-                GenerationRetirement.journal(root,profile,pruned)
+                writeActivationIntent(ActivationIntent(old,candidate,profile,feature,generationId,pruned))
+                crashAt(ActivationCrashPoint.AFTER_INTENT)
+                index.saveGeneration(ready)
                 write(candidate)
+                crashAt(ActivationCrashPoint.AFTER_CATALOG_WRITE_BEFORE_ROOM_COMMIT)
                 next=candidate
                 completed=ready
             }
+            crashAt(ActivationCrashPoint.AFTER_ROOM_COMMIT_BEFORE_INTENT_CLEAR)
+            GenerationRetirement.journal(root,profile,pruned)
+            PreallocatedMetadata.clear(activationIntentFile)
         } catch(failure:Throwable) {
-            if(next!=null)runCatching{write(old)}
+            if(failure !is SimulatedActivationCrash) runCatching {
+                current=recoverActivationIntent()?:old
+            }
             throw failure
         }
         next?.let{committed->current=committed;listeners.toList().forEach{it(committed)}}
@@ -163,8 +170,11 @@ class ModelCatalog private constructor(private val root: File, private val datab
     }
     fun closeForTests() { instances.entries.removeIf { it.value === this } }
 
+    internal fun seedForTests(value:CatalogSnapshot){require(value.catalogVersion==trusted.version);write(value);current=value}
+    internal fun activationIntentPresentForTests()=readActivationIntent()!=null
+
     private fun initialize(): CatalogSnapshot {
-        val persisted = readOrFresh()
+        val persisted = recoverActivationIntent() ?: readOrFresh()
         val store = ArtifactStore(root)
         val corruptDigests = trusted.allArtifacts.values.mapNotNull { spec ->
             if (store.file(spec.sha256).exists() && !store.installed(spec.sha256, spec.size) && store.repair(spec)) spec.sha256 else null
@@ -214,6 +224,37 @@ class ModelCatalog private constructor(private val root: File, private val datab
         PreallocatedMetadata.write(stateFile, encode(state).toByteArray(Charsets.UTF_8))
     }
 
+    private fun writeActivationIntent(intent:ActivationIntent){
+        PreallocatedMetadata.prepare(activationIntentFile)
+        val value=JSONObject().put("schema",1).put("previous",JSONObject(encode(intent.previous)))
+            .put("target",JSONObject(encode(intent.target))).put("profile",intent.profile.wire)
+            .put("feature",intent.feature.name).put("generation",intent.generationId)
+            .put("pruned",JSONArray(intent.pruned.toList().sorted()))
+        PreallocatedMetadata.write(activationIntentFile,value.toString().toByteArray())
+    }
+
+    private fun readActivationIntent():ActivationIntent?=runCatching{
+        if(!activationIntentFile.isFile)return@runCatching null
+        val bytes=PreallocatedMetadata.read(activationIntentFile);if(bytes.isEmpty())return@runCatching null
+        val value=JSONObject(bytes.toString(Charsets.UTF_8));require(value.getInt("schema")==1)
+        ActivationIntent(decode(value.getJSONObject("previous").toString()),decode(value.getJSONObject("target").toString()),
+            ProfileId.fromWire(value.getString("profile")),AiFeature.valueOf(value.getString("feature")),value.getString("generation"),
+            value.getJSONArray("pruned").let{array->List(array.length()){array.getString(it)}.toSet()})
+    }.getOrNull()
+
+    private fun recoverActivationIntent():CatalogSnapshot?{
+        val intent=readActivationIntent()?:return null
+        val targetUsable=intent.target.generations[intent.generationId]?.let(::generationUsable)==true &&
+            intent.target.activeGenerations.values.all{id->intent.target.generations[id]?.let(::generationUsable)==true}
+        val resolved=if(targetUsable)intent.target else intent.previous
+        write(resolved)
+        if(targetUsable)GenerationRetirement.journal(root,intent.profile,intent.pruned)
+        PreallocatedMetadata.clear(activationIntentFile)
+        return resolved
+    }
+
+    private fun crashAt(point:ActivationCrashPoint){if(activationCrashPointForTests==point)throw SimulatedActivationCrash(point)}
+
     private fun encode(state: CatalogSnapshot) = JSONObject().apply {
         put("schema", 2); put("catalogVersion", state.catalogVersion); put("revision", state.revision)
         put("selected", state.selected.wire); put("active", state.active?.wire)
@@ -256,6 +297,7 @@ class ModelCatalog private constructor(private val root: File, private val datab
     }
 
     companion object {
+        @Volatile internal var activationCrashPointForTests:ActivationCrashPoint?=null
         private val instances = mutableMapOf<String, ModelCatalog>()
         @Synchronized fun get(context: Context): ModelCatalog {
             val app = context.applicationContext
@@ -267,6 +309,9 @@ class ModelCatalog private constructor(private val root: File, private val datab
 
 data class RoomGenerationCompletion(val record:AiIndexGenerationRecord,val pruned:Set<String>)
 object CatalogPrunedGenerations { fun between(before:Set<String>,after:Set<String>):Set<String> = before-after }
+private data class ActivationIntent(val previous:CatalogSnapshot,val target:CatalogSnapshot,val profile:ProfileId,val feature:AiFeature,val generationId:String,val pruned:Set<String>)
+enum class ActivationCrashPoint { AFTER_INTENT, AFTER_CATALOG_WRITE_BEFORE_ROOM_COMMIT, AFTER_ROOM_COMMIT_BEFORE_INTENT_CLEAR }
+class SimulatedActivationCrash(val point:ActivationCrashPoint):RuntimeException("SIMULATED_ACTIVATION_CRASH:${point.name}")
 
 /** Read-only startup oracle for generation kinds whose durable payload is stored in Room. */
 internal object RoomGenerationStorage {
@@ -283,8 +328,10 @@ internal object RoomGenerationStorage {
                 }
                 if (!metadataMatches) return@use false
                 db.rawQuery("SELECT COUNT(*) FROM ai_feature_media_run r JOIN media m ON m.mediaId=r.mediaId " +
+                    "LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision " +
                     "WHERE r.generationId=? AND r.feature=? AND r.error IS NULL AND m.availability='AVAILABLE' " +
-                    "AND m.contentRevision=r.contentRevision AND m.accessGrantEpoch=r.accessEpoch",
+                    "AND m.contentRevision=r.contentRevision AND m.accessGrantEpoch=r.accessEpoch " +
+                    "AND (x.exposure IS NULL OR x.exposure!='SENSITIVE')",
                     arrayOf(generation.id, generation.feature.name)).use { count ->
                     count.moveToFirst() && count.getInt(0) == generation.total
                 }

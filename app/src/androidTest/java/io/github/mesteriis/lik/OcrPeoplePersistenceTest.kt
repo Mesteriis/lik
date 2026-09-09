@@ -83,6 +83,33 @@ class OcrPeoplePersistenceTest {
         }finally{catalog.closeForTests();db.close();context.deleteDatabase(name);root.deleteRecursively()}
     }
 
+    @Test fun activationJournalRecoversEveryRoomFileCrashWindowWithoutDeletingServingGeneration(){
+        val context=ApplicationProvider.getApplicationContext<Context>();val trusted=TrustedModelCatalog.parse(org.json.JSONObject().apply{
+            put("schemaVersion",1);put("delivery","settings-download-from-huggingface");put("catalogVersion","activation-test");put("oracleRevision","oracle");put("defaultProfile",ProfileId.BALANCED.wire);put("components",org.json.JSONArray());put("activationSmokeReferences",org.json.JSONArray())
+            put("profiles",org.json.JSONArray(ProfileId.entries.map{id->org.json.JSONObject().put("id",id.wire).put("components",org.json.JSONArray()).put("pipelines",org.json.JSONObject().apply{AiFeature.entries.forEach{feature->put(feature.name.lowercase(),org.json.JSONObject().put("fingerprint","test-${feature.name.lowercase()}"))}})}))
+        }.toString())
+        val pipeline=trusted.profiles.getValue(ProfileId.COMPACT).pipelines.getValue(AiFeature.OCR).fingerprint
+        ActivationCrashPoint.entries.forEach{point->
+            val name="activation-${point.name}-${System.nanoTime()}.db";val root=java.io.File(context.cacheDir,"activation-${point.name}-${System.nanoTime()}").apply{mkdirs()}
+            var db=Room.databaseBuilder(context,MediaDatabase::class.java,name).build();var catalog=ModelCatalog.openForTests(root,context.getDatabasePath(name),trusted)
+            try{
+                val media=MediaRecord("m",MediaSource.DEVICE,"1",contentUri="content://m",lastSeenAt=1);db.media().upsert(media)
+                listOf("old","new").forEach{id->db.aiIndexes().saveGeneration(AiIndexGenerationRecord(id,if(id=="old")ProfileId.BALANCED.wire else ProfileId.COMPACT.wire,AiFeature.OCR.name,pipeline,if(id=="old")GenerationStatus.COMPLETE else GenerationStatus.PREPARING,1,1,"m",null,1));db.ocrPeople().saveRun(AiFeatureMediaRunRecord(id,"m",AiFeature.OCR.name,0,1,null))}
+                val profiles=ProfileId.entries.associateWith{id->ProfileState(when(id){ProfileId.BALANCED->ProfilePhase.ACTIVE;ProfileId.COMPACT->ProfilePhase.PREPARING;else->ProfilePhase.NOT_INSTALLED})}
+                val oldGeneration=IndexGeneration("old",AiFeature.OCR,pipeline,true,1,1)
+                catalog.seedForTests(CatalogSnapshot(trusted.version,10,ProfileId.COMPACT,ProfileId.BALANCED,profiles,setOf(AiFeature.OCR),PendingProfile(ProfileId.COMPACT,setOf(AiFeature.OCR)),mapOf("old" to oldGeneration),mapOf(AiFeature.OCR to "old"),ProfileId.entries.associateWith{"oracle"}))
+                ModelCatalog.activationCrashPointForTests=point
+                assertThrows(SimulatedActivationCrash::class.java){catalog.completeRoomGeneration(db,ProfileId.COMPACT,AiFeature.OCR,"new")}
+                catalog.closeForTests();db.close();db=Room.databaseBuilder(context,MediaDatabase::class.java,name).build();catalog=ModelCatalog.openForTests(root,context.getDatabasePath(name),trusted)
+                val recovered=catalog.snapshot();val expectedNew=point==ActivationCrashPoint.AFTER_ROOM_COMMIT_BEFORE_INTENT_CLEAR
+                assertEquals(if(expectedNew)ProfileId.COMPACT else ProfileId.BALANCED,recovered.active)
+                assertEquals(if(expectedNew)"new" else "old",recovered.activeGenerations[AiFeature.OCR])
+                assertNotNull(db.aiIndexes().generation("old"));assertEquals(GenerationStatus.COMPLETE,db.aiIndexes().generation(recovered.activeGenerations.getValue(AiFeature.OCR))!!.status)
+                assertFalse(catalog.activationIntentPresentForTests())
+            }finally{ModelCatalog.activationCrashPointForTests=null;catalog.closeForTests();db.close();context.deleteDatabase(name);root.deleteRecursively()}
+        }
+    }
+
     @Test fun compatibleGenerationCopiesOnlyCurrentRows(){fixture{db->
         val current=MediaRecord("current",MediaSource.DEVICE,"1",contentUri="content://current",lastSeenAt=1)
         val changed=MediaRecord("changed",MediaSource.DEVICE,"2",contentUri="content://changed",lastSeenAt=1)

@@ -245,14 +245,20 @@ object DbRegions {
         fun cross(o:OcrPoint,a:OcrPoint,b:OcrPoint)=(a.x-o.x)*(b.y-o.y)-(a.y-o.y)*(b.x-o.x)
         val lower=mutableListOf<OcrPoint>();p.forEach{x->while(lower.size>=2&&cross(lower[lower.size-2],lower.last(),x)<=0)lower.removeAt(lower.lastIndex);lower+=x}
         val upper=mutableListOf<OcrPoint>();p.asReversed().forEach{x->while(upper.size>=2&&cross(upper[upper.size-2],upper.last(),x)<=0)upper.removeAt(upper.lastIndex);upper+=x};return lower.dropLast(1)+upper.dropLast(1)}
+    internal fun polygonScoreForTests(probability:FloatArray,width:Int,height:Int,points:List<OcrPoint>)=polygonScore(probability,width,height,points)
     private fun polygonScore(probability:FloatArray,width:Int,height:Int,points:List<OcrPoint>):Float {
         val minX=floor(points.minOf{it.x}).toInt().coerceIn(0,width-1);val maxX=ceil(points.maxOf{it.x}).toInt().coerceIn(0,width-1)
         val minY=floor(points.minOf{it.y}).toInt().coerceIn(0,height-1);val maxY=ceil(points.maxOf{it.y}).toInt().coerceIn(0,height-1)
+        val local=points.map{OcrPoint((it.x-minX).toInt().toFloat(),(it.y-minY).toInt().toFloat())}
+        val mask=BooleanArray((maxX-minX+1)*(maxY-minY+1));val maskWidth=maxX-minX+1
+        for(y in minY..maxY)for(x in minX..maxX)if(insideInclusive(OcrPoint((x-minX).toFloat(),(y-minY).toFloat()),local))mask[(y-minY)*maskWidth+x-minX]=true
+        local.indices.forEach{i->rasterLine(local[i],local[(i+1)%local.size]){x,y->if(x in 0 until maskWidth&&y in 0..maxY-minY)mask[y*maskWidth+x]=true}}
         var sum=0.0;var count=0
-        for(y in minY..maxY)for(x in minX..maxX)if(inside(OcrPoint(x+.5f,y+.5f),points)){sum+=probability[y*width+x];count++}
+        for(y in minY..maxY)for(x in minX..maxX)if(mask[(y-minY)*maskWidth+x-minX]){sum+=probability[y*width+x];count++}
         return if(count==0)0f else (sum/count).toFloat()
     }
-    private fun inside(point:OcrPoint,polygon:List<OcrPoint>):Boolean {var inside=false;var j=polygon.lastIndex;for(i in polygon.indices){val a=polygon[i];val b=polygon[j];if((a.y>point.y)!=(b.y>point.y)&&point.x<(b.x-a.x)*(point.y-a.y)/(b.y-a.y)+a.x)inside=!inside;j=i};return inside}
+    private fun insideInclusive(point:OcrPoint,polygon:List<OcrPoint>):Boolean {var inside=false;var j=polygon.lastIndex;for(i in polygon.indices){val a=polygon[i];val b=polygon[j];val cross=(point.x-a.x)*(b.y-a.y)-(point.y-a.y)*(b.x-a.x);if(cross==0f&&point.x in min(a.x,b.x)..max(a.x,b.x)&&point.y in min(a.y,b.y)..max(a.y,b.y))return true;if((a.y>point.y)!=(b.y>point.y)&&point.x<(b.x-a.x)*(point.y-a.y)/(b.y-a.y)+a.x)inside=!inside;j=i};return inside}
+    private inline fun rasterLine(start:OcrPoint,end:OcrPoint,visit:(Int,Int)->Unit){var x0=start.x.toInt();var y0=start.y.toInt();val x1=end.x.toInt();val y1=end.y.toInt();val dx=kotlin.math.abs(x1-x0);val sx=if(x0<x1)1 else -1;val dy=-kotlin.math.abs(y1-y0);val sy=if(y0<y1)1 else -1;var error=dx+dy;while(true){visit(x0,y0);if(x0==x1&&y0==y1)return;val twice=2*error;if(twice>=dy){error+=dy;x0+=sx};if(twice<=dx){error+=dx;y0+=sy}}}
     private fun polygonArea(points:List<OcrPoint>)=abs(points.indices.sumOf{i->val a=points[i];val b=points[(i+1)%points.size];(a.x*b.y-a.y*b.x).toDouble()}/2).toFloat()
     private fun perimeter(points:List<OcrPoint>)=points.indices.sumOf{i->val a=points[i];val b=points[(i+1)%points.size];hypot(a.x-b.x,a.y-b.y).toDouble()}.toFloat()
     private fun shortSide(points:List<OcrPoint>)=points.indices.minOf{i->val a=points[i];val b=points[(i+1)%points.size];hypot(a.x-b.x,a.y-b.y)}

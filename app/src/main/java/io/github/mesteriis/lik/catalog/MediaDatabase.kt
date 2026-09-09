@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     io.github.mesteriis.lik.ai.AiFaceDetectionRecord::class,
     io.github.mesteriis.lik.ai.PersonIdentityRecord::class, io.github.mesteriis.lik.ai.PersonFaceDecisionRecord::class,
     io.github.mesteriis.lik.ai.PersonMergeRecord::class, io.github.mesteriis.lik.ai.PersonCannotLinkRecord::class,
-    io.github.mesteriis.lik.ai.PersonSplitRecord::class, io.github.mesteriis.lik.ai.PersonCannotLinkOwnerRecord::class], version = 9, exportSchema = true)
+    io.github.mesteriis.lik.ai.PersonSplitRecord::class, io.github.mesteriis.lik.ai.PersonCannotLinkOwnerRecord::class], version = 10, exportSchema = true)
 abstract class MediaDatabase : RoomDatabase() {
     abstract fun media(): MediaDao
     abstract fun organization(): OrganizationDao
@@ -26,8 +26,44 @@ abstract class MediaDatabase : RoomDatabase() {
 
         fun get(context: Context): MediaDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MediaDatabase::class.java, "media.db")
-                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                 .build().also { instance = it }
+        }
+
+        /** Materializes legacy computed `auto:*` identities before reclustering can rename their anchor. */
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val legacy = linkedSetOf<String>()
+                listOf(
+                    "SELECT personId FROM person_identity WHERE personId LIKE 'auto:%'",
+                    "SELECT fromPersonId FROM person_merge WHERE fromPersonId LIKE 'auto:%'",
+                    "SELECT intoPersonId FROM person_merge WHERE intoPersonId LIKE 'auto:%'",
+                    "SELECT personId FROM person_face_decision WHERE personId LIKE 'auto:%'",
+                    "SELECT splitPersonId FROM person_split WHERE splitPersonId LIKE 'auto:%'",
+                    "SELECT fromPersonId FROM person_split WHERE fromPersonId LIKE 'auto:%'",
+                ).forEach { sql -> db.query(sql).use { cursor -> while (cursor.moveToNext()) legacy += cursor.getString(0) } }
+                if (legacy.isEmpty()) return
+                val mapping = legacy.sorted().associateWith(io.github.mesteriis.lik.ai.LegacyPersonIdentity::stableId)
+                mapping.forEach { (old, stable) ->
+                    db.execSQL("INSERT OR IGNORE INTO person_identity(personId,name,createdAt) SELECT ?,name,createdAt FROM person_identity WHERE personId=?", arrayOf(stable, old))
+                    db.execSQL("INSERT OR IGNORE INTO person_identity(personId,name,createdAt) VALUES(?,NULL,0)", arrayOf(stable))
+                    db.execSQL("INSERT OR IGNORE INTO person_face_decision(anchorId,decision,personId,updatedAt) SELECT anchorId,'ASSIGN',?,0 FROM ai_face_detection WHERE computedClusterId=?", arrayOf(stable, old))
+                    db.execSQL("UPDATE person_face_decision SET personId=? WHERE personId=?", arrayOf(stable, old))
+                    db.execSQL("UPDATE person_split SET splitPersonId=? WHERE splitPersonId=?", arrayOf(stable, old))
+                    db.execSQL("UPDATE person_split SET fromPersonId=? WHERE fromPersonId=?", arrayOf(stable, old))
+                    db.execSQL("UPDATE person_cannot_link SET splitPersonId=? WHERE splitPersonId=?", arrayOf(stable, old))
+                    db.execSQL("UPDATE person_cannot_link_owner SET ownerId=? WHERE ownerId=?", arrayOf("split:$stable", "split:$old"))
+                }
+                val merges = mutableListOf<Triple<String,String,Long>>()
+                db.query("SELECT fromPersonId,intoPersonId,updatedAt FROM person_merge ORDER BY fromPersonId").use { cursor ->
+                    while (cursor.moveToNext()) merges += Triple(mapping[cursor.getString(0)] ?: cursor.getString(0), mapping[cursor.getString(1)] ?: cursor.getString(1), cursor.getLong(2))
+                }
+                db.execSQL("DELETE FROM person_merge")
+                merges.filter { it.first != it.second }.sortedWith(compareBy<Triple<String,String,Long>> { it.first }.thenByDescending { value -> value.third }).forEach { (from, into, at) ->
+                    db.execSQL("INSERT OR IGNORE INTO person_merge(fromPersonId,intoPersonId,updatedAt) VALUES(?,?,?)", arrayOf<Any>(from, into, at))
+                }
+                mapping.keys.forEach { db.execSQL("DELETE FROM person_identity WHERE personId=?", arrayOf(it)) }
+            }
         }
 
         val MIGRATION_8_9 = object : Migration(8, 9) {
