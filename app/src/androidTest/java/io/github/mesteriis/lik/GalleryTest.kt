@@ -342,40 +342,48 @@ class GalleryTest {
         context.contentResolver.openOutputStream(uri)!!.use { it.write(png(Color.BLUE)) }
         context.contentResolver.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
         val mediaId = android.content.ContentUris.parseId(uri)
+        // This case tests mixed-source selection, not asynchronous intake or quarantine.
+        // Establish both current catalog rows and their explicit SAFE fixture decisions first.
+        val localId = io.github.mesteriis.lik.gallery.GalleryCatalog.load(context, includeDevicePhotos = true)
+            .single { it.source == PhotoSource.DEVICE && it.uri?.lastPathSegment?.toLongOrNull() == mediaId }.id
+        privacy.markCurrentSafe()
 
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
-            val deadline = System.nanoTime() + 5_000_000_000
-            var localId: String? = null
-            while (localId == null && System.nanoTime() < deadline) {
-                scenario.onActivity { activity ->
-                    localId = ViewModelProvider(activity)[ImportViewModel::class.java].state.value?.photos
-                        ?.firstOrNull { it.source == PhotoSource.DEVICE && it.uri?.lastPathSegment?.toLongOrNull() == mediaId }?.id
-                }
-                if (localId == null) Thread.sleep(50)
-            }
             // Selection freezes the current adapter snapshot. Room/state may publish
             // the new device row before Paging has presented it to the timeline.
-            assertTrue("Both source rows must reach the timeline before selection", waitFor(5_000) {
+            var presentationState = "not checked"
+            val bothPresented = waitFor(5_000) {
                 var presented = false
                 scenario.onActivity { activity ->
                     val adapter = activity.findViewById<RecyclerView>(R.id.photo_timeline).adapter as TimelineAdapter
                     presented = adapter.positionForPhoto(importedId) >= 0 &&
-                        adapter.positionForPhoto(requireNotNull(localId)) >= 0
+                        adapter.positionForPhoto(localId) >= 0
+                    presentationState = "import=$importedId device=$localId photoLevel=${activity.findViewById<View>(R.id.timeline_level_photo).isSelected} anchors=${(0 until adapter.itemCount).map(adapter::anchorId)}"
                 }
                 presented
-            })
+            }
+            if (!bothPresented) {
+                val db = io.github.mesteriis.lik.catalog.MediaDatabase.get(context)
+                presentationState += " rows=" + listOfNotNull(db.media().get(importedId), db.media().get(localId))
+                db.openHelper.readableDatabase.query("SELECT m.mediaId,m.contentRevision,x.contentRevision,x.exposure FROM media m LEFT JOIN ai_media_exposure x ON x.mediaId=m.mediaId WHERE m.availability='AVAILABLE'").use { cursor ->
+                    val exposures = mutableListOf<String>()
+                    while (cursor.moveToNext()) exposures += (0 until cursor.columnCount).joinToString(":") { cursor.getString(it).orEmpty() }
+                    presentationState += " exposures=$exposures"
+                }
+            }
+            assertTrue("Both source rows must reach the timeline before selection: $presentationState", bothPresented)
             scenario.onActivity { activity ->
                 val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
                 val adapter = list.adapter as TimelineAdapter
                 assertTrue(requireNotNull(list.findViewHolderForAdapterPosition(adapter.positionForPhoto(importedId))).itemView.performLongClick())
-                list.scrollToPosition(adapter.positionForPhoto(requireNotNull(localId)))
+                list.scrollToPosition(adapter.positionForPhoto(localId))
             }
             var bindingState = "Device row not checked"
             val deviceBound = waitFor(5_000) {
                 var bound = false
                 scenario.onActivity { activity ->
                     val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
-                    val position = (list.adapter as TimelineAdapter).positionForPhoto(requireNotNull(localId))
+                    val position = (list.adapter as TimelineAdapter).positionForPhoto(localId)
                     bindingState = "device=$localId position=$position count=${list.adapter!!.itemCount} shown=${list.isShown} size=${list.width}x${list.height} anchors=${(0 until list.adapter!!.itemCount).map((list.adapter as TimelineAdapter)::anchorId)}"
                     if (position >= 0) {
                         list.scrollToPosition(position)
@@ -390,7 +398,7 @@ class GalleryTest {
             scenario.onActivity { activity ->
                 val list = activity.findViewById<RecyclerView>(R.id.photo_timeline)
                 val adapter = list.adapter as TimelineAdapter
-                val position = adapter.positionForPhoto(requireNotNull(localId))
+                val position = adapter.positionForPhoto(localId)
                 assertTrue(requireNotNull(list.findViewHolderForAdapterPosition(position)).itemView.performClick())
                 assertEquals(context.getString(R.string.selected_count, 2), activity.findViewById<TextView>(R.id.selection_count).text)
             }
@@ -528,22 +536,30 @@ class GalleryTest {
         repeat(120) { index ->
             File(library, "${index.toString(16).padStart(64, '0')}.image").writeBytes(bytes)
         }
+        // Direct file fixtures must be cataloged/reviewed before the one-shot legacy snapshot.
+        // Waiting for an asynchronous media observer can otherwise leave that snapshot empty.
+        val database=io.github.mesteriis.lik.catalog.MediaDatabase.get(context)
+        io.github.mesteriis.lik.catalog.MediaRepository(database).reconcileImports(PhotoLibrary.store(context),System.currentTimeMillis())
+        privacy.markCurrentSafe()
+        val fixtures=database.media().available().filter { it.source==io.github.mesteriis.lik.catalog.MediaSource.GOOGLE_IMPORT }
+        assertEquals(120,fixtures.size)
+        val firstId=fixtures.maxWith(compareBy<io.github.mesteriis.lik.catalog.MediaRecord>{it.sortAt}.thenBy{it.mediaId}).mediaId
         ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)).use { scenario ->
             instrumentation.waitForIdleSync()
             val deadline = System.nanoTime() + 5_000_000_000
             var loaded = false
             while (!loaded && System.nanoTime() < deadline) {
                 scenario.onActivity { activity ->
-                    loaded = ViewModelProvider(activity)[ImportViewModel::class.java].state.value?.photos
-                        ?.count { it.source == PhotoSource.GOOGLE_IMPORT } == 120
+                    val grid=activity.findViewById<RecyclerView>(R.id.photo_timeline)
+                    val first=(grid.adapter as TimelineAdapter).positionForPhoto(firstId)
+                    loaded=first>=0 && grid.findViewHolderForAdapterPosition(first)!=null
                 }
                 if (!loaded) Thread.sleep(50)
             }
+            assertTrue("All 120 reviewed fixtures and the first cell must be ready",loaded)
             scenario.onActivity { activity ->
                 val grid = activity.findViewById<RecyclerView>(R.id.photo_timeline)
                 val minimumCellHeight = (100 * activity.resources.displayMetrics.density).toInt()
-                val firstId = requireNotNull(ViewModelProvider(activity)[ImportViewModel::class.java].state.value)
-                    .photos.first { it.source == PhotoSource.GOOGLE_IMPORT }.id
                 val position = (grid.adapter as TimelineAdapter).positionForPhoto(firstId)
                 assertTrue(requireNotNull(grid.findViewHolderForAdapterPosition(position)).itemView.height >= minimumCellHeight)
                 assertTrue(grid.childCount < requireNotNull(grid.adapter).itemCount)

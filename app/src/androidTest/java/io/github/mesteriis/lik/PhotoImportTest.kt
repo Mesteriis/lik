@@ -30,18 +30,22 @@ class PhotoImportTest {
         library.deleteRecursively()
     }
 
-    private fun launchShare(vararg names: String): ActivityScenario<Activity> {
+    private fun launchShare(vararg names: String, blockSlowRead: Boolean = false): ActivityScenario<Activity> {
         val uris = names.map { Uri.parse("content://io.github.mesteriis.lik.test.photos/$it") }
+        val grants = uris + if (blockSlowRead) listOf("block", "await", "release").map {
+            Uri.parse("content://io.github.mesteriis.lik.test.photos/slow?barrier=$it")
+        } else emptyList()
         instrumentation.context.startActivity(Intent().apply {
             setClassName(instrumentation.context, FixtureGrantActivity::class.java.name)
-            putParcelableArrayListExtra("uris", ArrayList(uris))
+            putParcelableArrayListExtra("uris", ArrayList(grants))
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
         val grantDeadline = System.nanoTime() + 5_000_000_000
-        while (uris.any { context.checkUriPermission(it, android.os.Process.myPid(), android.os.Process.myUid(), Intent.FLAG_GRANT_READ_URI_PERMISSION) != PackageManager.PERMISSION_GRANTED }) {
+        while (grants.any { context.checkUriPermission(it, android.os.Process.myPid(), android.os.Process.myUid(), Intent.FLAG_GRANT_READ_URI_PERMISSION) != PackageManager.PERMISSION_GRANTED }) {
             check(System.nanoTime() < grantDeadline) { "Fixture grant did not arrive" }
             Thread.sleep(50)
         }
+        if (blockSlowRead) controlSlowRead("block")
         val clip = ClipData.newRawUri("test", uris.first())
         uris.drop(1).forEach { clip.addItem(ClipData.Item(it)) }
         val intent = Intent(if (uris.size == 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
@@ -53,6 +57,22 @@ class PhotoImportTest {
             else putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
         }
         return ActivityScenario.launch(intent)
+    }
+
+    private fun controlSlowRead(action: String) {
+        val uri = Uri.parse("content://io.github.mesteriis.lik.test.photos/slow?barrier=$action")
+        requireNotNull(context.contentResolver.openFileDescriptor(uri, "r")).close()
+    }
+
+    private fun withBlockedSlowImport(check: (ActivityScenario<Activity>) -> Unit) {
+        try {
+            launchShare("slow", blockSlowRead = true).use { scenario ->
+                controlSlowRead("await")
+                check(scenario)
+            }
+        } finally {
+            controlSlowRead("release")
+        }
     }
 
     private fun awaitPhotos(count: Int) {
@@ -145,11 +165,15 @@ class PhotoImportTest {
     }
 
     @Test fun rotationDuringProviderReadKeepsSingleImportAndProgress() {
-        launchShare("slow").use { scenario ->
+        withBlockedSlowImport { scenario ->
             scenario.onActivity {
                 assertTrue(ViewModelProvider(it as MainActivity)[ImportViewModel::class.java].state.value!!.busy)
             }
             scenario.recreate()
+            scenario.onActivity {
+                assertTrue(ViewModelProvider(it as MainActivity)[ImportViewModel::class.java].state.value!!.busy)
+            }
+            controlSlowRead("release")
             awaitCompleted(scenario, 1)
             awaitPhotos(1)
             scenario.onActivity {
@@ -173,13 +197,15 @@ class PhotoImportTest {
     }
 
     @Test fun importRotatedWhileBusyRendersSummaryWhenItCompletes() {
-        launchShare("slow").use { scenario ->
+        withBlockedSlowImport { scenario ->
             scenario.onActivity {
                 assertTrue(ViewModelProvider(it as MainActivity)[ImportViewModel::class.java].state.value!!.busy)
             }
             assertSummary(scenario, visible = false)
 
             scenario.recreate()
+            assertSummary(scenario, visible = false)
+            controlSlowRead("release")
             awaitCompleted(scenario, 1)
             assertSummary(scenario, visible = true, added = 1)
         }

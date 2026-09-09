@@ -25,9 +25,9 @@ class OcrPeopleRulesTest {
 
     @Test fun ctcDecoderRemovesBlankAndAdjacentRepeatsButPreservesRepeatedLetters() {
         val dictionary = listOf("а", "б", "A", " ")
-        val logits = Array(8) { FloatArray(5) { -10f } }
-        listOf(1, 1, 0, 2, 0, 2, 3, 4).forEachIndexed { at, id -> logits[at][id] = 10f }
-        val decoded = CtcDecoder.decode(logits, dictionary)
+        val posterior = Array(8) { FloatArray(5) }
+        listOf(1, 1, 0, 2, 0, 2, 3, 4).forEachIndexed { at, id -> posterior[at][id] = 1f }
+        val decoded = CtcDecoder.decode(posterior, dictionary)
         assertEquals("аббA ", decoded.text)
         assertTrue(decoded.confidence > .99f)
     }

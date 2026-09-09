@@ -30,11 +30,11 @@ class SensitiveMigrationTest{
                 sqlite.execSQL("INSERT INTO ai_media_exposure(mediaId,contentRevision,exposure,decidedAt) VALUES('old',0,'SAFE',1)")
                 sqlite.version=14
             }
-            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_14_15).build()
+            val db=Room.databaseBuilder(context,MediaDatabase::class.java,name).addMigrations(MediaDatabase.MIGRATION_14_15, MediaDatabase.MIGRATION_15_16).build()
             try{
                 val sql=db.openHelper.writableDatabase
                 fun count(table:String)=sql.query("SELECT COUNT(*) FROM $table").use{it.moveToFirst();it.getInt(0)}
-                assertEquals(15,sql.version);assertEquals(0,count("sensitive_automatic"));assertEquals(0,count("sensitive_manual"));assertEquals(1,count("ai_media_exposure"))
+                assertEquals(16,sql.version);assertEquals(0,count("sensitive_automatic"));assertEquals(0,count("sensitive_manual"));assertEquals(1,count("ai_media_exposure"))
                 assertEquals("QUARANTINED",sql.query("SELECT exposure FROM ai_media_exposure WHERE mediaId='old'").use{it.moveToFirst();it.getString(0)})
             }finally{db.close()}
         }finally{context.deleteDatabase(name)}

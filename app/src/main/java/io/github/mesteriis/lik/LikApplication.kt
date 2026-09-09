@@ -9,6 +9,7 @@ class LikApplication : Application() {
     private var startedActivities=0
     @Volatile private var revealedMediaDomain:String?=null
     private var privacySubscription:AutoCloseable?=null
+    private var aiCatalogScheduler:AiCatalogScheduler?=null
     private val similarityEligibilityObserver=object:androidx.room.InvalidationTracker.Observer("media","ai_media_exposure"){
         override fun onInvalidated(tables:Set<String>){io.github.mesteriis.lik.similarity.SimilarityWorker.enqueue(this@LikApplication)}
     }
@@ -37,6 +38,7 @@ class LikApplication : Application() {
         },android.content.IntentFilter().apply{addAction(android.content.Intent.ACTION_SCREEN_OFF);addAction(android.content.Intent.ACTION_USER_BACKGROUND)},RECEIVER_NOT_EXPORTED)
         TrashMaintenance.schedule(this)
         val mediaDatabase=io.github.mesteriis.lik.catalog.MediaDatabase.get(this)
+        aiCatalogScheduler=AiCatalogScheduler(this,mediaDatabase)
         mediaDatabase.invalidationTracker.addObserver(similarityEligibilityObserver)
         mediaDatabase.invalidationTracker.addObserver(object:androidx.room.InvalidationTracker.Observer("media"){
             override fun onInvalidated(tables:Set<String>){
@@ -56,11 +58,7 @@ class LikApplication : Application() {
                 ProfileDownloadWorker.enqueueValidation(this, it)
                 return@Thread
             }
-            val requested = state.pending?.enabled ?: state.enabledFeatures
-            val profile = state.pending?.profile ?: state.active
-            if (AiFeature.SEARCH in requested) profile?.let { AiIndexWorker.enqueue(this, it, manual = false) }
-            if (requested.intersect(setOf(AiFeature.OCR, AiFeature.PEOPLE)).isNotEmpty())
-                profile?.let { OcrPeopleIndexWorker.enqueue(this, it, manual = false) }
+            aiCatalogScheduler?.changed()
         }, "lik-ai-recovery").start()
     }
 

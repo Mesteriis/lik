@@ -15,7 +15,8 @@ class OcrPeoplePersistenceTest {
         val row=MediaRecord("m",MediaSource.DEVICE,"1",contentUri="content://m",contentRevision=7,lastSeenAt=1)
         db.media().upsert(row);val gen=AiIndexGenerationRecord("ocr","balanced-v1","OCR","pipe",GenerationStatus.COMPLETE,1,1,"m",null,1);db.aiIndexes().saveGeneration(gen)
         val result=AiOcrResultRecord("ocr","m",7,1,"pipe","Ёлка Café","ёлка café","[]",.9f)
-        assertTrue(db.ocrPeople().publishOcrRunIfCurrent(result,AiFeatureMediaRunRecord("ocr","m","OCR",7,1,null)))
+        // Legacy persisted payload remains hidden. New production publication now requires SAFE.
+        db.ocrPeople().saveOcr(result);db.ocrPeople().saveRun(AiFeatureMediaRunRecord("ocr","m","OCR",7,1,null))
         assertNull(db.ocrPeople().visibleOcr("ocr","m"));assertTrue(db.ocrPeople().searchOcr("ocr","ёлка",10,0).isEmpty())
         db.ocrPeople().saveExposure(AiMediaExposureRecord("m",7,AiExposure.SAFE,2))
         assertEquals("Ёлка Café",db.ocrPeople().visibleOcr("ocr","m")!!.displayText)

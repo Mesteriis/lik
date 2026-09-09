@@ -11,9 +11,13 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /** Standalone test-APK process: no dependency on the target APK's Kotlin runtime. */
 public class ImportFixtureProvider extends ContentProvider {
+    private static volatile CountDownLatch slowEntered = new CountDownLatch(1);
+    private static volatile CountDownLatch slowRelease = new CountDownLatch(0);
     @Override public boolean onCreate() { return true; }
     @Override public String getType(Uri uri) { return "image/png"; }
     @Override public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
@@ -25,8 +29,29 @@ public class ImportFixtureProvider extends ContentProvider {
             return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
         }
         if ("slow".equals(uri.getLastPathSegment())) {
-            try { Thread.sleep(1000); }
+            String control = uri.getQueryParameter("barrier");
+            try {
+                if ("block".equals(control)) {
+                    slowEntered = new CountDownLatch(1);
+                    slowRelease = new CountDownLatch(1);
+                } else if ("release".equals(control)) {
+                    slowRelease.countDown();
+                } else if ("await".equals(control)) {
+                    if (!slowEntered.await(10, TimeUnit.SECONDS)) throw new FileNotFoundException("Slow read did not begin");
+                } else if (slowRelease.getCount() > 0) {
+                    slowEntered.countDown();
+                    if (!slowRelease.await(30, TimeUnit.SECONDS)) throw new FileNotFoundException("Slow read was not released");
+                } else {
+                    Thread.sleep(1000);
+                }
+            }
             catch (InterruptedException exception) { Thread.currentThread().interrupt(); throw new FileNotFoundException(); }
+            if (control != null) {
+                File acknowledgement = new File(getContext().getCacheDir(), "fixture-slow-barrier");
+                try { acknowledgement.createNewFile(); }
+                catch (IOException exception) { throw new FileNotFoundException(); }
+                return ParcelFileDescriptor.open(acknowledgement, ParcelFileDescriptor.MODE_READ_ONLY);
+            }
         }
         Bitmap bitmap = Bitmap.createBitmap(48, 48, Bitmap.Config.ARGB_8888);
         bitmap.eraseColor("blue".equals(uri.getLastPathSegment()) ? Color.BLUE : Color.GREEN);

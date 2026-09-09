@@ -3,7 +3,6 @@ package io.github.mesteriis.lik.ai
 import java.security.MessageDigest
 import java.text.Normalizer
 import java.util.Locale
-import kotlin.math.exp
 import kotlin.math.sqrt
 
 enum class AiExposure { QUARANTINED, SAFE, SENSITIVE }
@@ -19,12 +18,15 @@ data class OcrDecode(val text: String, val confidence: Float)
 
 object CtcDecoder {
     /** Dictionary excludes CTC blank; its line at index zero maps to model class one. */
-    fun decode(logits: Array<FloatArray>, dictionary: List<String>): OcrDecode {
-        require(logits.all { it.size == dictionary.size + 1 })
+    fun decode(probabilities: Array<FloatArray>, dictionary: List<String>): OcrDecode {
+        // The pinned PP-OCRv5 recognizer graph ends in Softmax, as does publisher postprocessing.
+        require(probabilities.all { step -> step.size == dictionary.size + 1 &&
+            step.all { it.isFinite() && it in 0f..1f } &&
+            kotlin.math.abs(step.sumOf(Float::toDouble) - 1.0) <= .001 })
         val text = StringBuilder(); var previous = -1; var confidence = 0.0; var count = 0
-        for (step in logits) {
+        for (step in probabilities) {
             val id = step.indices.maxByOrNull(step::get) ?: continue
-            val probability = softmaxProbability(step, id)
+            val probability = step[id]
             if (id != 0 && id != previous) {
                 text.append(dictionary[id - 1]); confidence += probability; count++
             }
@@ -33,11 +35,6 @@ object CtcDecoder {
         return OcrDecode(text.toString(), if (count == 0) 0f else (confidence / count).toFloat())
     }
 
-    private fun softmaxProbability(values: FloatArray, selected: Int): Double {
-        val max = values.maxOrNull()?.toDouble() ?: return 0.0
-        val denominator = values.sumOf { exp(it - max) }
-        return exp(values[selected] - max) / denominator
-    }
 }
 
 data class AiPublicationToken(
@@ -67,13 +64,22 @@ data class ManualFacePair(val first: String, val second: String) {
 }
 
 object FaceClusterer {
-    /** Deterministic complete-link clustering avoids bridge faces joining dissimilar identities. */
+    /** Complete-link within bounded windows. Oversized identities may split, but an unchecked
+     * pair never merges identities. Manual identities/corrections remain the durable authority. */
     fun cluster(faces: List<FaceVector>, threshold: Float, cannotLink: Set<ManualFacePair>): List<List<String>> {
         require(threshold in -1f..1f)
+        if (Thread.currentThread().isInterrupted) throw InterruptedException("CLUSTER_CANCELLED")
         val ordered = faces.sortedBy(FaceVector::anchorId)
+        return ordered.chunked(WINDOW).flatMap { clusterWindow(it,threshold,cannotLink) }
+    }
+
+    const val WINDOW=128
+    private fun clusterWindow(ordered:List<FaceVector>,threshold:Float,cannotLink:Set<ManualFacePair>):List<List<String>> {
         val clusters = mutableListOf<MutableList<FaceVector>>()
         for (face in ordered) {
+            if (Thread.currentThread().isInterrupted) throw InterruptedException("CLUSTER_CANCELLED")
             val target = clusters.firstOrNull { cluster -> cluster.all { existing ->
+                if (Thread.currentThread().isInterrupted) throw InterruptedException("CLUSTER_CANCELLED")
                 ManualFacePair.ordered(face.anchorId, existing.anchorId) !in cannotLink && cosine(face.embedding, existing.embedding) >= threshold
             } }
             if (target == null) clusters += mutableListOf(face) else target += face

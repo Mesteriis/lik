@@ -14,7 +14,6 @@ import java.util.concurrent.TimeUnit
 import java.nio.ByteOrder
 import java.nio.LongBuffer
 import java.security.MessageDigest
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.sqrt
 
@@ -24,23 +23,23 @@ class InferenceRuntimeService : Service() {
     private var createdSessions = 0
     private data class ResidentSession(val session: ai.onnxruntime.OrtSession, val modelBytes: Long)
     private val sessions = LinkedHashMap<String, ResidentSession>(8, .75f, true)
-    private val activeRuns = ConcurrentHashMap<Long, ai.onnxruntime.OrtSession.RunOptions>()
-    private val cancelledRuns = ConcurrentHashMap.newKeySet<Long>()
+    private val requests = RuntimeCancellation()
     private data class SharedOutput(val floats: Int, val sha256: String)
     private val incoming = Messenger(Handler(Looper.getMainLooper()) { message ->
         if (message.what == MSG_CANCEL) {
             val requestId = message.data.getLong(REQUEST_ID)
-            cancelledRuns += requestId
-            activeRuns[requestId]?.setTerminate(true)
+            requests.cancel(requestId)
             return@Handler true
         }
         if (message.what !in setOf(MSG_VALIDATE, MSG_EMBED_IMAGE, MSG_EMBED_TEXT, MSG_RUN_FLOAT, MSG_RUN_FLOAT_MULTI, MSG_RUN_SMOKE, MSG_STATS, MSG_EVICT)) return@Handler false
         val requestCode = message.what
         val reply = message.replyTo
         val payload = Bundle(message.data)
+        val requestId = payload.getLong(REQUEST_ID)
+        requests.enqueue(requestId)
         val descriptors = payload.getParcelableArrayList(FDS, ParcelFileDescriptor::class.java).orEmpty()
         executor.execute {
-            val result = runCatching { when (requestCode) {
+            val result = runCatching { requests.check(requestId); when (requestCode) {
                 MSG_VALIDATE -> { validate(descriptors); null }
                 MSG_EMBED_IMAGE -> embedImage(payload)
                 MSG_EMBED_TEXT -> embedText(payload)
@@ -48,11 +47,14 @@ class InferenceRuntimeService : Service() {
                 MSG_RUN_FLOAT_MULTI -> runFloatMulti(payload)
                 MSG_RUN_SMOKE -> runSmoke(payload)
                 MSG_EVICT -> { payload.getStringArrayList(EVICT).orEmpty().forEach { sessions.remove(it)?.session?.close() }; null }
-                else -> floatArrayOf(sessions.size.toFloat(), createdSessions.toFloat())
-            } }
+                else -> floatArrayOf(sessions.size.toFloat(), createdSessions.toFloat(), (requests.size() - 1).toFloat())
+            }.also { requests.check(requestId) } }
+            requests.finish(requestId)
             result.exceptionOrNull()?.let { android.util.Log.e("LikAiRuntime", "Inference request failed", it) }
             descriptors.forEach { runCatching { it.close() } }
             payload.getParcelable(OUTPUT_MEMORY, SharedMemory::class.java)?.let { runCatching { it.close() } }
+            payload.getParcelable(MEMORY, SharedMemory::class.java)?.let { runCatching { it.close() } }
+            listOf(MODEL, PROJECTION).forEach { key -> payload.getParcelable(key, ParcelFileDescriptor::class.java)?.let { runCatching { it.close() } } }
             val response = Message.obtain(null, MSG_RESULT).apply {
                 data = Bundle().apply { putBoolean(OK, result.isSuccess); putString(ERROR, result.exceptionOrNull()?.let { "${it.javaClass.simpleName}: ${it.message.orEmpty()}" })
                     when (val value = result.getOrNull()) {
@@ -127,7 +129,7 @@ class InferenceRuntimeService : Service() {
             val environment = ai.onnxruntime.OrtEnvironment.getEnvironment()
             session(data, descriptor).let { session ->
                 ai.onnxruntime.OnnxTensor.createTensor(environment, mapped.asFloatBuffer(), shape).use { tensor ->
-                    session.run(mapOf("pixel_values" to tensor)).use { output ->
+                    withRunOptions(data.getLong(REQUEST_ID)) { options -> session.run(mapOf("pixel_values" to tensor), options) }.use { output ->
                         val raw = (output.get(data.getString(OUTPUT)!!).get() as ai.onnxruntime.OnnxTensor).floatBuffer.toArray()
                         if (data.getBoolean(NORMALIZE, true)) normalize(raw) else raw
                     }
@@ -149,7 +151,7 @@ class InferenceRuntimeService : Service() {
                     val maskTensor = mask?.let { ai.onnxruntime.OnnxTensor.createTensor(environment, LongBuffer.wrap(it), longArrayOf(1, it.size.toLong())) }
                     maskTensor.use {
                         if (it != null) inputs["attention_mask"] = it
-                        session.run(inputs).use { output ->
+                        withRunOptions(data.getLong(REQUEST_ID)) { options -> session.run(inputs, options) }.use { output ->
                             val raw = (output.get(outputName).get() as ai.onnxruntime.OnnxTensor).floatBuffer.toArray()
                             if (mask == null) normalize(raw) else {
                                 val hidden = raw.size / ids.size
@@ -221,11 +223,8 @@ class InferenceRuntimeService : Service() {
 
     private fun <T> withRunOptions(requestId: Long, block: (ai.onnxruntime.OrtSession.RunOptions) -> T): T {
         require(requestId > 0)
-        if (cancelledRuns.remove(requestId)) throw InterruptedException("RUNTIME_CANCELLED")
         ai.onnxruntime.OrtSession.RunOptions().use { options ->
-            activeRuns[requestId] = options
-            if (cancelledRuns.remove(requestId)) options.setTerminate(true)
-            return try { block(options) } finally { activeRuns.remove(requestId, options); cancelledRuns.remove(requestId) }
+            return requests.running(requestId, { options.setTerminate(true) }) { block(options) }
         }
     }
 
@@ -260,7 +259,7 @@ class InferenceRuntimeService : Service() {
                 }
             }
             session(data, descriptor).let { session ->
-                session.run(tensors).use { output ->
+                withRunOptions(data.getLong(REQUEST_ID)) { options -> session.run(tensors, options) }.use { output ->
                     (output.get(requireNotNull(data.getString(OUTPUT))).get() as ai.onnxruntime.OnnxTensor)
                         .floatBuffer.toArray().also { require(it.isNotEmpty() && it.all(Float::isFinite)) }
                 }
@@ -345,7 +344,7 @@ object FloatIpcContract {
 }
 
 
-data class RuntimeStats(val liveSessions: Int, val createdSessions: Int, val connectionGeneration: Long)
+data class RuntimeStats(val liveSessions: Int, val createdSessions: Int, val connectionGeneration: Long, val pendingRequests: Int = 0)
 
 /**
  * Process-wide persistent binding to the isolated runtime. Keeping this binding for the app-process
@@ -432,7 +431,7 @@ class IsolatedRuntimeClient(context: Context, private val leases: RuntimeLeases 
         })
 
     fun stats(): Result<RuntimeStats> = requestVector(InferenceRuntimeService.MSG_STATS, emptySet(), Bundle()).map {
-        RuntimeStats(it[0].toInt(), it[1].toInt(), transport.connectionGeneration())
+        RuntimeStats(it[0].toInt(), it[1].toInt(), transport.connectionGeneration(), it[2].toInt())
     }
 
     fun evict(digests: Set<String>): Result<Unit> {
@@ -618,14 +617,32 @@ object RuntimeRequestAwait {
     fun await(latch: CountDownLatch, timeoutSeconds: Long, cancelled: () -> Unit, poll: () -> Unit) {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds)
         try {
+            if (InferenceGate.cancelled()) throw InterruptedException("RUNTIME_CANCELLED")
             while (!latch.await(250, TimeUnit.MILLISECONDS)) {
                 poll()
-                if (Thread.currentThread().isInterrupted) throw InterruptedException()
+                if (InferenceGate.cancelled()) throw InterruptedException("RUNTIME_CANCELLED")
                 if (System.nanoTime() >= deadline) error("RUNTIME_TIMEOUT")
             }
+            if (InferenceGate.cancelled()) throw InterruptedException("RUNTIME_CANCELLED")
         } catch (failure: Throwable) {
             cancelled()
             throw failure
         }
+    }
+}
+
+/** Registered at receipt, retained while queued/running, and removed on every terminal path.
+ * Cancellation after completion is ignored; termination cannot race RunOptions.close(). */
+internal class RuntimeCancellation {
+    private data class Request(var cancelled: Boolean = false, var terminate: (() -> Unit)? = null)
+    private val pending = mutableMapOf<Long, Request>()
+    @Synchronized fun enqueue(id:Long) { require(id > 0 && id !in pending); pending[id]=Request() }
+    @Synchronized fun cancel(id:Long) { pending[id]?.let { it.cancelled=true; it.terminate?.invoke() } }
+    @Synchronized fun check(id:Long) { if (pending[id]?.cancelled != false) throw InterruptedException("RUNTIME_CANCELLED") }
+    @Synchronized fun finish(id:Long) { pending.remove(id) }
+    @Synchronized fun size()=pending.size
+    fun <T> running(id:Long,terminate:()->Unit,block:()->T):T {
+        synchronized(this) { check(id); pending.getValue(id).terminate=terminate }
+        return try { block() } finally { synchronized(this) { pending[id]?.terminate=null } }
     }
 }

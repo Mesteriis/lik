@@ -47,6 +47,14 @@ class OrganizationPanel(
     private var similarityExactOffset=0
     private var similarityVisualOffset=0
     private var content: LinearLayout = container
+    private var protectedDialog: AlertDialog? = null
+    private val revealSubscription=io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.observe { state ->
+        activity.runOnUiThread {
+            request++
+            if(!state.revealed){protectedDialog?.dismiss();protectedDialog=null}
+            refresh()
+        }
+    }
     private val privacyInvalidation=object:androidx.room.InvalidationTracker.Observer("media","ai_media_exposure","ai_ocr_result","ai_face_detection","content_fingerprint","fingerprint_failure","fingerprint_band","similarity_relation","similarity_scan","similarity_checkpoint","similarity_library_state"){
         override fun onInvalidated(tables:Set<String>){activity.runOnUiThread{refresh()}}
     }
@@ -120,7 +128,7 @@ class OrganizationPanel(
 
     fun hide() { active = false; request++ }
     fun refresh() { if (active && container.isShown && screen != "search") render() }
-    fun close() { request++; MediaDatabase.get(activity).invalidationTracker.removeObserver(privacyInvalidation);scope.cancel() }
+    fun close() { request++; protectedDialog?.dismiss(); revealSubscription.close(); MediaDatabase.get(activity).invalidationTracker.removeObserver(privacyInvalidation);scope.cancel() }
 
     private fun root(title: String) {
         request++
@@ -157,8 +165,12 @@ class OrganizationPanel(
         val expected = request
         scope.launch {
             try {
-                val value = withContext(Dispatchers.IO) { work() }
-                if (request == expected) render(value)
+                val database=MediaDatabase.get(activity)
+                val (token,value) = withContext(Dispatchers.IO) {
+                    io.github.mesteriis.lik.privacy.OrganizationPublication.capture(database) to work()
+                }
+                if (request == expected && token.current(database)) render(value)
+                else if(request == expected) refresh()
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { if (request == expected) label(text(R.string.organization_error)) }
         }
@@ -243,11 +255,12 @@ class OrganizationPanel(
                 label(title, true)
                 row.trashedAt?.let { label(activity.getString(R.string.trash_since,
                     DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).format(Instant.ofEpochMilli(it).atZone(libraryZone(activity))))) }
-                button(text(R.string.restore_photo)) { mutate { trash.restore(row.mediaId) } }
+                val reveal=io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.snapshot()
+                button(text(R.string.restore_photo)) { mutate { trash.restoreVisible(row,reveal) } }
                 button(text(R.string.purge_photo)) {
-                    AlertDialog.Builder(activity).setTitle(R.string.purge_photo).setMessage(R.string.purge_message)
+                    protectedDialog=AlertDialog.Builder(activity).setTitle(R.string.purge_photo).setMessage(R.string.purge_message)
                         .setNegativeButton(R.string.cancel, null)
-                        .setPositiveButton(R.string.purge_photo) { _, _ -> mutate { trash.purgeNow(setOf(row.mediaId)) } }.show()
+                        .setPositiveButton(R.string.purge_photo) { _, _ -> mutate { trash.purgeVisible(row,reveal) } }.show()
                 }
             }
             if (offset > 0) button(text(R.string.previous_page)) { offset = (offset - 60).coerceAtLeast(0); render() }

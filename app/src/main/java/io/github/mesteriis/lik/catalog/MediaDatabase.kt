@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [MediaRecord::class, VolumeCheckpoint::class, Album::class, AlbumMedia::class, Favorite::class, MediaTag::class,
+@Database(entities = [MediaRecord::class, CatalogChangeState::class, VolumeCheckpoint::class, Album::class, AlbumMedia::class, Favorite::class, MediaTag::class,
     io.github.mesteriis.lik.ai.AiIndexGenerationRecord::class, io.github.mesteriis.lik.ai.AiEmbeddingRecord::class,
     io.github.mesteriis.lik.ai.AiSensitiveRunRecord::class, io.github.mesteriis.lik.ai.AiMediaExposureRecord::class,
     io.github.mesteriis.lik.ai.AiOcrResultRecord::class, io.github.mesteriis.lik.ai.AiFeatureMediaRunRecord::class,
@@ -23,7 +23,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     io.github.mesteriis.lik.similarity.SimilarityLibraryState::class,
     io.github.mesteriis.lik.privacy.SensitiveAutomaticRecord::class,
     io.github.mesteriis.lik.privacy.SensitiveManualRecord::class,
-    io.github.mesteriis.lik.privacy.SensitiveClassifierRunRecord::class], version = 15, exportSchema = true)
+    io.github.mesteriis.lik.privacy.SensitiveClassifierRunRecord::class], version = 16, exportSchema = true)
 abstract class MediaDatabase : RoomDatabase() {
     abstract fun media(): MediaDao
     abstract fun organization(): OrganizationDao
@@ -37,14 +37,23 @@ abstract class MediaDatabase : RoomDatabase() {
 
         fun get(context: Context): MediaDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MediaDatabase::class.java, "media.db")
-                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
+                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
                 .addCallback(SIMILARITY_CALLBACK)
                 .build().also { instance = it }
         }
 
         internal val SIMILARITY_CALLBACK=object:RoomDatabase.Callback(){
-            override fun onCreate(db:SupportSQLiteDatabase){ensureSimilarityLibraryState(db)}
-            override fun onOpen(db:SupportSQLiteDatabase){ensureSimilarityLibraryState(db)}
+            override fun onCreate(db:SupportSQLiteDatabase){ensureSimilarityLibraryState(db);CatalogChanges.install(db)}
+            override fun onOpen(db:SupportSQLiteDatabase){ensureSimilarityLibraryState(db);CatalogChanges.install(db)}
+        }
+
+        val MIGRATION_15_16=object:Migration(15,16){
+            override fun migrate(db:SupportSQLiteDatabase){
+                db.execSQL("CREATE TABLE IF NOT EXISTS catalog_change_state (stateId TEXT NOT NULL PRIMARY KEY, revision INTEGER NOT NULL)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_face_detection_generationId_detectionId ON ai_face_detection(generationId,detectionId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ai_face_detection_generationId_anchorId ON ai_face_detection(generationId,anchorId)")
+                CatalogChanges.install(db)
+            }
         }
 
         val MIGRATION_14_15 = object : Migration(14, 15) {

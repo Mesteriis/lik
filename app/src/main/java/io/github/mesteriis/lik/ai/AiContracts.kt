@@ -106,11 +106,8 @@ object ProfileTransitions {
         )) + listOfNotNull(current.active?.takeIf { it != target }?.let {
             it to current.profile(it).copy(phase = ProfilePhase.ACTIVE)
         })
-        return if (canActivate) current.copy(
-            revision = current.revision + 1, selected = target, active = target,
-            profiles = profiles, enabledFeatures = enabled, pending = null,
-            activeGenerations = reused,
-        ) else current.copy(
+        return if (canActivate) activate(current.copy(selected = target, profiles = profiles),
+            PendingProfile(target, enabled, reused)) else current.copy(
             revision = current.revision + 1, selected = target, profiles = profiles,
             pending = PendingProfile(target, enabled, reused),
         )
@@ -183,7 +180,8 @@ object ProfileTransitions {
 
     private fun activate(current: CatalogSnapshot, pending: PendingProfile): CatalogSnapshot {
         val states = current.profiles.toMutableMap()
-        current.active?.takeIf { it != pending.profile }?.let { states[it] = states.getValue(it).copy(phase = ProfilePhase.INSTALLED) }
+        states.entries.filter { it.key != pending.profile && it.value.phase == ProfilePhase.ACTIVE }
+            .forEach { states[it.key] = it.value.copy(phase = ProfilePhase.INSTALLED) }
         states[pending.profile] = states.getValue(pending.profile).copy(phase = ProfilePhase.ACTIVE, error = null)
         return current.copy(
             revision = current.revision + 1,
@@ -260,8 +258,14 @@ object CatalogGenerationBounds {
 }
 
 object CatalogOracleRepair {
-    fun requireCurrent(state: CatalogSnapshot, oracleRevision: String,
+    fun requireCurrent(persisted: CatalogSnapshot, oracleRevision: String,
                        profileInstalled: (ProfileId) -> Boolean): CatalogSnapshot {
+        val phases = persisted.profiles.mapValues { (id, value) ->
+            if (value.phase == ProfilePhase.ACTIVE && id != persisted.active)
+                value.copy(phase = ProfilePhase.INSTALLED) else value
+        }
+        val state = if (phases == persisted.profiles) persisted else
+            persisted.copy(revision = persisted.revision + 1, profiles = phases)
         val verified = state.verifiedOracles.filter { (profile, revision) ->
             revision == oracleRevision && profileInstalled(profile)
         }
@@ -490,25 +494,39 @@ object InferenceGate {
     private val waiting = mutableListOf<Waiter>()
     private var running = false
     private var sequence = 0L
+    private var runningThread: Thread? = null
+    private var runningPriority: InferencePriority? = null
+    private val stopSignal = ThreadLocal<() -> Boolean>()
 
-    fun <T> run(priority: InferencePriority, block: () -> T): T {
+    fun cancelled(): Boolean = Thread.currentThread().isInterrupted || stopSignal.get()?.invoke() == true
+
+    fun <T> run(priority: InferencePriority, stopped: () -> Boolean = { false }, block: () -> T): T {
         val waiter: Waiter
         synchronized(this) {
+            if (Thread.currentThread().isInterrupted || stopped()) throw InterruptedException("INFERENCE_CANCELLED")
             waiter = Waiter(priority, sequence++)
             waiting += waiter
+            if (runningPriority == InferencePriority.BACKGROUND && priority > InferencePriority.BACKGROUND)
+                runningThread?.interrupt()
             try {
                 while (running || waiting.maxWithOrNull(compareBy<Waiter> { it.priority.ordinal }.thenBy { -it.sequence }) != waiter) {
-                    (this as java.lang.Object).wait()
+                    (this as java.lang.Object).wait(100)
+                    if (stopped()) throw InterruptedException("INFERENCE_CANCELLED")
                 }
             } catch (interrupted: InterruptedException) {
                 waiting.remove(waiter)
                 (this as java.lang.Object).notifyAll()
                 throw interrupted
             }
-            waiting.remove(waiter); running = true
+            waiting.remove(waiter); running = true; runningThread = Thread.currentThread(); runningPriority = priority
         }
-        return try { block() } finally { synchronized(this) {
-            running = false; (this as java.lang.Object).notifyAll()
+        stopSignal.set(stopped)
+        return try {
+            if (cancelled()) throw InterruptedException("INFERENCE_CANCELLED")
+            block().also { if (cancelled()) throw InterruptedException("INFERENCE_CANCELLED") }
+        }
+        finally { stopSignal.remove(); synchronized(this) {
+            running = false; runningThread = null; runningPriority = null; (this as java.lang.Object).notifyAll()
         } }
     }
 }

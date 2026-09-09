@@ -60,9 +60,7 @@ object ModelMaintenance {
     }
 
     private fun <T> withPipelineLocks(catalog: ModelCatalog, profile: ProfileId, block: () -> T): T {
-        val keys = catalog.trusted.profiles.getValue(profile).pipelines.values.map { it.fingerprint }.distinct().sorted()
-        fun acquire(index: Int): T = if (index == keys.size) block()
-            else IndexRunCoordinator.run(keys[index], { false }) { acquire(index + 1) }
-        return acquire(0)
+        val keys = catalog.trusted.profiles.getValue(profile).pipelines.values.map { it.fingerprint }
+        return IndexRunCoordinator.runAll(keys, { false }, block)
     }
 }

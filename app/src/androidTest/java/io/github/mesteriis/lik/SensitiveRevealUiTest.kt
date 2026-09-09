@@ -93,7 +93,13 @@ class SensitiveRevealUiTest {
             val instrumentation = InstrumentationRegistry.getInstrumentation()
             instrumentation.waitForIdleSync()
             val title = instrumentation.targetContext.getString(R.string.aigate_send_title)
-            assertTrue(instrumentation.uiAutomation.rootInActiveWindow.findAccessibilityNodeInfosByText(title).isNotEmpty())
+            val deadline=System.nanoTime()+5_000_000_000
+            var shown=false
+            while(!shown&&System.nanoTime()<deadline){
+                shown=instrumentation.uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText(title)?.isNotEmpty()==true
+                if(!shown)Thread.sleep(20)
+            }
+            assertTrue("Consent dialog must be visible before dismissal",shown)
             instrumentation.uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
         } finally { settings.enabled = old }
     }
@@ -101,10 +107,18 @@ class SensitiveRevealUiTest {
     private fun withProtectedViewer(action: (ActivityScenario<PhotoViewerActivity>, String) -> Unit) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
-        val bitmap = Bitmap.createBitmap(32, 24, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.BLUE) }
+        val bitmap = Bitmap.createBitmap(32, 24, Bitmap.Config.ARGB_8888).apply {
+            eraseColor(Color.BLUE);setPixel(0,0,0xff000000.toInt() or System.nanoTime().toInt())
+        }
         val bytes = ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
         bitmap.recycle()
-        val photo = TrashRepository(MediaDatabase.get(context), PhotoLibrary.store(context)).importPhoto(bytes.inputStream()).photo
+        val db=MediaDatabase.get(context)
+        val trash=TrashRepository(db,PhotoLibrary.store(context))
+        val photo = trash.importPhoto(bytes.inputStream()).photo
+        // Finish the prior scenario's queued background relock and this import's invalidations
+        // before injecting a new authentication result. Never weaken production relock timing.
+        db.invalidationTracker.refreshVersionsSync()
+        instrumentation.waitForIdleSync()
         val request = SensitiveMediaSession.current.beginAuthentication()
         assertTrue(SensitiveMediaSession.current.authenticationSucceeded(request, AuthStrength.STRONG))
         try {
@@ -119,7 +133,7 @@ class SensitiveRevealUiTest {
                 assertTrue(ready)
                 action(scenario, photo.id)
             }
-        } finally { PhotoLibrary.store(context).fileFor(photo.id).delete() }
+        } finally { trash.trash(setOf(photo.id));trash.purgeNow(setOf(photo.id)) }
     }
 
     @Test fun strongRevealSurvivesRecreationButRelocksWhenAppLeavesForeground() {
@@ -153,31 +167,15 @@ class SensitiveRevealUiTest {
         assertFalse(SensitiveMediaSession.current.snapshot().revealed)
     }
 
-    @Test fun relockClearsAProtectedViewerBeforeAStaleDecodeCanPublish(){
+    @Test fun relockClearsAProtectedViewerBeforeAStaleDecodeCanPublish() = withProtectedViewer { scenario, _ ->
         val instrumentation=InstrumentationRegistry.getInstrumentation()
-        val context=instrumentation.targetContext
-        val bitmap=Bitmap.createBitmap(96,64,Bitmap.Config.ARGB_8888).apply{eraseColor(Color.rgb(122,45,91))}
-        val bytes=ByteArrayOutputStream().use{output->bitmap.compress(Bitmap.CompressFormat.PNG,100,output);output.toByteArray()}
-        bitmap.recycle()
-        val photo=TrashRepository(MediaDatabase.get(context),PhotoLibrary.store(context)).importPhoto(bytes.inputStream()).photo
-        val request=SensitiveMediaSession.current.beginAuthentication()
-        assertTrue(SensitiveMediaSession.current.authenticationSucceeded(request,AuthStrength.STRONG))
         val activity=AtomicReference<PhotoViewerActivity>()
-        ActivityScenario.launch<PhotoViewerActivity>(android.content.Intent(context,PhotoViewerActivity::class.java).putExtra(PhotoViewerActivity.EXTRA_PHOTO_ID,photo.id)).use{scenario->
-            val deadline=System.nanoTime()+5_000_000_000
-            var ready=false
-            while(!ready&&System.nanoTime()<deadline){
-                scenario.onActivity{current->activity.set(current);ready=current.findViewById<ImageView>(R.id.viewer_image).drawable!=null}
-                if(!ready)Thread.sleep(25)
-            }
-            assertTrue(ready)
-            SensitiveMediaSession.current.relock(RevealRelockReason.SCREEN_LOCK)
-            instrumentation.waitForIdleSync()
-            instrumentation.runOnMainSync{
-                assertTrue(activity.get().isFinishing)
-                assertTrue(activity.get().findViewById<ImageView>(R.id.viewer_image).drawable==null)
-            }
+        scenario.onActivity(activity::set)
+        SensitiveMediaSession.current.relock(RevealRelockReason.SCREEN_LOCK)
+        instrumentation.waitForIdleSync()
+        instrumentation.runOnMainSync{
+            assertTrue(activity.get().isFinishing)
+            assertTrue(activity.get().findViewById<ImageView>(R.id.viewer_image).drawable==null)
         }
-        PhotoLibrary.store(context).fileFor(photo.id).delete()
     }
 }

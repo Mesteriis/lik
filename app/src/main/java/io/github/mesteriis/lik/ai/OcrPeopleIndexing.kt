@@ -32,7 +32,7 @@ class OcrPeopleIndexWorker(context: Context, parameters: WorkerParameters) : Wor
         val database=MediaDatabase.get(applicationContext);val index=database.aiIndexes();val dao=database.ocrPeople()
         val compatibleSource=(listOf(pipeline.fingerprint)+pipeline.compatibleFingerprints).asSequence().mapNotNull(index::compatible).firstOrNull{it.feature==feature.name}
         if(compatibleSource!=null){
-            val reused=catalog.completeRoomGeneration(database,profile,feature,compatibleSource.generationId){if(feature==AiFeature.PEOPLE)recluster(compatibleSource.generationId,it)}
+            val reused=catalog.completeRoomGeneration(database,profile,feature,compatibleSource.generationId)
             if(reused!=null){GenerationRetirement.drain(applicationContext,profile,reused.pruned,catalog,database);return}
         }
         val resumed=index.generations().lastOrNull{it.profileId==profile.wire&&it.feature==feature.name&&it.pipelineFingerprint==pipeline.fingerprint&&it.status==GenerationStatus.PREPARING}
@@ -51,35 +51,51 @@ class OcrPeopleIndexWorker(context: Context, parameters: WorkerParameters) : Wor
                 if(old?.let{it.contentRevision==row.contentRevision&&it.accessEpoch==row.accessGrantEpoch&&it.error==null}==true){checkpoint=row.mediaId;continue}
                 val sensitivePipeline=catalog.trusted.profiles.getValue(profile).pipelines.getValue(AiFeature.SENSITIVE).fingerprint
                 if(index.sensitive(row.mediaId,row.contentRevision,sensitivePipeline)?.status!=SensitiveRunStatus.RAW_RESULT){
-                    val raw=InferenceGate.run(priority){sensitive.sensitive(row.mediaId,row.contentRevision)}
+                    val raw=InferenceGate.run(priority, { isStopped }){sensitive.sensitive(row.mediaId,row.contentRevision)}
                     index.saveSensitive(AiSensitiveRunRecord(row.mediaId,row.contentRevision,sensitivePipeline,SensitiveRunStatus.RAW_RESULT,raw.toBytes(),null,System.currentTimeMillis()))
                 }
                 val token=AiPublicationToken(row.mediaId,row.contentRevision,row.accessGrantEpoch,pipeline.fingerprint,generation.generationId)
                 val published=runCatching { when(feature){
-                    AiFeature.OCR->{val result=InferenceGate.run(priority){engine.ocr(profile,row.mediaId,row.contentRevision)};val regions=JSONArray(result.regions.map{r->JSONObject().put("points",JSONArray(r.quad.points.flatMap{listOf(it.x,it.y)})).put("left",r.box.left).put("top",r.box.top).put("right",r.box.right).put("bottom",r.box.bottom).put("text",r.text).put("confidence",r.confidence)}).toString()
+                    AiFeature.OCR->{val result=InferenceGate.run(priority, { isStopped }){engine.ocr(profile,row.mediaId,row.contentRevision,row.accessGrantEpoch)};val regions=JSONArray(result.regions.map{r->JSONObject().put("points",JSONArray(r.quad.points.flatMap{listOf(it.x,it.y)})).put("left",r.box.left).put("top",r.box.top).put("right",r.box.right).put("bottom",r.box.bottom).put("text",r.text).put("confidence",r.confidence)}).toString()
                         dao.publishOcrRunIfCurrent(AiOcrResultRecord(generation.generationId,row.mediaId,row.contentRevision,row.accessGrantEpoch,pipeline.fingerprint,result.displayText,OcrText.searchKey(result.displayText),regions,result.confidence),AiFeatureMediaRunRecord(generation.generationId,row.mediaId,feature.name,row.contentRevision,row.accessGrantEpoch,null))}
-                    AiFeature.PEOPLE->{val faces=InferenceGate.run(priority){engine.people(row.mediaId,row.contentRevision)}.mapIndexed{at,face->val anchor=FaceAnchor.from(row.mediaId,face.box);AiFaceDetectionRecord("${generation.generationId}:${row.mediaId}:$at",generation.generationId,row.mediaId,row.contentRevision,row.accessGrantEpoch,pipeline.fingerprint,anchor,face.box.left,face.box.top,face.box.right,face.box.bottom,face.landmarks.toBytes(),face.embedding.toBytes(),face.confidence,anchor)};dao.publishFacesIfCurrent(token,faces)}
+                    AiFeature.PEOPLE->{val faces=InferenceGate.run(priority, { isStopped }){engine.people(row.mediaId,row.contentRevision,row.accessGrantEpoch)}.mapIndexed{at,face->val anchor=FaceAnchor.from(row.mediaId,face.box);AiFaceDetectionRecord("${generation.generationId}:${row.mediaId}:$at",generation.generationId,row.mediaId,row.contentRevision,row.accessGrantEpoch,pipeline.fingerprint,anchor,face.box.left,face.box.top,face.box.right,face.box.bottom,face.landmarks.toBytes(),face.embedding.toBytes(),face.confidence,anchor)};dao.publishFacesIfCurrent(token,faces)}
                     else->error("UNSUPPORTED_FEATURE")
                 }}
+                if(published.exceptionOrNull() is InterruptedException)throw published.exceptionOrNull()!!
+                if(isStopped)throw InterruptedException("INDEX_CANCELLED")
                 if(published.isFailure){val fresh=database.media().get(row.mediaId);if(fresh?.availability==MediaAvailability.AVAILABLE&&fresh.contentRevision==row.contentRevision&&fresh.accessGrantEpoch==row.accessGrantEpoch){dao.saveRun(AiFeatureMediaRunRecord(generation.generationId,row.mediaId,feature.name,row.contentRevision,row.accessGrantEpoch,published.exceptionOrNull()?.message?.take(160)));failures++}}
                 val fresh=database.media().get(row.mediaId);if(fresh?.availability==MediaAvailability.AVAILABLE&&fresh.contentRevision==row.contentRevision&&fresh.accessGrantEpoch==row.accessGrantEpoch)completed=dao.currentIndexableRunCount(generation.generationId)
                 checkpoint=row.mediaId;generation=generation.copy(completed=completed,total=index.aiIndexableCount(),checkpointMediaId=checkpoint,error=null);index.saveGeneration(generation)
             }
         }
         completed=dao.currentIndexableRunCount(generation.generationId);if(failures>0){generation=generation.copy(status=GenerationStatus.ERROR,completed=completed,total=index.aiIndexableCount(),error="MEDIA_FAILURES:$failures;COVERAGE:$completed/${index.aiIndexableCount()}");index.saveGeneration(generation);error(generation.error!!)}
-        val completion=catalog.completeRoomGeneration(database,profile,feature,generation.generationId){if(feature==AiFeature.PEOPLE)recluster(generation.generationId,it)}
+        val revision=io.github.mesteriis.lik.catalog.CatalogChanges.revision(database)
+        if(feature==AiFeature.PEOPLE)recluster(generation.generationId,database,revision)
+        if(isStopped)throw InterruptedException("INDEX_CANCELLED")
+        val completion=catalog.completeRoomGeneration(database,profile,feature,generation.generationId,revision)
             ?:throw GenerationMembershipChanged()
         GenerationRetirement.drain(applicationContext,profile,completion.pruned,catalog,database)
     }
 
-    private fun recluster(generation:String,dao:OcrPeopleDao){
+    private fun recluster(generation:String,database:MediaDatabase,revision:Long){
+        val dao=database.ocrPeople()
         val cannot=dao.cannotLinks().map{ManualFacePair.ordered(it.leftAnchorId,it.rightAnchorId)}.toSet()
-        FaceClusterer.cluster(dao.faces(generation).map{FaceVector(it.anchorId,it.embedding.toFloats())},FACE_THRESHOLD,cannot).forEach{anchors->dao.setCluster(generation,anchors,"auto:${anchors.first()}")}
+        var after=""
+        while(true){
+            if(isStopped||Thread.currentThread().isInterrupted)throw InterruptedException("CLUSTER_CANCELLED")
+            val batch=dao.faceBatch(generation,after,FaceClusterer.WINDOW);if(batch.isEmpty())return
+            val clusters=FaceClusterer.cluster(batch.map{FaceVector(it.anchorId,it.embedding.toFloats())},FACE_THRESHOLD,cannot)
+            database.runInTransaction{
+                if(isStopped||io.github.mesteriis.lik.catalog.CatalogChanges.revision(database)!=revision)throw GenerationMembershipChanged()
+                clusters.forEach{anchors->dao.setCluster(generation,anchors,"auto:${anchors.first()}")}
+            }
+            after=batch.last().detectionId
+        }
     }
     companion object{
         private const val PROFILE="profile";private const val MANUAL="manual";private const val ERROR="error";private const val FACE_THRESHOLD=.363f
         fun enqueue(context:Context,profile:ProfileId,manual:Boolean){val constraints=Constraints.Builder().setRequiresStorageNotLow(true).setRequiresBatteryNotLow(true).apply{if(!manual)setRequiresCharging(true)}.build();val request=OneTimeWorkRequestBuilder<OcrPeopleIndexWorker>().setInputData(workDataOf(PROFILE to profile.wire,MANUAL to manual)).setConstraints(constraints).build();WorkManager.getInstance(context).enqueueUniqueWork("ai-ocr-people-${profile.wire}",if(manual)ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,request)}
-        fun pause(context:Context,profile:ProfileId)=WorkManager.getInstance(context).cancelUniqueWork("ai-ocr-people-${profile.wire}")
+        fun pause(context:Context,profile:ProfileId)=WorkManager.getInstance(context).run { cancelUniqueWork("ai-ocr-people-${profile.wire}");cancelAllWorkByTag("ai-ocr-people-${profile.wire}") }
     }
 }
 

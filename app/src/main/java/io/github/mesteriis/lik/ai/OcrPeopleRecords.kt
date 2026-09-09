@@ -46,7 +46,8 @@ data class AiFeatureMediaRunRecord(
 @Entity(
     tableName = "ai_face_detection",
     foreignKeys = [ForeignKey(entity = AiIndexGenerationRecord::class, parentColumns = ["generationId"], childColumns = ["generationId"], onDelete = ForeignKey.CASCADE)],
-    indices = [Index("generationId"), Index("mediaId"), Index("anchorId")],
+    indices = [Index("generationId"), Index("mediaId"), Index("anchorId"),
+        Index(value=["generationId","detectionId"]),Index(value=["generationId","anchorId"])],
 )
 data class AiFaceDetectionRecord(
     @PrimaryKey val detectionId: String,
@@ -140,6 +141,8 @@ interface OcrPeopleDao {
     @Query("SELECT f.detectionId,f.anchorId,f.mediaId,f.computedClusterId,f.contentRevision,f.accessEpoch,d.decision AS manualDecision,d.personId AS manualPersonId FROM ai_face_detection f JOIN media m ON m.mediaId=f.mediaId JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision LEFT JOIN person_face_decision d ON d.anchorId=f.anchorId WHERE f.generationId=:generationId AND m.availability='AVAILABLE' AND m.trashedAt IS NULL AND m.contentRevision=f.contentRevision AND m.accessGrantEpoch=f.accessEpoch AND x.exposure='SAFE'")
     fun visibleFaces(generationId: String): List<VisibleFaceRow>
     @Query("SELECT * FROM ai_face_detection WHERE generationId=:generationId ORDER BY anchorId") fun faces(generationId: String): List<AiFaceDetectionRecord>
+    @Query("SELECT * FROM ai_face_detection WHERE generationId=:generationId AND detectionId>:after ORDER BY detectionId LIMIT :limit")
+    fun faceBatch(generationId:String,after:String,limit:Int):List<AiFaceDetectionRecord>
     @Query("UPDATE ai_face_detection SET computedClusterId=:clusterId WHERE generationId=:generationId AND anchorId IN (:anchors)") fun setCluster(generationId: String, anchors: List<String>, clusterId: String): Int
     @Query("SELECT COUNT(DISTINCT f.mediaId) FROM ai_face_detection f JOIN media m ON m.mediaId=f.mediaId JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE f.generationId=:generationId AND m.availability='AVAILABLE' AND m.contentRevision=f.contentRevision AND m.accessGrantEpoch=f.accessEpoch AND x.exposure='SAFE'") fun currentPeopleMediaCount(generationId: String): Int
     @Query("SELECT COUNT(DISTINCT mediaId) FROM ai_face_detection WHERE generationId=:generationId") fun peopleMediaCount(generationId: String): Int
@@ -177,22 +180,23 @@ interface OcrPeopleDao {
 
     @Transaction
     fun publishOcrIfCurrent(value: AiOcrResultRecord): Boolean {
-        val row = currentMedia(value.mediaId) ?: return false
-        if (row.availability != MediaAvailability.AVAILABLE || row.contentRevision != value.contentRevision || row.accessGrantEpoch != value.accessEpoch) return false
+        if (eligibleMedia(value.mediaId,value.contentRevision,value.accessEpoch) == null) return false
         saveOcr(value); return true
     }
 
     @Transaction
     fun publishOcrRunIfCurrent(value: AiOcrResultRecord, run: AiFeatureMediaRunRecord): Boolean {
-        val row = currentMedia(value.mediaId) ?: return false
-        if (row.availability != MediaAvailability.AVAILABLE || row.contentRevision != value.contentRevision || row.accessGrantEpoch != value.accessEpoch) return false
+        if (eligibleMedia(value.mediaId,value.contentRevision,value.accessEpoch) == null) return false
+        require(run.generationId == value.generationId && run.mediaId == value.mediaId &&
+            run.contentRevision == value.contentRevision && run.accessEpoch == value.accessEpoch && run.feature == AiFeature.OCR.name)
         saveOcr(value); saveRun(run); return true
     }
 
     @Transaction
     fun publishFacesIfCurrent(token: AiPublicationToken, faces: List<AiFaceDetectionRecord>): Boolean {
-        val row = currentMedia(token.mediaId) ?: return false
-        if (row.availability != MediaAvailability.AVAILABLE || row.contentRevision != token.contentRevision || row.accessGrantEpoch != token.accessEpoch) return false
+        if (eligibleMedia(token.mediaId,token.contentRevision,token.accessEpoch) == null) return false
+        require(faces.all { it.generationId == token.generationId && it.mediaId == token.mediaId &&
+            it.contentRevision == token.contentRevision && it.accessEpoch == token.accessEpoch && it.pipelineFingerprint == token.pipelineFingerprint })
         deleteFaces(token.generationId, token.mediaId)
         faces.forEach(::saveFace)
         saveRun(AiFeatureMediaRunRecord(token.generationId, token.mediaId, AiFeature.PEOPLE.name,
@@ -201,4 +205,7 @@ interface OcrPeopleDao {
     }
 
     @Query("SELECT * FROM media WHERE mediaId=:mediaId") fun currentMedia(mediaId: String): MediaRecord?
+
+    @Query("SELECT m.* FROM media m JOIN ai_media_exposure x ON x.mediaId=m.mediaId AND x.contentRevision=m.contentRevision WHERE m.mediaId=:mediaId AND m.contentRevision=:revision AND (:epoch IS NULL OR m.accessGrantEpoch=:epoch) AND m.availability='AVAILABLE' AND m.trashedAt IS NULL AND x.exposure='SAFE' LIMIT 1")
+    fun eligibleMedia(mediaId:String,revision:Long,epoch:Long?=null):MediaRecord?
 }

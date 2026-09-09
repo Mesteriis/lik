@@ -86,13 +86,13 @@ class ModelCatalog private constructor(private val root: File, private val datab
                     withGeneration.activeGenerations + (feature to generation.id) else withGeneration.activeGenerations)
         }, beforeCommit)
 
-    /** Final membership validation, Room completion, clustering and catalog publication share one lock/transaction. */
+    /** Only final membership validation and durable publication hold the catalog lock/transaction. */
     @Synchronized internal fun completeRoomGeneration(
         database: io.github.mesteriis.lik.catalog.MediaDatabase,
         profile: ProfileId,
         feature: AiFeature,
         generationId: String,
-        finalizePayload: (OcrPeopleDao) -> Unit = {},
+        expectedCatalogRevision: Long? = null,
     ): RoomGenerationCompletion? {
         require(feature == AiFeature.OCR || feature == AiFeature.PEOPLE)
         var completed: AiIndexGenerationRecord? = null;var pruned=emptySet<String>()
@@ -101,6 +101,7 @@ class ModelCatalog private constructor(private val root: File, private val datab
         try {
             database.runInTransaction {
                 val index = database.aiIndexes(); val payload = database.ocrPeople()
+                if (expectedCatalogRevision != null && io.github.mesteriis.lik.catalog.CatalogChanges.revision(database) != expectedCatalogRevision) return@runInTransaction
                 payload.invalidIndexableRunIds(generationId).forEach { mediaId ->
                     payload.deleteOcr(generationId, mediaId); payload.deleteFaces(generationId, mediaId); payload.deleteRun(generationId, mediaId)
                 }
@@ -108,7 +109,6 @@ class ModelCatalog private constructor(private val root: File, private val datab
                 if (record.feature != feature.name || record.status == GenerationStatus.ERROR) return@runInTransaction
                 val total = index.aiIndexableCount()
                 if (payload.currentIndexableRunCount(generationId) != total || payload.storedRunCount(generationId) != total) return@runInTransaction
-                finalizePayload(payload)
                 if (payload.currentIndexableRunCount(generationId) != total || index.aiIndexableCount() != total) return@runInTransaction
                 val ready = record.copy(status=GenerationStatus.COMPLETE,completed=total,total=total,error=null)
                 val candidate = CatalogGenerationBounds.prune(run { val state=old

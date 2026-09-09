@@ -677,6 +677,46 @@ class AiRuntimeTest {
         assertTrue(rebound.liveSessions > 0)
     }
 
+    @Test fun cancelledRealImageAndTextLeaveRuntimeAvailableForInteractiveSearch() {
+        assumeTrue("Explicit external emulator provisioning is required",
+            InstrumentationRegistry.getArguments().getString("likRuntimeModels") == "true")
+        val engine=SemanticEmbeddingEngine(context);val runtime=IsolatedRuntimeClient(context)
+        val bitmap=Bitmap.createBitmap(96,64,Bitmap.Config.ARGB_8888).apply{eraseColor(0xff884433.toInt())}
+        val pool=Executors.newFixedThreadPool(2)
+        try {
+            engine.imageBitmap(ProfileId.COMPACT,bitmap);engine.query(ProfileId.COMPACT,"первый запрос")
+            for(image in listOf(true,false)) {
+                val started=java.util.concurrent.CountDownLatch(1)
+                val background=pool.submit<Boolean>{
+                    runCatching { InferenceGate.run(InferencePriority.BACKGROUND) {
+                        started.countDown()
+                        while(true){if(image)engine.imageBitmap(ProfileId.COMPACT,bitmap) else engine.query(ProfileId.COMPACT,"фон")}
+                    }}.isFailure
+                }
+                assertTrue(started.await(2,TimeUnit.SECONDS));Thread.sleep(40)
+                val search=pool.submit<FloatArray>{InferenceGate.run(InferencePriority.INTERACTIVE){engine.query(ProfileId.COMPACT,"поиск после отмены")}}
+                assertEquals(512,search.get(20,TimeUnit.SECONDS).size)
+                assertTrue(background.get(2,TimeUnit.SECONDS))
+                assertEquals(0,runtime.stats().getOrThrow().pendingRequests)
+            }
+        }finally{pool.shutdownNow();bitmap.recycle()}
+    }
+
+    @Test fun failedScreeningPassDoesNotStarveAlreadySafeCatalogIndexes() {
+        assumeTrue("Explicit external emulator provisioning is required",
+            InstrumentationRegistry.getArguments().getString("likRuntimeModels") == "true")
+        val database=MediaDatabase.get(context);val id="invalid-screening-${System.nanoTime()}"
+        database.media().upsert(MediaRecord(id,MediaSource.DEVICE,id,contentUri="content://invalid",lastSeenAt=1))
+        val executor=Executors.newSingleThreadExecutor()
+        try {
+            val worker=TestWorkerBuilder.from(context,io.github.mesteriis.lik.privacy.SensitiveClassifierWorker::class.java,executor)
+                .setInputData(workDataOf("catalog-pass" to true)).build()
+            assertEquals(ListenableWorker.Result.success(),worker.doWork())
+            assertEquals(io.github.mesteriis.lik.privacy.SensitiveDecision.QUARANTINED,
+                database.sensitiveMedia().resolved(id,0,1))
+        }finally{executor.shutdownNow();database.openHelper.writableDatabase.execSQL("DELETE FROM media WHERE mediaId=?",arrayOf(id))}
+    }
+
     @Test fun realIndexWorkerPublishesRevisionCheckedGenerationAndNativeSearch() {
         assumeTrue("Explicit external emulator provisioning is required",
             InstrumentationRegistry.getArguments().getString("likRuntimeModels") == "true")
@@ -692,6 +732,9 @@ class AiRuntimeTest {
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 92, it) }; bitmap.recycle()
         val record = io.github.mesteriis.lik.catalog.ImportedCatalogMigration.record(io.github.mesteriis.lik.imports.ImportedPhoto(id, file), 41)
         val database = MediaDatabase.get(context); database.media().upsert(record)
+        // Explicit QA review authorizes this synthetic photo; classifier calibration stays disabled.
+        database.sensitiveMedia().saveManual(io.github.mesteriis.lik.privacy.SensitiveManualRecord(id,record.contentRevision,io.github.mesteriis.lik.privacy.SensitiveDecision.SAFE,1))
+        database.ocrPeople().saveExposure(AiMediaExposureRecord(id,record.contentRevision,AiExposure.SAFE,1))
         val executor = Executors.newSingleThreadExecutor()
         try {
             val worker = TestWorkerBuilder.from(context, AiIndexWorker::class.java, executor)

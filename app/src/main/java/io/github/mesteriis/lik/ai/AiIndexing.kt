@@ -99,7 +99,16 @@ object IndexRunCoordinator {
         val lock = synchronized(locks) { locks.getOrPut(key) { java.util.concurrent.locks.ReentrantLock() } }
         lock.lockInterruptibly()
         return try { if (stopped()) throw InterruptedException("INDEX_CANCELLED"); block() }
-        finally { lock.unlock(); synchronized(locks) { if (!lock.isLocked && !lock.hasQueuedThreads()) locks.remove(key, lock) } }
+        // Keys come from the finite trusted pipeline catalog. Retaining locks prevents a caller
+        // between lookup and acquisition from holding a different lock from the next caller.
+        finally { lock.unlock() }
+    }
+
+    fun <T> runAll(keys: Collection<String>, stopped: () -> Boolean, block: () -> T): T {
+        val ordered = keys.distinct().sorted()
+        fun acquire(at: Int): T = if (at == ordered.size) block()
+            else run(ordered[at], stopped) { acquire(at + 1) }
+        return acquire(0)
     }
 }
 
@@ -166,7 +175,7 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
                     continue
                 }
                 if (dao.sensitive(row.mediaId, row.contentRevision, sensitivePipeline)?.status != SensitiveRunStatus.RAW_RESULT) {
-                    val raw = runCatching { InferenceGate.run(priority) { engine.sensitive(row.mediaId, row.contentRevision) } }
+                    val raw = runCatching { InferenceGate.run(priority, { isStopped }) { engine.sensitive(row.mediaId, row.contentRevision) } }
                     dao.saveSensitive(AiSensitiveRunRecord(row.mediaId, row.contentRevision, sensitivePipeline,
                         if (raw.isSuccess) SensitiveRunStatus.RAW_RESULT else SensitiveRunStatus.ERROR,
                         raw.getOrNull()?.toBytes(), raw.exceptionOrNull()?.message?.take(160), System.currentTimeMillis()))
@@ -176,7 +185,7 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
                         throw RetryableIndexException("SENSITIVE_RETRY", raw.exceptionOrNull())
                     }
                 }
-                val embedded = runCatching { InferenceGate.run(priority) { engine.image(profile, row.mediaId, row.contentRevision) } }
+                val embedded = runCatching { InferenceGate.run(priority, { isStopped }) { engine.image(profile, row.mediaId, row.contentRevision, row.accessGrantEpoch) } }
                 if (isStopped) throw InterruptedException("INDEX_CANCELLED")
                 val fresh = database.media().get(row.mediaId)
                 if (embedded.isFailure) {
@@ -388,33 +397,25 @@ class AiIndexWorker(context: Context, parameters: WorkerParameters) : Worker(con
         fun pause(context: Context, profile: ProfileId) =
             WorkManager.getInstance(context).run {
                 cancelUniqueWork("ai-index-${profile.wire}"); cancelUniqueWork("ai-index-periodic-${profile.wire}")
+                cancelAllWorkByTag("ai-index-${profile.wire}")
             }
 
         fun discardPreparation(context: Context, profile: ProfileId) {
             pause(context, profile)
             OcrPeopleIndexWorker.pause(context, profile)
             val catalog = ModelCatalog.get(context)
-            val pipeline = catalog.trusted.profiles.getValue(profile).pipelines.getValue(AiFeature.SEARCH)
-            IndexRunCoordinator.run(pipeline.fingerprint, { false }) {
-                val featurePipelines = listOf(AiFeature.OCR, AiFeature.PEOPLE).map {
-                    catalog.trusted.profiles.getValue(profile).pipelines.getValue(it).fingerprint
+            val keys = catalog.trusted.profiles.getValue(profile).pipelines.values.map { it.fingerprint }
+            IndexRunCoordinator.runAll(keys, { false }) {
+                val database = MediaDatabase.get(context)
+                val ids = database.aiIndexes().generations().filter {
+                    it.profileId == profile.wire && it.status != GenerationStatus.COMPLETE
+                }.map { it.generationId }.toSet()
+                if (catalog.snapshot().pending?.profile == profile) catalog.cancelPreparation(profile)
+                if (ids.isNotEmpty()) {
+                    catalog.discardGenerations(ids)
+                    database.runInTransaction { database.aiIndexes().deleteGenerations(ids) }
+                    ids.forEach { NativeIndexFiles.remove(context, it) }
                 }
-                fun cleanup(at: Int) {
-                    if (at < featurePipelines.size) IndexRunCoordinator.run(featurePipelines[at], { false }) { cleanup(at + 1) }
-                    else {
-                        val database = MediaDatabase.get(context)
-                        val ids = database.aiIndexes().generations().filter {
-                            it.profileId == profile.wire && it.status != GenerationStatus.COMPLETE
-                        }.map { it.generationId }.toSet()
-                        if (catalog.snapshot().pending?.profile == profile) catalog.cancelPreparation(profile)
-                        if (ids.isNotEmpty()) {
-                            catalog.discardGenerations(ids)
-                            database.runInTransaction { database.aiIndexes().deleteGenerations(ids) }
-                            ids.forEach { NativeIndexFiles.remove(context, it) }
-                        }
-                    }
-                }
-                cleanup(0)
             }
         }
     }

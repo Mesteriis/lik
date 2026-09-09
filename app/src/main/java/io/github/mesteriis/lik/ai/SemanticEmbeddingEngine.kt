@@ -39,11 +39,13 @@ class SemanticEmbeddingEngine(
         }
     }
 
-    fun image(profile: ProfileId, mediaId: String, expectedRevision: Long): FloatArray {
-        val row = MediaDatabase.get(context).media().get(mediaId) ?: error("PHOTO_MISSING")
-        require(row.contentRevision == expectedRevision && row.availability.name == "AVAILABLE") { "PHOTO_CHANGED" }
+    fun image(profile: ProfileId, mediaId: String, expectedRevision: Long, expectedEpoch: Long? = null): FloatArray {
+        val row = requireNotNull(MediaDatabase.get(context).ocrPeople().eligibleMedia(mediaId,expectedRevision,expectedEpoch)) { "PHOTO_NOT_AI_ELIGIBLE" }
         val bitmap = decode(row, 512)
-        return try { imageBitmap(profile, bitmap) } finally { bitmap.recycle() }
+        return try {
+            requireNotNull(MediaDatabase.get(context).ocrPeople().eligibleMedia(mediaId,expectedRevision,row.accessGrantEpoch)) { "PHOTO_NOT_AI_ELIGIBLE" }
+            imageBitmap(profile, bitmap)
+        } finally { bitmap.recycle() }
     }
 
     fun imageBitmap(profile: ProfileId, bitmap: Bitmap): FloatArray {

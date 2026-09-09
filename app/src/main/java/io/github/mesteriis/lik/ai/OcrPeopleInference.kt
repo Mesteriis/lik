@@ -31,21 +31,22 @@ class OcrPeopleInferenceEngine(
     private val artifacts: ArtifactStore = ArtifactStore(File(context.filesDir, "ai")),
     private val runtime: IsolatedRuntimeClient = IsolatedRuntimeClient(context),
 ) {
-    fun ocr(profile: ProfileId, mediaId: String, expectedRevision: Long): OcrInference {
-        val row = current(mediaId, expectedRevision)
+    fun ocr(profile: ProfileId, mediaId: String, expectedRevision: Long, expectedEpoch: Long? = null): OcrInference {
+        val row = current(mediaId, expectedRevision, expectedEpoch)
         val bitmap = decode(row, 1600)
-        return try { ocrBitmap(profile, bitmap) } finally { bitmap.recycle() }
+        return try { ocrBitmap(profile, bitmap) { current(mediaId,expectedRevision,row.accessGrantEpoch);Unit } } finally { bitmap.recycle() }
     }
 
-    fun people(mediaId: String, expectedRevision: Long): List<FaceInference> {
-        val row = current(mediaId, expectedRevision)
+    fun people(mediaId: String, expectedRevision: Long, expectedEpoch: Long? = null): List<FaceInference> {
+        val row = current(mediaId, expectedRevision, expectedEpoch)
         val bitmap = decode(row, 1600)
-        return try { peopleBitmap(bitmap) } finally { bitmap.recycle() }
+        return try { peopleBitmap(bitmap) { current(mediaId,expectedRevision,row.accessGrantEpoch);Unit } } finally { bitmap.recycle() }
     }
 
-    fun ocrBitmap(profile: ProfileId, bitmap: Bitmap): OcrInference {
+    fun ocrBitmap(profile: ProfileId, bitmap: Bitmap, admit:()->Unit = {}): OcrInference {
         val detector = if (profile == ProfileId.EXTENDED) "ocr-server-det-v1/model.onnx" else "ocr-mobile-det-v1/model.onnx"
         val resized = OcrTensor.detector(bitmap)
+        admit()
         val probability = runtime.runFloat(file(detector), "x", resized.shape, resized.values, "fetch_name_0",
             outputCapacityFloats = resized.width * resized.height).getOrThrow()
         val boxes = DbRegions.quadrilaterals(
@@ -57,6 +58,7 @@ class OcrPeopleInferenceEngine(
             val crop = crop(bitmap, quad)
             try {
                 val tensor = OcrTensor.recognizer(crop)
+                admit()
                 val flat = runtime.runFloat(file("ocr-cyrillic-rec-v1/model.onnx"), "x", tensor.shape, tensor.values, "fetch_name_0").getOrThrow()
                 if (flat.size % 852 != 0) error("OCR_OUTPUT_SHAPE")
                 val decoded = CtcDecoder.decode(Array(flat.size / 852) { at -> flat.copyOfRange(at * 852, (at + 1) * 852) }, dictionary)
@@ -66,9 +68,10 @@ class OcrPeopleInferenceEngine(
         return OcrInference(regions)
     }
 
-    fun peopleBitmap(bitmap: Bitmap): List<FaceInference> {
+    fun peopleBitmap(bitmap: Bitmap, admit:()->Unit = {}): List<FaceInference> {
         val tensor = FaceTensor.detector(bitmap)
         val names = listOf("cls_8","cls_16","cls_32","obj_8","obj_16","obj_32","bbox_8","bbox_16","bbox_32","kps_8","kps_16","kps_32")
+        admit()
         val flat = runtime.runFloatMulti(file("yunet-v1/model.onnx"), "input", intArrayOf(1,3,640,640), tensor.values, names,
             outputCapacityFloats = 134_400).getOrThrow()
         val proposals = YuNetPostprocess.decode(flat, tensor.scaleX, tensor.scaleY, bitmap.width, bitmap.height)
@@ -76,6 +79,7 @@ class OcrPeopleInferenceEngine(
             val aligned = FaceAlignment.align(bitmap, proposal.landmarks)
             try {
                 val values = FaceTensor.recognizer(aligned)
+                admit()
                 val raw = runtime.runFloat(file("sface-v1/model.onnx"), "data", intArrayOf(1,3,112,112), values, "fc1").getOrThrow()
                 val norm = sqrt(raw.sumOf { it.toDouble() * it }).toFloat().also { require(it > 0) }
                 FaceInference(proposal.box, proposal.landmarks, FloatArray(raw.size) { raw[it] / norm }, proposal.confidence)
@@ -83,9 +87,8 @@ class OcrPeopleInferenceEngine(
         }
     }
 
-    private fun current(mediaId: String, revision: Long): MediaRecord = requireNotNull(MediaDatabase.get(context).media().get(mediaId)).also {
-        require(it.availability.name == "AVAILABLE" && it.contentRevision == revision) { "PHOTO_CHANGED" }
-    }
+    private fun current(mediaId: String, revision: Long, epoch:Long?): MediaRecord =
+        requireNotNull(MediaDatabase.get(context).ocrPeople().eligibleMedia(mediaId, revision, epoch)) { "PHOTO_NOT_AI_ELIGIBLE" }
     private fun decode(row: MediaRecord, bound: Int): Bitmap {
         val source = if (row.source == MediaSource.DEVICE) ImageDecoder.createSource(context.contentResolver, requireNotNull(row.contentUri).toUri())
         else ImageDecoder.createSource(PhotoLibrary.store(context).fileFor(requireNotNull(row.privateFileId)))

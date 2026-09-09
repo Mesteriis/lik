@@ -9,6 +9,29 @@ import java.io.InputStream
  * PURGING is a durable, irreversible claim. Commit it before unlink, then remove the row; retry
  * tolerates an already absent file. No filesystem action ever targets a device/content URI. */
 class TrashRepository(private val db: MediaDatabase, private val store: PhotoStore) {
+    /** Explicit UI actions are checked again inside the same transaction as the durable claim. */
+    fun purgeVisible(expected:MediaRecord,reveal:io.github.mesteriis.lik.privacy.RevealSnapshot):Boolean = synchronized(store) {
+        val claimed=db.runInTransaction<Boolean>{
+            if(!visibleCurrent(expected,reveal))return@runInTransaction false
+            db.media().claimPurge(setOf(expected.mediaId))
+            db.media().get(expected.mediaId)?.availability==MediaAvailability.PURGING
+        }
+        if(claimed)finishPending()
+        claimed
+    }
+
+    fun restoreVisible(expected:MediaRecord,reveal:io.github.mesteriis.lik.privacy.RevealSnapshot):Boolean = synchronized(store) {
+        db.runInTransaction<Boolean>{ if(!visibleCurrent(expected,reveal)) false else restore(expected.mediaId) }
+    }
+
+    private fun visibleCurrent(expected:MediaRecord,reveal:io.github.mesteriis.lik.privacy.RevealSnapshot):Boolean {
+        val current=db.media().get(expected.mediaId)?:return false
+        if(current.source!=MediaSource.GOOGLE_IMPORT || current.availability!=MediaAvailability.TRASHED ||
+            current.trashedAt!=expected.trashedAt || current.contentRevision!=expected.contentRevision || current.accessGrantEpoch!=expected.accessGrantEpoch)return false
+        return db.sensitiveMedia().resolved(current.mediaId,current.contentRevision,current.accessGrantEpoch)==io.github.mesteriis.lik.privacy.SensitiveDecision.SAFE ||
+            (reveal.revealed && io.github.mesteriis.lik.privacy.SensitiveMediaSession.current.accepts(reveal.epoch))
+    }
+
     fun trash(ids: Set<String>, now: Long = System.currentTimeMillis()): Int = synchronized(store) {
         db.runInTransaction<Int> { db.media().trash(ids, now) }
     }

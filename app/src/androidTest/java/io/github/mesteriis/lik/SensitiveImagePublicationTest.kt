@@ -92,16 +92,21 @@ class SensitiveImagePublicationTest {
     @Test fun lockedViewerClearsAlreadyPublishedSafePhotoWhenPolicyChanges() {
         val row=safePhoto();val store=ViewModelStore()
         lateinit var model:PhotoViewerViewModel
+        val cleared=CountDownLatch(1)
+        val observer=androidx.lifecycle.Observer<io.github.mesteriis.lik.gallery.ViewerState>{if(it.bitmap==null)cleared.countDown()}
         instrumentation.runOnMainSync { model=PhotoViewerViewModel(context.applicationContext as Application);store.put("viewer",model);model.start(row.mediaId) }
         try {
             field<ExecutorService>(model,"worker").submit {}.get(5,TimeUnit.SECONDS)
             instrumentation.waitForIdleSync()
-            instrumentation.runOnMainSync { assertNotNull(model.state.value?.bitmap) }
+            instrumentation.runOnMainSync { assertNotNull(model.state.value?.bitmap);model.state.observeForever(observer) }
             db.sensitiveMedia().saveManual(SensitiveManualRecord(row.mediaId,row.contentRevision,SensitiveDecision.SENSITIVE,2))
             db.ocrPeople().saveExposure(AiMediaExposureRecord(row.mediaId,row.contentRevision,AiExposure.SENSITIVE,2))
             db.invalidationTracker.refreshVersionsSync()
+            // Room may already have dispatched a refresh on its query executor. Main-thread
+            // idle alone does not join that callback; await the actual production clear event.
+            assertTrue("Policy invalidation must deliver a cleared image",cleared.await(5,TimeUnit.SECONDS))
             instrumentation.waitForIdleSync()
             instrumentation.runOnMainSync { assertNull("Policy changes must clear already displayed SAFE pixels",model.state.value?.bitmap) }
-        } finally { instrumentation.runOnMainSync { store.clear() };PhotoLibrary.store(context).fileFor(row.privateFileId!!).delete() }
+        } finally { instrumentation.runOnMainSync { model.state.removeObserver(observer);store.clear() };PhotoLibrary.store(context).fileFor(row.privateFileId!!).delete() }
     }
 }
