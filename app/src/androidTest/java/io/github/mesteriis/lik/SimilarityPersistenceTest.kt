@@ -13,6 +13,66 @@ import java.io.IOException
 import android.util.Base64
 
 class SimilarityPersistenceTest {
+    @Test fun roomExposureTransitionTableOnlyCrossesCurrentSafeBoundary(){
+        val states=listOf<AiExposure?>(null,AiExposure.QUARANTINED,AiExposure.SENSITIVE,AiExposure.SAFE)
+        states.forEachIndexed{oldIndex,old->states.forEachIndexed{newIndex,new->triggerFixture{db->
+            val media=row("exposure-$oldIndex-$newIndex",MediaSource.DEVICE);db.media().upsert(media)
+            old?.let{db.ocrPeople().saveExposure(AiMediaExposureRecord(media.mediaId,media.contentRevision,it,1))}
+            val before=db.similarity().libraryRevision()
+            when{
+                new==null&&old!=null->db.openHelper.writableDatabase.execSQL("DELETE FROM ai_media_exposure WHERE mediaId=? AND contentRevision=?",arrayOf<Any?>(media.mediaId,media.contentRevision))
+                new!=null->db.ocrPeople().saveExposure(AiMediaExposureRecord(media.mediaId,media.contentRevision,new,2))
+            }
+            val expected=before+if((old==AiExposure.SAFE)!=(new==AiExposure.SAFE))1 else 0
+            assertEquals("$old -> $new",expected,db.similarity().libraryRevision())
+        }}}
+    }
+
+    @Test fun mediaAndExposureInsertionDeletionOrdersEachChangeMembershipOnce(){
+        listOf(true,false).forEach{exposureFirst->triggerFixture{db->
+            val media=row("insert-$exposureFirst",MediaSource.DEVICE);val before=db.similarity().libraryRevision()
+            if(exposureFirst){db.ocrPeople().saveExposure(AiMediaExposureRecord(media.mediaId,media.contentRevision,AiExposure.SAFE,1));db.media().upsert(media)}
+            else{db.media().upsert(media);db.ocrPeople().saveExposure(AiMediaExposureRecord(media.mediaId,media.contentRevision,AiExposure.SAFE,1))}
+            assertEquals(before+1,db.similarity().libraryRevision())
+        }}
+        listOf(true,false).forEach{exposureFirst->triggerFixture{db->
+            val media=row("delete-$exposureFirst",MediaSource.DEVICE);safe(db,media);val before=db.similarity().libraryRevision()
+            if(exposureFirst){db.openHelper.writableDatabase.execSQL("DELETE FROM ai_media_exposure WHERE mediaId=?",arrayOf<Any?>(media.mediaId));db.openHelper.writableDatabase.execSQL("DELETE FROM media WHERE mediaId=?",arrayOf<Any?>(media.mediaId))}
+            else{db.openHelper.writableDatabase.execSQL("DELETE FROM media WHERE mediaId=?",arrayOf<Any?>(media.mediaId));db.openHelper.writableDatabase.execSQL("DELETE FROM ai_media_exposure WHERE mediaId=?",arrayOf<Any?>(media.mediaId))}
+            assertEquals(before+1,db.similarity().libraryRevision())
+        }}
+    }
+
+    @Test fun relevantMediaChangesOutsideSafeMembershipDoNotInvalidate(){
+        listOf(AiExposure.QUARANTINED,AiExposure.SENSITIVE).forEach{exposure->triggerFixture{db->
+            val media=row("hidden-$exposure",MediaSource.DEVICE);db.media().upsert(media);db.ocrPeople().saveExposure(AiMediaExposureRecord(media.mediaId,media.contentRevision,exposure,1));val before=db.similarity().libraryRevision()
+            db.media().upsert(media.copy(accessGrantEpoch=9,contentUri="content://changed",sourceKey="changed"))
+            assertEquals(before,db.similarity().libraryRevision())
+        }}
+        triggerFixture{db->
+            val media=row("inaccessible-safe",MediaSource.DEVICE).copy(availability=MediaAvailability.INACCESSIBLE);db.media().upsert(media);db.ocrPeople().saveExposure(AiMediaExposureRecord(media.mediaId,media.contentRevision,AiExposure.SAFE,1));val before=db.similarity().libraryRevision()
+            db.media().upsert(media.copy(accessGrantEpoch=9,contentUri="content://changed",sourceKey="changed"));assertEquals(before,db.similarity().libraryRevision())
+        }
+    }
+
+    @Test fun repeatedEligibilityChangesNeverResetBudgetCountersOrPausedState()=triggerFixture{db->
+        val media=row("budget",MediaSource.DEVICE);safe(db,media)
+        val revision=db.similarity().libraryRevision();db.similarity().saveCheckpoint(SimilarityCheckpoint(checkpointMediaId="cursor",completed=3,total=7,status=SimilarityWorkStatus.RUNNING,updatedAt=1,libraryRevision=revision,tranche=11,comparisons=4321,continuations=6))
+        repeat(4){index->val exposure=if(index%2==0)AiExposure.SENSITIVE else AiExposure.SAFE;db.ocrPeople().saveExposure(AiMediaExposureRecord(media.mediaId,media.contentRevision,exposure,index.toLong()+2))}
+        val invalidated=db.similarity().checkpoint()!!;assertEquals(11,invalidated.tranche);assertEquals(4321,invalidated.comparisons);assertEquals(6,invalidated.continuations);assertEquals(SimilarityWorkStatus.IDLE,invalidated.status)
+        db.similarity().saveCheckpoint(invalidated.copy(checkpointMediaId="paused-cursor",completed=2,total=8,status=SimilarityWorkStatus.PAUSED,updatedAt=9,tranche=12,comparisons=8192,continuations=8))
+        repeat(4){index->val exposure=if(index%2==0)AiExposure.SENSITIVE else AiExposure.SAFE;db.ocrPeople().saveExposure(AiMediaExposureRecord(media.mediaId,media.contentRevision,exposure,index.toLong()+20))}
+        val paused=db.similarity().checkpoint()!!;assertEquals("paused-cursor",paused.checkpointMediaId);assertEquals(2,paused.completed);assertEquals(8,paused.total);assertEquals(12,paused.tranche);assertEquals(8192,paused.comparisons);assertEquals(8,paused.continuations);assertEquals(SimilarityWorkStatus.PAUSED,paused.status)
+        assertEquals(0,db.similarity().failCheckpointUnlessPaused("error",0,0,99,"error",db.similarity().libraryRevision()));assertEquals(paused,db.similarity().checkpoint())
+    }
+
+    @Test fun nonmanualRevisionRepreparePreservesBudgetAndManualResumeAloneResetsIt()=fixture{db->
+        db.similarity().ensureLibraryState();db.similarity().saveCheckpoint(SimilarityCheckpoint(checkpointMediaId="cursor",completed=1,total=3,status=SimilarityWorkStatus.RUNNING,updatedAt=1,libraryRevision=db.similarity().libraryRevision(),tranche=5,comparisons=321,continuations=4))
+        db.similarity().advanceLibraryRevision();val automatic=db.similarity().prepareTranche(false)
+        assertEquals(5,automatic.tranche);assertEquals(321,automatic.comparisons);assertEquals(4,automatic.continuations);assertNull(automatic.checkpointMediaId)
+        val manual=db.similarity().prepareTranche(true);assertEquals(6,manual.tranche);assertEquals(0,manual.comparisons);assertEquals(0,manual.continuations);assertEquals(SimilarityWorkStatus.RUNNING,manual.status)
+    }
+
     @Test fun routineScanBookkeepingAndNoOpUpsertPreserveReadyVisualGeneration()=triggerFixture{db->
         val a=row("routine-a",MediaSource.DEVICE);val b=row("routine-b",MediaSource.DEVICE);safe(db,a);safe(db,b)
         db.similarity().publishIfCurrent(fingerprint(a,"a",ByteArray(8)));db.similarity().publishIfCurrent(fingerprint(b,"b",ByteArray(8).also{it[0]=1}));scanEveryPending(db)

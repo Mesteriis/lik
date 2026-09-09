@@ -105,7 +105,8 @@ class SimilarityProcessor(
             return when{final.complete->SimilarityRunOutcome.COMPLETE;final.failures>0&&dao.pendingSafe(null,1).isEmpty()->SimilarityRunOutcome.BLOCKED_BY_FAILURE;stored.comparisons>=SimilarityBudgets.COMPARISONS_PER_TRANCHE->{dao.commitProgress(checkpoint,paused=true);SimilarityRunOutcome.PAUSED_BUDGET};else->SimilarityRunOutcome.MORE_WORK}
         }catch(error:InterruptedException){dao.commitProgress(checkpoint,paused=true);throw error}
         catch(error:Exception){
-            val live=dao.progress();dao.saveCheckpoint(SimilarityCheckpoint(checkpointMediaId=checkpoint,completed=live.completed,total=live.eligible,status=SimilarityWorkStatus.ERROR,updatedAt=System.currentTimeMillis(),error=error.javaClass.simpleName.take(80)));throw error
+            val live=dao.progress();dao.failCheckpointUnlessPaused(checkpoint,live.completed,live.eligible,System.currentTimeMillis(),error.javaClass.simpleName.take(80),dao.libraryRevision())
+            throw error
         }
     }
 }

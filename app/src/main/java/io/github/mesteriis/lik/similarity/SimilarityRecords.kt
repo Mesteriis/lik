@@ -96,13 +96,16 @@ interface SimilarityDao {
     @Query("UPDATE similarity_checkpoint SET comparisons=comparisons+:amount WHERE checkpointId='default' AND status!='PAUSED' AND libraryRevision=:revision AND :revision=(SELECT revision FROM similarity_library_state WHERE stateId='default') AND comparisons<=:limit-:amount") fun reserveComparisons(revision:Long,amount:Int,limit:Int=SimilarityBudgets.COMPARISONS_PER_TRANCHE):Int
     @Query("UPDATE similarity_checkpoint SET comparisons=MAX(0,comparisons-:amount) WHERE checkpointId='default' AND libraryRevision=:revision") fun releaseComparisons(revision:Long,amount:Int):Int
     @Query("UPDATE similarity_checkpoint SET continuations=continuations+1 WHERE checkpointId='default' AND continuations<:limit AND status!='PAUSED'") fun claimContinuation(limit:Int=SimilarityBudgets.MAX_AUTO_CONTINUATIONS):Int
+    @Query("UPDATE similarity_checkpoint SET checkpointMediaId=:checkpointMediaId,completed=:completed,total=:total,status='ERROR',updatedAt=:updatedAt,error=:error,libraryRevision=:libraryRevision WHERE checkpointId='default' AND status!='PAUSED'")
+    fun failCheckpointUnlessPaused(checkpointMediaId:String?,completed:Int,total:Int,updatedAt:Long,error:String,libraryRevision:Long):Int
 
     @Transaction fun prepareTranche(forceNew:Boolean):SimilarityCheckpoint {
         ensureLibraryState()
         val revision=libraryRevision();val old=checkpoint()
         if(forceNew){return (old?:SimilarityCheckpoint(checkpointMediaId=null,completed=0,total=0,status=SimilarityWorkStatus.IDLE,updatedAt=0)).copy(checkpointMediaId=null,status=SimilarityWorkStatus.RUNNING,updatedAt=System.currentTimeMillis(),error=null,libraryRevision=revision,tranche=(old?.tranche?:-1)+1,comparisons=0,continuations=0).also(::saveCheckpoint)}
         if(old?.status==SimilarityWorkStatus.PAUSED)return old
-        if(old==null||old.libraryRevision!=revision){return SimilarityCheckpoint(checkpointMediaId=null,completed=0,total=0,status=SimilarityWorkStatus.IDLE,updatedAt=System.currentTimeMillis(),libraryRevision=revision,tranche=(old?.tranche?:-1)+1).also(::saveCheckpoint)}
+        if(old==null){return SimilarityCheckpoint(checkpointMediaId=null,completed=0,total=0,status=SimilarityWorkStatus.IDLE,updatedAt=System.currentTimeMillis(),libraryRevision=revision).also(::saveCheckpoint)}
+        if(old.libraryRevision!=revision){return old.copy(checkpointMediaId=null,completed=0,total=0,status=SimilarityWorkStatus.IDLE,updatedAt=System.currentTimeMillis(),error=null,libraryRevision=revision).also(::saveCheckpoint)}
         return old
     }
 

@@ -68,7 +68,7 @@ class SimilarityMigrationTest {
                 fun count(table:String)=sql.query("SELECT COUNT(*) FROM $table").use{it.moveToFirst();it.getInt(0)}
                 assertEquals(0,count("fingerprint_band"));assertEquals(0,count("similarity_relation"));assertEquals(0,db.similarity().progress().completed)
                 db.similarity().saveScan(SimilarityScanRecord("a",1,2,PerceptualFingerprintV2.VERSION,"",0,4));assertNotNull(db.similarity().scan("a"));assertEquals(14,sql.version)
-                val revision=db.similarity().libraryRevision();val trigger=MediaRecord("trigger",MediaSource.DEVICE,"trigger",lastSeenAt=1);db.media().upsert(trigger);db.ocrPeople().saveExposure(AiMediaExposureRecord("trigger",0,AiExposure.SAFE,1));assertEquals(revision+2,db.similarity().libraryRevision())
+                val revision=db.similarity().libraryRevision();val trigger=MediaRecord("trigger",MediaSource.DEVICE,"trigger",lastSeenAt=1);db.media().upsert(trigger);db.ocrPeople().saveExposure(AiMediaExposureRecord("trigger",0,AiExposure.SAFE,1));assertEquals(revision+1,db.similarity().libraryRevision())
             }finally{db.close()}
         }finally{context.deleteDatabase(name)}
     }

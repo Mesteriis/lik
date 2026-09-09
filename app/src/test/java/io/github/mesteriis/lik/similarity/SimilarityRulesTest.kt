@@ -1,5 +1,7 @@
 package io.github.mesteriis.lik.similarity
 
+import io.github.mesteriis.lik.ai.AiExposure
+import io.github.mesteriis.lik.ai.AiMediaExposureRecord
 import io.github.mesteriis.lik.catalog.MediaAvailability
 import io.github.mesteriis.lik.catalog.MediaRecord
 import io.github.mesteriis.lik.catalog.MediaSource
@@ -9,11 +11,35 @@ import java.io.ByteArrayInputStream
 import java.security.MessageDigest
 
 class SimilarityRulesTest {
+    @Test fun exposureTransitionTableOnlyCrossesTheCurrentSafeBoundary(){
+        val media=row("exposure",MediaSource.DEVICE).copy(contentRevision=7)
+        val states=listOf<AiExposure?>(null,AiExposure.QUARANTINED,AiExposure.SENSITIVE,AiExposure.SAFE)
+        states.forEach{old->states.forEach{new->
+            fun record(value:AiExposure?)=value?.let{AiMediaExposureRecord(media.mediaId,media.contentRevision,it,1)}
+            assertEquals("$old -> $new",(old==AiExposure.SAFE)!=(new==AiExposure.SAFE),SimilarityDomainRevision.exposureChanged(media,record(old),record(new)))
+            assertFalse(SimilarityDomainRevision.exposureChanged(media.copy(availability=MediaAvailability.INACCESSIBLE),record(old),record(new)))
+            assertFalse(SimilarityDomainRevision.exposureChanged(media.copy(trashedAt=1),record(old),record(new)))
+        }}
+    }
+
+    @Test fun mediaTransitionTableRequiresAnEligibleSideAndAChangedToken(){
+        data class State(val availability:MediaAvailability,val trashed:Boolean,val safe:Boolean){val eligible get()=availability==MediaAvailability.AVAILABLE&&!trashed&&safe}
+        val media=row("media",MediaSource.DEVICE).copy(contentRevision=7,accessGrantEpoch=3)
+        val states=MediaAvailability.entries.flatMap{availability->listOf(false,true).flatMap{trashed->listOf(false,true).map{safe->State(availability,trashed,safe)}}}
+        fun record(state:State)=media.copy(availability=state.availability,trashedAt=if(state.trashed)1 else null)
+        states.forEach{old->states.forEach{new->
+            val label="$old -> $new"
+            assertEquals(label,old.eligible!=new.eligible,SimilarityDomainRevision.mediaChanged(record(old),record(new),old.safe,new.safe))
+            assertEquals("token $label",old.eligible||new.eligible,SimilarityDomainRevision.mediaChanged(record(old),record(new).copy(accessGrantEpoch=4),old.safe,new.safe))
+        }}
+        assertFalse(SimilarityDomainRevision.mediaChanged(media,media.copy(lastSeenAt=9,scanMarker="new",displayName="new"),true,true))
+    }
+
     @Test fun oneHundredThousandRoutineCatalogUpdatesDoNotChangeSimilarityDomain(){
         val stable=row("stable",MediaSource.DEVICE).copy(contentRevision=9,accessGrantEpoch=4)
         repeat(100_000){index->
             val bookkeeping=stable.copy(lastSeenAt=index.toLong(),scanMarker="scan-$index",displayName="Фото $index",takenAt=index.toLong(),modifiedAt=index.toLong())
-            assertFalse(SimilarityDomainRevision.mediaChanged(stable,bookkeeping))
+            assertFalse(SimilarityDomainRevision.mediaChanged(stable,bookkeeping,true,true))
         }
     }
 

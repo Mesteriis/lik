@@ -45,14 +45,16 @@ abstract class MediaDatabase : RoomDatabase() {
 
         private fun ensureSimilarityLibraryState(db:SupportSQLiteDatabase){
             db.execSQL("INSERT OR IGNORE INTO similarity_library_state(stateId,revision) VALUES('default',0)")
-            val body="UPDATE similarity_library_state SET revision=revision+1 WHERE stateId='default'; UPDATE similarity_checkpoint SET checkpointMediaId=CASE WHEN status='PAUSED' THEN checkpointMediaId ELSE NULL END,completed=CASE WHEN status='PAUSED' THEN completed ELSE 0 END,total=CASE WHEN status='PAUSED' THEN total ELSE 0 END,status=CASE WHEN status='PAUSED' THEN 'PAUSED' ELSE 'IDLE' END,updatedAt=CAST(strftime('%s','now') AS INTEGER)*1000,error=CASE WHEN status='PAUSED' THEN error ELSE NULL END,libraryRevision=(SELECT revision FROM similarity_library_state WHERE stateId='default'),tranche=CASE WHEN status='PAUSED' THEN tranche ELSE tranche+1 END,comparisons=CASE WHEN status='PAUSED' THEN comparisons ELSE 0 END,continuations=CASE WHEN status='PAUSED' THEN continuations ELSE 0 END WHERE checkpointId='default';"
-            listOf("media" to "media","ai_media_exposure" to "exposure").forEach{(table,label)->
+            val body="UPDATE similarity_library_state SET revision=revision+1 WHERE stateId='default'; UPDATE similarity_checkpoint SET checkpointMediaId=CASE WHEN status='PAUSED' THEN checkpointMediaId ELSE NULL END,completed=CASE WHEN status='PAUSED' THEN completed ELSE 0 END,total=CASE WHEN status='PAUSED' THEN total ELSE 0 END,status=CASE WHEN status='PAUSED' THEN 'PAUSED' ELSE 'IDLE' END,updatedAt=CAST(strftime('%s','now') AS INTEGER)*1000,error=CASE WHEN status='PAUSED' THEN error ELSE NULL END,libraryRevision=(SELECT revision FROM similarity_library_state WHERE stateId='default') WHERE checkpointId='default';"
+            listOf("media","exposure").forEach{label->
                 listOf("insert","update","delete").forEach{db.execSQL("DROP TRIGGER IF EXISTS similarity_${label}_$it")}
-                db.execSQL("CREATE TRIGGER similarity_${label}_insert AFTER INSERT ON $table BEGIN $body END")
-                db.execSQL("CREATE TRIGGER similarity_${label}_delete AFTER DELETE ON $table BEGIN $body END")
             }
             val rules=io.github.mesteriis.lik.similarity.SimilarityDomainRevision
+            db.execSQL("CREATE TRIGGER similarity_media_insert AFTER INSERT ON media WHEN ${rules.mediaInsertWhen} BEGIN $body END")
+            db.execSQL("CREATE TRIGGER similarity_media_delete AFTER DELETE ON media WHEN ${rules.mediaDeleteWhen} BEGIN $body END")
             db.execSQL("CREATE TRIGGER similarity_media_update AFTER UPDATE OF ${rules.MEDIA_UPDATE_COLUMNS.joinToString(",")} ON media WHEN ${rules.mediaUpdateWhen} BEGIN $body END")
+            db.execSQL("CREATE TRIGGER similarity_exposure_insert AFTER INSERT ON ai_media_exposure WHEN ${rules.exposureInsertWhen} BEGIN $body END")
+            db.execSQL("CREATE TRIGGER similarity_exposure_delete AFTER DELETE ON ai_media_exposure WHEN ${rules.exposureDeleteWhen} BEGIN $body END")
             db.execSQL("CREATE TRIGGER similarity_exposure_update AFTER UPDATE OF ${rules.EXPOSURE_UPDATE_COLUMNS.joinToString(",")} ON ai_media_exposure WHEN ${rules.exposureUpdateWhen} BEGIN $body END")
         }
 

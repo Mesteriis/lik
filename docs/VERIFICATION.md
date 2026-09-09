@@ -401,3 +401,15 @@ The v13→v14 migration retains an exhausted/manual `PAUSED` checkpoint, includi
 - `./gradlew lint testDebugUnitTest assembleDebug assembleRelease assembleDebugAndroidTest` — **PASS**. Reviewed compiler policy SHA-256 is `b7063cb0620911f2d3723d88c332d43e288bbecf739184b61c51ef207cdfeb77`, source fingerprint `e4a8850ad90143ebe4ba180073c2a92cb1a138c661510795b05154b4a7d65d3f`; debug/release/androidTest APK sizes are 62,031,207 / 48,561,421 / 2,041,725 bytes. All inspections report metadata-only delivery with zero ONNX/tokenizer payloads.
 
 No physical device, downloaded/bundled model payload, automatic merge/delete or destructive MediaStore action was used.
+
+### Task 12 review round 5 — eligible-domain transitions (2026-09-09)
+
+The v14 trigger predicates now model the visible similarity domain rather than raw table traffic. Exposure changes advance the revision only when a current `AVAILABLE`, nontrashed row crosses the `SAFE` boundary; `QUARANTINED`↔`SENSITIVE` and non-SAFE insert/delete are inert. Media insert/delete/update advances it only when an old or new side is current and `SAFE`, and an update of an eligible row changes its identity/content/access token. Creating or removing media and exposure in either order produces one membership transition. Relevant field changes outside the eligible set, no-op writes and scan metadata remain inert.
+
+Revision invalidation updates coverage state while preserving tranche, comparison and continuation counters for running, idle and paused work. It cannot clear `PAUSED`; non-manual preparation after a revision change also retains the budget. The explicit manual action is the sole path that increments the tranche and resets both counters. Processor error publication now copies the current checkpoint and cannot overwrite a concurrent pause or lose its budget.
+
+- Exhaustive JVM tables cover all 16 exposure transitions plus every availability/trash/SAFE media-state pair with unchanged and changed tokens. `./gradlew :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin` and the final required matrix passed with **147/147** JVM tests.
+- Focused `SimilarityPersistenceTest,SimilarityMigrationTest` on API 37 `emulator-5580` — **PASS**, **32/32**. Room coverage includes all exposure transitions, both media/exposure insertion and deletion orders, hidden-row token changes, repeated eligibility changes under running and paused checkpoints, manual-only reset and the v11 migration’s single-bump contract.
+- `./gradlew lint testDebugUnitTest assembleDebug assembleRelease assembleDebugAndroidTest` — **PASS**. Reviewed compiler policy SHA-256 is `a89232c80b6f9179358c41420ee9b4d04f5b8d6d30cf482c04804ac9fbd39841`, source fingerprint `3fd34d939331c8c822642b6eddbd1801de8115478d8458f0455466ef7d1fd2f7`; debug/release/androidTest APK sizes are 62,031,431 / 48,561,421 / 2,052,889 bytes. All inspections report metadata-only delivery with zero ONNX/tokenizer payloads.
+
+No physical device, model payload, automatic merge/delete or destructive MediaStore action was used.
