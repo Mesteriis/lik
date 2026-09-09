@@ -78,11 +78,14 @@ class DownloadReservationLedger(private val root: File) {
             }
         }
         reservations[operation] = plan.remainingByDigest + (MARGIN to safetyMargin)
-        val currentReservation = allocatedBytes(reservationFile(operation)).coerceAtMost(safetyMargin)
-        val transferGrowth = files.sumOf { (spec, _) ->
-            (spec.size - allocatedBytes(sharedPart(spec.sha256)).coerceAtMost(spec.size)).coerceAtLeast(0)
+        val unit = allocationUnit()
+        val requiredSafety = roundAllocation(safetyMargin, unit)
+        val currentReservation = allocatedBytes(reservationFile(operation)).coerceAtMost(requiredSafety)
+        val transferGrowth = files.distinctBy { it.first.sha256 }.fold(0L) { total, (spec, _) ->
+            val required = roundAllocation(spec.size, unit)
+            Math.addExact(total, (required - allocatedBytes(sharedPart(spec.sha256)).coerceAtMost(required)).coerceAtLeast(0))
         }
-        val physicalGrowth = Math.addExact((safetyMargin - currentReservation).coerceAtLeast(0), transferGrowth)
+        val physicalGrowth = Math.addExact((requiredSafety - currentReservation).coerceAtLeast(0), transferGrowth)
         require(availableBytes >= physicalGrowth) { "LOW_SPACE" }
         write(owners, reservations.filterValues { it.isNotEmpty() })
         resizeReservation(operation, safetyMargin)
@@ -154,6 +157,13 @@ class DownloadReservationLedger(private val root: File) {
 
     private fun allocatedBytes(target: File): Long = if (!target.isFile) 0L else
         runCatching { Math.multiplyExact(Os.stat(target.absolutePath).st_blocks, 512L) }.getOrDefault(0L)
+
+    private fun allocationUnit(): Long = Os.statvfs(root.absolutePath).let { maxOf(512L, it.f_bsize, it.f_frsize) }
+
+    private fun roundAllocation(bytes: Long, unit: Long): Long {
+        if (bytes == 0L) return 0
+        return Math.multiplyExact(Math.addExact(bytes, unit - 1) / unit, unit)
+    }
 
     private fun read(): Pair<Map<String, String>, Map<String, Map<String, Long>>> = runCatching {
         if (!file.isFile) return@runCatching emptyMap<String, String>() to emptyMap()

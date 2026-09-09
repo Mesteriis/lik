@@ -74,7 +74,8 @@ class AiRuntimeTest {
 
             val part = store.sharedPart(digest).apply { writeBytes(expected.copyOf(5)) }
             val ledger = DownloadReservationLedger(root)
-            val first = ledger.acquire("compact", listOf(spec to 5L), expected.size - 5L + 10L, 10)
+            val allocationUnit = android.system.Os.statvfs(root.absolutePath).let { maxOf(it.f_bsize, it.f_frsize) }
+            val first = ledger.acquire("compact", listOf(spec to 5L), allocationUnit, 10)
             assertEquals(expected.size - 5L + 10L, first.requiredBytes)
             assertEquals(expected.size.toLong(), part.length())
             assertTrue(android.system.Os.stat(part.absolutePath).st_blocks * 512 >= expected.size)
@@ -86,7 +87,7 @@ class AiRuntimeTest {
             assertThrows(IllegalArgumentException::class.java) {
                 ledger.acquire("no-space", listOf(spec to 0), 0, 10)
             }
-            ledger.acquire("balanced", listOf(spec to 5L), 1_000, 10)
+            ledger.acquire("balanced", listOf(spec to 5L), allocationUnit, 10)
             assertEquals("balanced", ledger.owner(digest))
             assertEquals(10L, ledger.reservedBytes("compact"))
             ledger.release("compact")
@@ -121,6 +122,24 @@ class AiRuntimeTest {
             Thread.sleep(100); assertEquals(1, maximum.get()); release.countDown()
             assertTrue(done.await(2, TimeUnit.SECONDS)); assertEquals(1, maximum.get())
         } finally { release.countDown(); root.deleteRecursively() }
+    }
+
+    @Test fun reservationPreflightRoundsEveryTransferAndMarginAllocation() {
+        val root = File(context.cacheDir, "allocation-rounding-${System.nanoTime()}").apply { mkdirs() }
+        val unit = android.system.Os.statvfs(root.absolutePath).let { maxOf(it.f_bsize, it.f_frsize) }
+        fun spec(seed: Char) = ArtifactSpec("$seed/model.onnx", 1, seed.toString().repeat(64),
+            URI("https://huggingface.co/org/repo/resolve/${"a".repeat(40)}/$seed.onnx"))
+        val files = listOf(spec('a') to 0L, spec('b') to 0L)
+        try {
+            assertThrows(IllegalArgumentException::class.java) {
+                DownloadReservationLedger(root).acquire("too-tight", files, 3, 1)
+            }
+            DownloadReservationLedger(root).acquire("exact-rounded", files, unit * 3, 1)
+            files.forEach { (artifact, _) ->
+                assertTrue(android.system.Os.stat(File(root, "staging/shared/${artifact.sha256}.part").absolutePath).st_blocks * 512 >= unit)
+            }
+            assertTrue(android.system.Os.stat(File(root, "staging/reservations/exact-rounded.reserve").absolutePath).st_blocks * 512 >= unit)
+        } finally { root.deleteRecursively() }
     }
 
     @Test fun roomPublicationRejectsSameGenerationRevisionRaceWithoutAdvancingCheckpoint() {

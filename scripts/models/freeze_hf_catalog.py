@@ -2,11 +2,37 @@
 """Create a reviewed HF catalog candidate from downloaded, parity-checked bytes."""
 import argparse
 import json
+import math
 from pathlib import Path
+import struct
 
 from artifacts import digest, validate_catalog, verify_file
 from freeze_catalog import fingerprint
 from prepare import ROOT
+
+
+def activation_samples(reference_path, graph, maximum=96):
+    """Keep small, exact float slices as trust-anchored metadata; never package the reference tensor."""
+    outputs = graph['outputs']
+    primary = graph.get('primaryOutput', outputs[0]['name'])
+    before = outputs[:next(i for i, value in enumerate(outputs) if value['name'] == primary)]
+    offset = sum(math.prod(value['smokeShape']) for value in before)
+    count = math.prod(next(value['smokeShape'] for value in outputs if value['name'] == primary))
+    payload = reference_path.read_bytes()
+    values = struct.unpack('<' + 'f' * (len(payload) // 4), payload)
+    primary_values = values[offset:offset + count]
+    if len(primary_values) != count or not all(math.isfinite(value) for value in primary_values):
+        raise ValueError('Invalid primary smoke reference')
+    evenly = {round(i * (count - 1) / (min(count, maximum * 2 // 3) - 1))
+              for i in range(min(count, maximum * 2 // 3))} if count > 1 else {0}
+    strongest = sorted(range(count), key=lambda index: abs(primary_values[index]), reverse=True)[:maximum - len(evenly)]
+    indices = sorted(evenly | set(strongest))[:maximum]
+    return {'path': graph['_artifactPath'], 'outputName': primary, 'outputSize': count,
+            'referenceSha256': graph['smokeReference']['sha256'],
+            'minimumNormRatio': 0.5, 'maximumNormRatio': 1.5,
+            'samples': [{'index': index,
+                         'floatBits': struct.pack('<f', primary_values[index])[::-1].hex()}
+                        for index in indices]}
 
 
 def main():
@@ -24,6 +50,7 @@ def main():
                    initialRuntimeReady=False, backendPolicy='backend-policy-v1.json',
                    qualityAcceptance='not-run; licensed external fixtures and calibration required',
                    components=[], profiles=[])
+    activation_references = []
     for original in reference['components']:
         component_id = original['id']
         files = [dict(file) for file in delivery['artifacts'] if file['path'].startswith(component_id + '/')]
@@ -42,6 +69,11 @@ def main():
                 name = Path(file['path']).name
                 file['onnx'] = evidence['models'][name]
                 file['onnx']['smokeReference']['developmentOnly'] = True
+                file['onnx']['_artifactPath'] = file['path']
+                activation_references.append(activation_samples(
+                    args.cache / 'hf-runtime-candidates' / Path(file['path']).parent /
+                    file['onnx']['smokeReference']['file'], file['onnx']))
+                del file['onnx']['_artifactPath']
                 file['conversionParity'] = evidence['parity'][name]
                 if not file['onnx']['hostValidation']['finiteOutputs']:
                     raise ValueError('Missing host runtime acceptance')
@@ -63,6 +95,8 @@ def main():
             pipeline['fingerprint'] = fingerprint([next(c['fingerprint'] for c in catalog['components'] if c['id'] == key) for key in pipeline['components']])
         profile['fingerprint'] = fingerprint(profile)
         catalog['profiles'].append(profile)
+    catalog['activationSmokeReferences'] = activation_references
+    catalog['catalogVersion'] = 'lik-hf-presets-2026-09-08-v2'
     validate_catalog(catalog)
     args.output.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + '\n')
     print('HF catalog review candidate:', args.output, digest(args.output))

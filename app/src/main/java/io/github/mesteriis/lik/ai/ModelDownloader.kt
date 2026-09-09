@@ -279,27 +279,22 @@ class ModelSelfTest(private val store: ArtifactStore, private val runtime: Isola
             ProfileId.BALANCED -> setOf("siglip2-base-v1/image.onnx", "siglip2-base-v1/text.onnx")
             ProfileId.EXTENDED -> setOf("siglip2-large-v1/image.onnx", "siglip2-large-v1/text.onnx")
         }
-        val referenceRoot = File(requireNotNull(store.root.parentFile), "model-probe")
-        val pinnedReferencesPresent = referenceRoot.isDirectory
-        trusted.smokeGraphs(profile).filter { it.artifactPath !in searchPaths }.forEach { graph ->
+        trusted.smokeGraphs(profile).forEach { graph ->
             checkControl()
-            require(graph.inputType == "float32") { "COMPONENT_SELF_TEST_INPUT_TYPE:${graph.artifactPath}" }
-            val count = graph.shape.fold(1) { product, value -> Math.multiplyExact(product, value) }
-            val input = representativeInput(graph.artifactPath, graph.shape, count)
-            val result = runtime.runFloat(file(graph.artifactPath), graph.inputName, graph.shape, input, graph.outputName).getOrThrow()
+            val smokeResult = runtime.runSmoke(file(graph.artifactPath), graph).getOrThrow()
             val outputCount = graph.outputShape.fold(1) { product, value -> Math.multiplyExact(product, value) }
-            val referenceFile = File(referenceRoot,
-                graph.artifactPath.substringBeforeLast('/') + "/" + graph.reference.file)
-            val pinnedMatch = if (!pinnedReferencesPresent) true else {
-                checkControl()
-                val smokeInput = FloatArray(count) { graph.smokeFill }
-                val smokeResult = runtime.runFloat(file(graph.artifactPath), graph.inputName, graph.shape,
-                    smokeInput, graph.outputName).getOrThrow()
-                SmokeReferenceVerifier.matches(graph.reference, smokeResult, referenceFile, graph.referenceOffsetFloats)
+            val pinnedMatch = SmokeReferenceVerifier.matchesExpectedSamples(graph.reference, smokeResult)
+            val representative = if (graph.artifactPath in searchPaths) smokeResult else {
+                val input = graph.inputs.single()
+                require(input.type == "float32") { "COMPONENT_SELF_TEST_INPUT_TYPE:${graph.artifactPath}" }
+                val count = input.shape.fold(1) { product, value -> Math.multiplyExact(product, value) }
+                runtime.runFloat(file(graph.artifactPath), input.name, input.shape,
+                    representativeInput(graph.artifactPath, input.shape, count), graph.outputName).getOrThrow()
             }
-            val outputShapeValid = result.size == outputCount
-            val finite = result.all(Float::isFinite)
-            val semantic = semanticOutput(graph.artifactPath, result)
+            checkControl()
+            val outputShapeValid = smokeResult.size == outputCount && representative.size == outputCount
+            val finite = smokeResult.all(Float::isFinite) && representative.all(Float::isFinite)
+            val semantic = graph.artifactPath in searchPaths || semanticOutput(graph.artifactPath, representative)
             require(outputShapeValid && finite && pinnedMatch && semantic) {
                 "COMPONENT_SELF_TEST_FAILED:${graph.artifactPath}:shape=$outputShapeValid:finite=$finite:pinned=$pinnedMatch:semantic=$semantic"
             }

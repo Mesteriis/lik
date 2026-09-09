@@ -25,3 +25,15 @@ class CatalogIdentityTest(unittest.TestCase):
         dimensions = {p["id"]: p["pipelines"]["search"]["dimension"] for p in catalog["profiles"]}
         self.assertEqual({"compact-v1": 512, "balanced-v1": 768, "extended-v1": 1024}, dimensions)
         self.assertIsNone(contracts["sensitive-v1"]["calibration"]["releaseThreshold"])
+        onnx_paths = {f["path"] for f in files if f["path"].endswith(".onnx")}
+        activation = {r["path"]: r for r in catalog["activationSmokeReferences"]}
+        self.assertEqual(onnx_paths, set(activation))
+        for path, reference in activation.items():
+            samples = reference["samples"]
+            self.assertGreaterEqual(len(samples), 2, path)
+            self.assertEqual(len(samples), len({sample["index"] for sample in samples}), path)
+            self.assertTrue(all(sample["index"] >= 0 for sample in samples), path)
+            self.assertTrue(all(__import__('re').fullmatch(r"[0-9a-f]{8}", sample["floatBits"])
+                                for sample in samples), path)
+            self.assertLess(reference["minimumNormRatio"], 1)
+            self.assertGreater(reference["maximumNormRatio"], 1)

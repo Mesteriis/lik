@@ -22,7 +22,7 @@ class InferenceRuntimeService : Service() {
     private data class ResidentSession(val session: ai.onnxruntime.OrtSession, val modelBytes: Long)
     private val sessions = LinkedHashMap<String, ResidentSession>(8, .75f, true)
     private val incoming = Messenger(Handler(Looper.getMainLooper()) { message ->
-        if (message.what !in setOf(MSG_VALIDATE, MSG_EMBED_IMAGE, MSG_EMBED_TEXT, MSG_RUN_FLOAT, MSG_STATS, MSG_EVICT)) return@Handler false
+        if (message.what !in setOf(MSG_VALIDATE, MSG_EMBED_IMAGE, MSG_EMBED_TEXT, MSG_RUN_FLOAT, MSG_RUN_SMOKE, MSG_STATS, MSG_EVICT)) return@Handler false
         val requestCode = message.what
         val reply = message.replyTo
         val payload = Bundle(message.data)
@@ -33,6 +33,7 @@ class InferenceRuntimeService : Service() {
                 MSG_EMBED_IMAGE -> embedImage(payload)
                 MSG_EMBED_TEXT -> embedText(payload)
                 MSG_RUN_FLOAT -> runFloat(payload)
+                MSG_RUN_SMOKE -> runSmoke(payload)
                 MSG_EVICT -> { payload.getStringArrayList(EVICT).orEmpty().forEach { sessions.remove(it)?.session?.close() }; null }
                 else -> floatArrayOf(sessions.size.toFloat(), createdSessions.toFloat())
             } }
@@ -167,6 +168,36 @@ class InferenceRuntimeService : Service() {
         } finally { SharedMemory.unmap(mapped); memory.close(); descriptor.close() }
     }
 
+    private fun runSmoke(data: Bundle): FloatArray {
+        val descriptor = data.getParcelable(MODEL, ParcelFileDescriptor::class.java)!!
+        val names = data.getStringArrayList(INPUT_NAMES).orEmpty()
+        val types = data.getStringArrayList(INPUT_TYPES).orEmpty()
+        val shapes = data.getStringArrayList(INPUT_SHAPES).orEmpty()
+        val fills = data.getDoubleArray(INPUT_FILLS) ?: DoubleArray(0)
+        require(names.isNotEmpty() && names.size == types.size && names.size == shapes.size && names.size == fills.size)
+        val environment = ai.onnxruntime.OrtEnvironment.getEnvironment()
+        val tensors = linkedMapOf<String, ai.onnxruntime.OnnxTensor>()
+        return try {
+            names.indices.forEach { index ->
+                val shape = shapes[index].split(',').map(String::toLong).toLongArray()
+                val count = shape.fold(1L, Math::multiplyExact).also { require(it in 1..Int.MAX_VALUE) }.toInt()
+                tensors[names[index]] = when (types[index]) {
+                    "float32" -> ai.onnxruntime.OnnxTensor.createTensor(environment,
+                        java.nio.FloatBuffer.wrap(FloatArray(count) { fills[index].toFloat() }), shape)
+                    "int64" -> ai.onnxruntime.OnnxTensor.createTensor(environment,
+                        LongBuffer.wrap(LongArray(count) { fills[index].toLong() }), shape)
+                    else -> error("UNSUPPORTED_SMOKE_INPUT:${types[index]}")
+                }
+            }
+            session(data, descriptor).let { session ->
+                session.run(tensors).use { output ->
+                    (output.get(requireNotNull(data.getString(OUTPUT))).get() as ai.onnxruntime.OnnxTensor)
+                        .floatBuffer.toArray().also { require(it.isNotEmpty() && it.all(Float::isFinite)) }
+                }
+            }
+        } finally { tensors.values.forEach { it.close() }; descriptor.close() }
+    }
+
     private fun project(vector: FloatArray, descriptor: ParcelFileDescriptor): FloatArray {
         java.io.FileInputStream(descriptor.fileDescriptor).channel.use { channel ->
             val prefix = java.nio.ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN); channel.read(prefix); prefix.flip()
@@ -194,6 +225,7 @@ class InferenceRuntimeService : Service() {
         const val MSG_RUN_FLOAT = 5
         const val MSG_STATS = 6
         const val MSG_EVICT = 7
+        const val MSG_RUN_SMOKE = 8
         const val FDS = "fds"
         const val OK = "ok"
         const val ERROR = "error"
@@ -208,6 +240,10 @@ class InferenceRuntimeService : Service() {
         const val PROJECTION = "projection"
         const val NORMALIZE = "normalize"
         const val INPUT = "input"
+        const val INPUT_NAMES = "input-names"
+        const val INPUT_TYPES = "input-types"
+        const val INPUT_SHAPES = "input-shapes"
+        const val INPUT_FILLS = "input-fills"
         const val SESSIONS = "sessions"
         const val EVICT = "evict"
         private const val MAX_RESIDENT_SESSIONS = 8
@@ -271,6 +307,17 @@ class IsolatedRuntimeClient(context: Context, private val leases: RuntimeLeases 
             outputName?.let { putString(InferenceRuntimeService.OUTPUT, it) }
         }).also { memory.close() }
     }
+
+    fun runSmoke(model: File, graph: GraphSmokeSpec): Result<FloatArray> =
+        requestVector(InferenceRuntimeService.MSG_RUN_SMOKE, setOf(model), Bundle().apply {
+            putParcelable(InferenceRuntimeService.MODEL, ParcelFileDescriptor.open(model, ParcelFileDescriptor.MODE_READ_ONLY))
+            putString(InferenceRuntimeService.MODEL_ID, artifactDigest(model))
+            putStringArrayList(InferenceRuntimeService.INPUT_NAMES, ArrayList(graph.inputs.map { it.name }))
+            putStringArrayList(InferenceRuntimeService.INPUT_TYPES, ArrayList(graph.inputs.map { it.type }))
+            putStringArrayList(InferenceRuntimeService.INPUT_SHAPES, ArrayList(graph.inputs.map { input -> input.shape.joinToString(",") }))
+            putDoubleArray(InferenceRuntimeService.INPUT_FILLS, graph.inputs.map { it.fill }.toDoubleArray())
+            putString(InferenceRuntimeService.OUTPUT, graph.outputName)
+        })
 
     fun stats(): Result<RuntimeStats> = requestVector(InferenceRuntimeService.MSG_STATS, emptySet(), Bundle()).map {
         RuntimeStats(it[0].toInt(), it[1].toInt(), transport.connectionGeneration())

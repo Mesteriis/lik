@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": "lik-hf-presets-2026-09-08-v1",
+  "catalogVersion": "lik-hf-presets-2026-09-08-v2",
   "defaultProfile": "balanced-v1",
   "backendPolicy": "backend-policy-v1.json",
   "qualityAcceptance": "not-run; licensed external fixtures and calibration required",
@@ -2757,6 +2757,4240 @@
         }
       },
       "fingerprint": "1987b149b8cb19499c58176c7deec5e6b71c47b31c5c791d3436f3cdcc85f2cf"
+    }
+  ],
+  "activationSmokeReferences": [
+    {
+      "path": "clip-image-v1/image.onnx",
+      "outputName": "image_embeds",
+      "outputSize": 512,
+      "referenceSha256": "a82fcf8ab3ff2763b8572f55ec3475c92f8ee691a6665b473b048633239ee7f1",
+      "minimumNormRatio": 0.5,
+      "maximumNormRatio": 1.5,
+      "samples": [
+        {
+          "index": 0,
+          "floatBits": "3cdcd5b8"
+        },
+        {
+          "index": 7,
+          "floatBits": "3f215275"
+        },
+        {
+          "index": 8,
+          "floatBits": "3dda2616"
+        },
+        {
+          "index": 16,
+          "floatBits": "bec5aad8"
+        },
+        {
+          "index": 24,
+          "floatBits": "bee36136"
+        },
+        {
+          "index": 32,
+          "floatBits": "3df24879"
+        },
+        {
+          "index": 39,
+          "floatBits": "bf682e15"
+        },
+        {
+          "index": 41,
+          "floatBits": "3cd5ec2a"
+        },
+        {
+          "index": 49,
+          "floatBits": "bcb54836"
+        },
+        {
+          "index": 57,
+          "floatBits": "3e85ef18"
+        },
+        {
+          "index": 58,
+          "floatBits": "3f326847"
+        },
+        {
+          "index": 65,
+          "floatBits": "be0a893f"
+        },
+        {
+          "index": 73,
+          "floatBits": "3e78444c"
+        },
+        {
+          "index": 81,
+          "floatBits": "be74f974"
+        },
+        {
+          "index": 86,
+          "floatBits": "3f8b80a9"
+        },
+        {
+          "index": 89,
+          "floatBits": "be94dd44"
+        },
+        {
+          "index": 92,
+          "floatBits": "c1008d9e"
+        },
+        {
+          "index": 97,
+          "floatBits": "bed4ede9"
+        },
+        {
+          "index": 99,
+          "floatBits": "bf34911e"
+        },
+        {
+          "index": 105,
+          "floatBits": "bd824801"
+        },
+        {
+          "index": 106,
+          "floatBits": "bfffd232"
+        },
+        {
+          "index": 114,
+          "floatBits": "bdcd7e17"
+        },
+        {
+          "index": 122,
+          "floatBits": "bec31a51"
+        },
+        {
+          "index": 130,
+          "floatBits": "bd7bce02"
+        },
+        {
+          "index": 133,
+          "floatBits": "3f7fcd35"
+        },
+        {
+          "index": 138,
+          "floatBits": "bf027594"
+        },
+        {
+          "index": 146,
+          "floatBits": "bf160ab2"
+        },
+        {
+          "index": 152,
+          "floatBits": "3f5b3aa4"
+        },
+        {
+          "index": 154,
+          "floatBits": "be1d3c3e"
+        },
+        {
+          "index": 162,
+          "floatBits": "bd8059f7"
+        },
+        {
+          "index": 170,
+          "floatBits": "3d334d02"
+        },
+        {
+          "index": 178,
+          "floatBits": "be1bef1d"
+        },
+        {
+          "index": 187,
+          "floatBits": "3ef4f9be"
+        },
+        {
+          "index": 195,
+          "floatBits": "bb88db64"
+        },
+        {
+          "index": 198,
+          "floatBits": "bf4bfec7"
+        },
+        {
+          "index": 203,
+          "floatBits": "3d8e0bf3"
+        },
+        {
+          "index": 211,
+          "floatBits": "3eea796c"
+        },
+        {
+          "index": 218,
+          "floatBits": "3f87d160"
+        },
+        {
+          "index": 219,
+          "floatBits": "beb72879"
+        },
+        {
+          "index": 227,
+          "floatBits": "bd919905"
+        },
+        {
+          "index": 235,
+          "floatBits": "bd804792"
+        },
+        {
+          "index": 241,
+          "floatBits": "3f720bcd"
+        },
+        {
+          "index": 243,
+          "floatBits": "3c221e5a"
+        },
+        {
+          "index": 251,
+          "floatBits": "bcb65685"
+        },
+        {
+          "index": 258,
+          "floatBits": "bf865d7d"
+        },
+        {
+          "index": 260,
+          "floatBits": "be5dff5a"
+        },
+        {
+          "index": 262,
+          "floatBits": "bf34fb55"
+        },
+        {
+          "index": 268,
+          "floatBits": "3dd59d6c"
+        },
+        {
+          "index": 272,
+          "floatBits": "bf1e3f80"
+        },
+        {
+          "index": 276,
+          "floatBits": "3ee523d6"
+        },
+        {
+          "index": 284,
+          "floatBits": "3f114c80"
+        },
+        {
+          "index": 292,
+          "floatBits": "3f0b5f52"
+        },
+        {
+          "index": 300,
+          "floatBits": "3e960c2c"
+        },
+        {
+          "index": 305,
+          "floatBits": "bf2b14eb"
+        },
+        {
+          "index": 307,
+          "floatBits": "bf2006ae"
+        },
+        {
+          "index": 308,
+          "floatBits": "3ec4baf8"
+        },
+        {
+          "index": 312,
+          "floatBits": "3f7f7bca"
+        },
+        {
+          "index": 316,
+          "floatBits": "3e923f87"
+        },
+        {
+          "index": 321,
+          "floatBits": "3fe92f7d"
+        },
+        {
+          "index": 324,
+          "floatBits": "be15079e"
+        },
+        {
+          "index": 333,
+          "floatBits": "3c177119"
+        },
+        {
+          "index": 341,
+          "floatBits": "bdfe0716"
+        },
+        {
+          "index": 349,
+          "floatBits": "bdced0c4"
+        },
+        {
+          "index": 357,
+          "floatBits": "3d1216a5"
+        },
+        {
+          "index": 365,
+          "floatBits": "be6a7d6a"
+        },
+        {
+          "index": 373,
+          "floatBits": "bc3d7ed9"
+        },
+        {
+          "index": 378,
+          "floatBits": "bf5c0e1a"
+        },
+        {
+          "index": 381,
+          "floatBits": "3d58ade9"
+        },
+        {
+          "index": 384,
+          "floatBits": "3f21e228"
+        },
+        {
+          "index": 389,
+          "floatBits": "be10e720"
+        },
+        {
+          "index": 397,
+          "floatBits": "bf26d5d5"
+        },
+        {
+          "index": 398,
+          "floatBits": "bf3176ff"
+        },
+        {
+          "index": 402,
+          "floatBits": "3f3b42d4"
+        },
+        {
+          "index": 406,
+          "floatBits": "beeee9d4"
+        },
+        {
+          "index": 414,
+          "floatBits": "bcdb1a03"
+        },
+        {
+          "index": 422,
+          "floatBits": "3ea54263"
+        },
+        {
+          "index": 423,
+          "floatBits": "bf4a84f7"
+        },
+        {
+          "index": 428,
+          "floatBits": "bf499731"
+        },
+        {
+          "index": 430,
+          "floatBits": "3e7ff97d"
+        },
+        {
+          "index": 433,
+          "floatBits": "bf254d13"
+        },
+        {
+          "index": 438,
+          "floatBits": "3ee8cda5"
+        },
+        {
+          "index": 446,
+          "floatBits": "3e7442ea"
+        },
+        {
+          "index": 454,
+          "floatBits": "3e1a2e01"
+        },
+        {
+          "index": 457,
+          "floatBits": "bf4cb518"
+        },
+        {
+          "index": 459,
+          "floatBits": "bf344f25"
+        },
+        {
+          "index": 462,
+          "floatBits": "be465555"
+        },
+        {
+          "index": 464,
+          "floatBits": "3f39e4b2"
+        },
+        {
+          "index": 470,
+          "floatBits": "be8dd49f"
+        },
+        {
+          "index": 479,
+          "floatBits": "bea4feaa"
+        },
+        {
+          "index": 487,
+          "floatBits": "3e19934a"
+        },
+        {
+          "index": 495,
+          "floatBits": "3dce6009"
+        },
+        {
+          "index": 503,
+          "floatBits": "3e83bfb2"
+        },
+        {
+          "index": 508,
+          "floatBits": "bf3dba6a"
+        },
+        {
+          "index": 509,
+          "floatBits": "3f296ec3"
+        },
+        {
+          "index": 511,
+          "floatBits": "3e439070"
+        }
+      ]
+    },
+    {
+      "path": "multilingual-text-v1/model.onnx",
+      "outputName": "last_hidden_state",
+      "outputSize": 98304,
+      "referenceSha256": "c157c79691feba9d102ed02cfa0961c359b77f11b4a5f0a5b107e1e23c0e91fb",
+      "minimumNormRatio": 0.5,
+      "maximumNormRatio": 1.5,
+      "samples": [
+        {
+          "index": 0,
+          "floatBits": "3e22a097"
+        },
+        {
+          "index": 1560,
+          "floatBits": "3e9bf298"
+        },
+        {
+          "index": 1763,
+          "floatBits": "40696005"
+        },
+        {
+          "index": 2531,
+          "floatBits": "40695992"
+        },
+        {
+          "index": 3121,
+          "floatBits": "beaea4c0"
+        },
+        {
+          "index": 3299,
+          "floatBits": "40696b10"
+        },
+        {
+          "index": 4067,
+          "floatBits": "4069710e"
+        },
+        {
+          "index": 4681,
+          "floatBits": "3d9d819b"
+        },
+        {
+          "index": 4835,
+          "floatBits": "4069795e"
+        },
+        {
+          "index": 5603,
+          "floatBits": "40696c0d"
+        },
+        {
+          "index": 6241,
+          "floatBits": "3ea658ba"
+        },
+        {
+          "index": 6371,
+          "floatBits": "40695ac1"
+        },
+        {
+          "index": 7802,
+          "floatBits": "be18354d"
+        },
+        {
+          "index": 9362,
+          "floatBits": "3dd782e9"
+        },
+        {
+          "index": 10923,
+          "floatBits": "3cf6358d"
+        },
+        {
+          "index": 12483,
+          "floatBits": "3f12576d"
+        },
+        {
+          "index": 14043,
+          "floatBits": "3dc6070c"
+        },
+        {
+          "index": 15604,
+          "floatBits": "be37e49e"
+        },
+        {
+          "index": 17164,
+          "floatBits": "3dbab253"
+        },
+        {
+          "index": 18724,
+          "floatBits": "3cb211bd"
+        },
+        {
+          "index": 20285,
+          "floatBits": "3d44a8db"
+        },
+        {
+          "index": 21845,
+          "floatBits": "be0d749c"
+        },
+        {
+          "index": 23405,
+          "floatBits": "3da08290"
+        },
+        {
+          "index": 24803,
+          "floatBits": "40694f68"
+        },
+        {
+          "index": 24966,
+          "floatBits": "3d7d839d"
+        },
+        {
+          "index": 26339,
+          "floatBits": "40694e35"
+        },
+        {
+          "index": 26526,
+          "floatBits": "3dd18d21"
+        },
+        {
+          "index": 27875,
+          "floatBits": "406959a9"
+        },
+        {
+          "index": 28087,
+          "floatBits": "bde63826"
+        },
+        {
+          "index": 28643,
+          "floatBits": "40694fd6"
+        },
+        {
+          "index": 29411,
+          "floatBits": "406951e8"
+        },
+        {
+          "index": 29647,
+          "floatBits": "3e88918d"
+        },
+        {
+          "index": 30179,
+          "floatBits": "4069554d"
+        },
+        {
+          "index": 31207,
+          "floatBits": "3d5b7566"
+        },
+        {
+          "index": 32768,
+          "floatBits": "be8237a3"
+        },
+        {
+          "index": 33251,
+          "floatBits": "406955fb"
+        },
+        {
+          "index": 34019,
+          "floatBits": "4069614c"
+        },
+        {
+          "index": 34328,
+          "floatBits": "3e05d0ec"
+        },
+        {
+          "index": 35555,
+          "floatBits": "40694ff2"
+        },
+        {
+          "index": 35888,
+          "floatBits": "be0a4b51"
+        },
+        {
+          "index": 37449,
+          "floatBits": "bd21607f"
+        },
+        {
+          "index": 39009,
+          "floatBits": "bd34319c"
+        },
+        {
+          "index": 40569,
+          "floatBits": "3e67ce33"
+        },
+        {
+          "index": 42130,
+          "floatBits": "bdaa8590"
+        },
+        {
+          "index": 43690,
+          "floatBits": "bdf88604"
+        },
+        {
+          "index": 45251,
+          "floatBits": "be5d26db"
+        },
+        {
+          "index": 46811,
+          "floatBits": "bfc840dd"
+        },
+        {
+          "index": 48371,
+          "floatBits": "3e1fc666"
+        },
+        {
+          "index": 49932,
+          "floatBits": "bda3e035"
+        },
+        {
+          "index": 51492,
+          "floatBits": "bd90906b"
+        },
+        {
+          "index": 53052,
+          "floatBits": "3e176adf"
+        },
+        {
+          "index": 54613,
+          "floatBits": "3ca54b17"
+        },
+        {
+          "index": 56173,
+          "floatBits": "3eb21645"
+        },
+        {
+          "index": 57734,
+          "floatBits": "3d67b139"
+        },
+        {
+          "index": 59294,
+          "floatBits": "bca10a19"
+        },
+        {
+          "index": 60854,
+          "floatBits": "be1a6ba2"
+        },
+        {
+          "index": 62415,
+          "floatBits": "3d29ed32"
+        },
+        {
+          "index": 63975,
+          "floatBits": "be385b84"
+        },
+        {
+          "index": 65535,
+          "floatBits": "3e0edd3c"
+        },
+        {
+          "index": 67043,
+          "floatBits": "4069558d"
+        },
+        {
+          "index": 67096,
+          "floatBits": "bda9cb24"
+        },
+        {
+          "index": 68579,
+          "floatBits": "4069509f"
+        },
+        {
+          "index": 68656,
+          "floatBits": "be071335"
+        },
+        {
+          "index": 70216,
+          "floatBits": "be23920c"
+        },
+        {
+          "index": 71777,
+          "floatBits": "be04bf29"
+        },
+        {
+          "index": 73337,
+          "floatBits": "bbcd0bd9"
+        },
+        {
+          "index": 74898,
+          "floatBits": "3dc56755"
+        },
+        {
+          "index": 75491,
+          "floatBits": "40696004"
+        },
+        {
+          "index": 76458,
+          "floatBits": "bc4cbd92"
+        },
+        {
+          "index": 78018,
+          "floatBits": "3d6555d1"
+        },
+        {
+          "index": 78563,
+          "floatBits": "40695838"
+        },
+        {
+          "index": 79579,
+          "floatBits": "3e4b7fe3"
+        },
+        {
+          "index": 80099,
+          "floatBits": "406951d0"
+        },
+        {
+          "index": 81139,
+          "floatBits": "bd1e5b27"
+        },
+        {
+          "index": 81635,
+          "floatBits": "40695c85"
+        },
+        {
+          "index": 82403,
+          "floatBits": "40695aa3"
+        },
+        {
+          "index": 82699,
+          "floatBits": "be83b85d"
+        },
+        {
+          "index": 83171,
+          "floatBits": "40695511"
+        },
+        {
+          "index": 84260,
+          "floatBits": "3e7e7316"
+        },
+        {
+          "index": 85820,
+          "floatBits": "bdc942e6"
+        },
+        {
+          "index": 86243,
+          "floatBits": "40695b4c"
+        },
+        {
+          "index": 87011,
+          "floatBits": "406953ce"
+        },
+        {
+          "index": 87380,
+          "floatBits": "3e173825"
+        },
+        {
+          "index": 88941,
+          "floatBits": "3d66a289"
+        },
+        {
+          "index": 89315,
+          "floatBits": "406953e5"
+        },
+        {
+          "index": 90083,
+          "floatBits": "406953a2"
+        },
+        {
+          "index": 90501,
+          "floatBits": "3e13a619"
+        },
+        {
+          "index": 91619,
+          "floatBits": "40694ded"
+        },
+        {
+          "index": 92062,
+          "floatBits": "3cd3942e"
+        },
+        {
+          "index": 93155,
+          "floatBits": "40695fb3"
+        },
+        {
+          "index": 93622,
+          "floatBits": "3dba1bcc"
+        },
+        {
+          "index": 93923,
+          "floatBits": "406967e2"
+        },
+        {
+          "index": 94691,
+          "floatBits": "40696e00"
+        },
+        {
+          "index": 95182,
+          "floatBits": "3e538418"
+        },
+        {
+          "index": 96743,
+          "floatBits": "3e065d82"
+        },
+        {
+          "index": 98303,
+          "floatBits": "bda8ad7c"
+        }
+      ]
+    },
+    {
+      "path": "siglip2-base-v1/image.onnx",
+      "outputName": "pooler_output",
+      "outputSize": 768,
+      "referenceSha256": "ffa04b19a7a5c610cf3293995e51a9c2e703cbe87ad71a5a1b1b90017266b6c8",
+      "minimumNormRatio": 0.5,
+      "maximumNormRatio": 1.5,
+      "samples": [
+        {
+          "index": 0,
+          "floatBits": "3d172000"
+        },
+        {
+          "index": 12,
+          "floatBits": "befd2000"
+        },
+        {
+          "index": 24,
+          "floatBits": "3e80e000"
+        },
+        {
+          "index": 37,
+          "floatBits": "be18e000"
+        },
+        {
+          "index": 43,
+          "floatBits": "bf540000"
+        },
+        {
+          "index": 49,
+          "floatBits": "3f0ea000"
+        },
+        {
+          "index": 61,
+          "floatBits": "3e45e000"
+        },
+        {
+          "index": 71,
+          "floatBits": "3f63e000"
+        },
+        {
+          "index": 73,
+          "floatBits": "3e80e000"
+        },
+        {
+          "index": 85,
+          "floatBits": "3e6ea000"
+        },
+        {
+          "index": 97,
+          "floatBits": "be2d4000"
+        },
+        {
+          "index": 102,
+          "floatBits": "bf628000"
+        },
+        {
+          "index": 110,
+          "floatBits": "3d642000"
+        },
+        {
+          "index": 122,
+          "floatBits": "bf8de000"
+        },
+        {
+          "index": 134,
+          "floatBits": "be07a000"
+        },
+        {
+          "index": 140,
+          "floatBits": "3fa0c000"
+        },
+        {
+          "index": 146,
+          "floatBits": "3f5b4000"
+        },
+        {
+          "index": 149,
+          "floatBits": "3f910000"
+        },
+        {
+          "index": 158,
+          "floatBits": "3c298000"
+        },
+        {
+          "index": 170,
+          "floatBits": "beb22000"
+        },
+        {
+          "index": 183,
+          "floatBits": "be918000"
+        },
+        {
+          "index": 186,
+          "floatBits": "3f3b8000"
+        },
+        {
+          "index": 195,
+          "floatBits": "3d1c2000"
+        },
+        {
+          "index": 200,
+          "floatBits": "bf802000"
+        },
+        {
+          "index": 207,
+          "floatBits": "3f17a000"
+        },
+        {
+          "index": 215,
+          "floatBits": "40f00000"
+        },
+        {
+          "index": 219,
+          "floatBits": "be51a000"
+        },
+        {
+          "index": 220,
+          "floatBits": "bf37c000"
+        },
+        {
+          "index": 224,
+          "floatBits": "3f94a000"
+        },
+        {
+          "index": 231,
+          "floatBits": "3d9d8000"
+        },
+        {
+          "index": 236,
+          "floatBits": "3f30c000"
+        },
+        {
+          "index": 242,
+          "floatBits": "41016000"
+        },
+        {
+          "index": 243,
+          "floatBits": "3e4a6000"
+        },
+        {
+          "index": 256,
+          "floatBits": "be6f2000"
+        },
+        {
+          "index": 268,
+          "floatBits": "bf4c6000"
+        },
+        {
+          "index": 280,
+          "floatBits": "bda6c000"
+        },
+        {
+          "index": 289,
+          "floatBits": "3f63a000"
+        },
+        {
+          "index": 292,
+          "floatBits": "be6e4000"
+        },
+        {
+          "index": 304,
+          "floatBits": "3e970000"
+        },
+        {
+          "index": 306,
+          "floatBits": "3f2e6000"
+        },
+        {
+          "index": 308,
+          "floatBits": "c00a6000"
+        },
+        {
+          "index": 317,
+          "floatBits": "3e166000"
+        },
+        {
+          "index": 319,
+          "floatBits": "3f352000"
+        },
+        {
+          "index": 329,
+          "floatBits": "be792000"
+        },
+        {
+          "index": 341,
+          "floatBits": "3df8c000"
+        },
+        {
+          "index": 345,
+          "floatBits": "3f3f6000"
+        },
+        {
+          "index": 353,
+          "floatBits": "bf158000"
+        },
+        {
+          "index": 362,
+          "floatBits": "bf5c4000"
+        },
+        {
+          "index": 365,
+          "floatBits": "bd05e000"
+        },
+        {
+          "index": 377,
+          "floatBits": "bf062000"
+        },
+        {
+          "index": 390,
+          "floatBits": "3ebaa000"
+        },
+        {
+          "index": 402,
+          "floatBits": "3e650000"
+        },
+        {
+          "index": 408,
+          "floatBits": "3f6ec000"
+        },
+        {
+          "index": 414,
+          "floatBits": "bda0e000"
+        },
+        {
+          "index": 426,
+          "floatBits": "beaac000"
+        },
+        {
+          "index": 438,
+          "floatBits": "be8ec000"
+        },
+        {
+          "index": 450,
+          "floatBits": "3e498000"
+        },
+        {
+          "index": 463,
+          "floatBits": "bf8a8000"
+        },
+        {
+          "index": 475,
+          "floatBits": "3d434000"
+        },
+        {
+          "index": 487,
+          "floatBits": "3eb92000"
+        },
+        {
+          "index": 489,
+          "floatBits": "3f376000"
+        },
+        {
+          "index": 499,
+          "floatBits": "bd8e6000"
+        },
+        {
+          "index": 511,
+          "floatBits": "3e5ca000"
+        },
+        {
+          "index": 524,
+          "floatBits": "3dfb2000"
+        },
+        {
+          "index": 536,
+          "floatBits": "3d702000"
+        },
+        {
+          "index": 548,
+          "floatBits": "bdf98000"
+        },
+        {
+          "index": 556,
+          "floatBits": "bfbdc000"
+        },
+        {
+          "index": 560,
+          "floatBits": "3e1d4000"
+        },
+        {
+          "index": 561,
+          "floatBits": "bf6c6000"
+        },
+        {
+          "index": 572,
+          "floatBits": "bdab0000"
+        },
+        {
+          "index": 584,
+          "floatBits": "bf0f0000"
+        },
+        {
+          "index": 597,
+          "floatBits": "3e8e6000"
+        },
+        {
+          "index": 609,
+          "floatBits": "be1ee000"
+        },
+        {
+          "index": 612,
+          "floatBits": "bf7e0000"
+        },
+        {
+          "index": 621,
+          "floatBits": "bf15a000"
+        },
+        {
+          "index": 630,
+          "floatBits": "3f814000"
+        },
+        {
+          "index": 633,
+          "floatBits": "be964000"
+        },
+        {
+          "index": 645,
+          "floatBits": "3f00c000"
+        },
+        {
+          "index": 657,
+          "floatBits": "be64e000"
+        },
+        {
+          "index": 662,
+          "floatBits": "bf83e000"
+        },
+        {
+          "index": 670,
+          "floatBits": "be700000"
+        },
+        {
+          "index": 682,
+          "floatBits": "3e2fa000"
+        },
+        {
+          "index": 690,
+          "floatBits": "3fb3c000"
+        },
+        {
+          "index": 694,
+          "floatBits": "3f73a000"
+        },
+        {
+          "index": 706,
+          "floatBits": "3e856000"
+        },
+        {
+          "index": 718,
+          "floatBits": "3e89c000"
+        },
+        {
+          "index": 730,
+          "floatBits": "3ec70000"
+        },
+        {
+          "index": 743,
+          "floatBits": "be9d8000"
+        },
+        {
+          "index": 752,
+          "floatBits": "3f872000"
+        },
+        {
+          "index": 755,
+          "floatBits": "be2f6000"
+        },
+        {
+          "index": 767,
+          "floatBits": "3e4bc000"
+        }
+      ]
+    },
+    {
+      "path": "siglip2-base-v1/text.onnx",
+      "outputName": "pooler_output",
+      "outputSize": 768,
+      "referenceSha256": "ac14a407c15d9b606a464b88d87ebfcb50458ff959a7df541e9128e7b05ab63b",
+      "minimumNormRatio": 0.5,
+      "maximumNormRatio": 1.5,
+      "samples": [
+        {
+          "index": 0,
+          "floatBits": "3c6d6fe8"
+        },
+        {
+          "index": 4,
+          "floatBits": "412f0b93"
+        },
+        {
+          "index": 12,
+          "floatBits": "bc868fb8"
+        },
+        {
+          "index": 24,
+          "floatBits": "bd863b5c"
+        },
+        {
+          "index": 37,
+          "floatBits": "bf21fb40"
+        },
+        {
+          "index": 49,
+          "floatBits": "3ee04d9e"
+        },
+        {
+          "index": 61,
+          "floatBits": "3dc9f585"
+        },
+        {
+          "index": 73,
+          "floatBits": "bc76a540"
+        },
+        {
+          "index": 85,
+          "floatBits": "3d2b9ebc"
+        },
+        {
+          "index": 97,
+          "floatBits": "be8a937c"
+        },
+        {
+          "index": 100,
+          "floatBits": "40ae7c9d"
+        },
+        {
+          "index": 110,
+          "floatBits": "3dab56c3"
+        },
+        {
+          "index": 122,
+          "floatBits": "3e512c74"
+        },
+        {
+          "index": 134,
+          "floatBits": "3e18632c"
+        },
+        {
+          "index": 146,
+          "floatBits": "3eb9259f"
+        },
+        {
+          "index": 158,
+          "floatBits": "bd453c90"
+        },
+        {
+          "index": 170,
+          "floatBits": "bd235d8d"
+        },
+        {
+          "index": 176,
+          "floatBits": "3f39d527"
+        },
+        {
+          "index": 183,
+          "floatBits": "3e43ef45"
+        },
+        {
+          "index": 184,
+          "floatBits": "bf19c396"
+        },
+        {
+          "index": 195,
+          "floatBits": "3e787b0e"
+        },
+        {
+          "index": 207,
+          "floatBits": "3ea6041e"
+        },
+        {
+          "index": 213,
+          "floatBits": "bf804078"
+        },
+        {
+          "index": 215,
+          "floatBits": "3fad0e9e"
+        },
+        {
+          "index": 219,
+          "floatBits": "3d37f1ae"
+        },
+        {
+          "index": 231,
+          "floatBits": "bd236a44"
+        },
+        {
+          "index": 240,
+          "floatBits": "3f1a2a1f"
+        },
+        {
+          "index": 242,
+          "floatBits": "3fbbeafb"
+        },
+        {
+          "index": 243,
+          "floatBits": "be21ab21"
+        },
+        {
+          "index": 244,
+          "floatBits": "bf16f656"
+        },
+        {
+          "index": 247,
+          "floatBits": "bf091972"
+        },
+        {
+          "index": 256,
+          "floatBits": "bea2ac90"
+        },
+        {
+          "index": 268,
+          "floatBits": "bc941390"
+        },
+        {
+          "index": 280,
+          "floatBits": "3d97df14"
+        },
+        {
+          "index": 292,
+          "floatBits": "bd595072"
+        },
+        {
+          "index": 304,
+          "floatBits": "bf3c45af"
+        },
+        {
+          "index": 306,
+          "floatBits": "bf162d0e"
+        },
+        {
+          "index": 317,
+          "floatBits": "3e9c4874"
+        },
+        {
+          "index": 329,
+          "floatBits": "bcfb2a18"
+        },
+        {
+          "index": 341,
+          "floatBits": "be0bfef3"
+        },
+        {
+          "index": 353,
+          "floatBits": "bc5a0de0"
+        },
+        {
+          "index": 365,
+          "floatBits": "bd2a04bd"
+        },
+        {
+          "index": 377,
+          "floatBits": "be4ac469"
+        },
+        {
+          "index": 390,
+          "floatBits": "bcbada0c"
+        },
+        {
+          "index": 402,
+          "floatBits": "3eb6d53e"
+        },
+        {
+          "index": 414,
+          "floatBits": "3d427820"
+        },
+        {
+          "index": 426,
+          "floatBits": "be9d99c5"
+        },
+        {
+          "index": 434,
+          "floatBits": "c0f84b4f"
+        },
+        {
+          "index": 438,
+          "floatBits": "bdc4c07e"
+        },
+        {
+          "index": 450,
+          "floatBits": "be9fc0c0"
+        },
+        {
+          "index": 458,
+          "floatBits": "bf0f1076"
+        },
+        {
+          "index": 462,
+          "floatBits": "bf4c93e8"
+        },
+        {
+          "index": 463,
+          "floatBits": "3ed6a313"
+        },
+        {
+          "index": 475,
+          "floatBits": "bd0b27f4"
+        },
+        {
+          "index": 487,
+          "floatBits": "be872e2c"
+        },
+        {
+          "index": 491,
+          "floatBits": "bf0ef3d9"
+        },
+        {
+          "index": 499,
+          "floatBits": "3df50833"
+        },
+        {
+          "index": 511,
+          "floatBits": "3e3f33b2"
+        },
+        {
+          "index": 524,
+          "floatBits": "bde753ae"
+        },
+        {
+          "index": 535,
+          "floatBits": "bf26ebb2"
+        },
+        {
+          "index": 536,
+          "floatBits": "3e9af050"
+        },
+        {
+          "index": 548,
+          "floatBits": "3e8e10d1"
+        },
+        {
+          "index": 556,
+          "floatBits": "3f39d97d"
+        },
+        {
+          "index": 560,
+          "floatBits": "3dc6106b"
+        },
+        {
+          "index": 566,
+          "floatBits": "bf1b98c7"
+        },
+        {
+          "index": 572,
+          "floatBits": "3e858538"
+        },
+        {
+          "index": 573,
+          "floatBits": "3f0e3035"
+        },
+        {
+          "index": 584,
+          "floatBits": "bee02bcb"
+        },
+        {
+          "index": 597,
+          "floatBits": "3e784fee"
+        },
+        {
+          "index": 609,
+          "floatBits": "3e4d5ffa"
+        },
+        {
+          "index": 612,
+          "floatBits": "3f1516e4"
+        },
+        {
+          "index": 621,
+          "floatBits": "3e65c706"
+        },
+        {
+          "index": 626,
+          "floatBits": "40fd37a3"
+        },
+        {
+          "index": 633,
+          "floatBits": "3e037fa1"
+        },
+        {
+          "index": 637,
+          "floatBits": "bf0b6a32"
+        },
+        {
+          "index": 639,
+          "floatBits": "bf0d4751"
+        },
+        {
+          "index": 645,
+          "floatBits": "3e897cb6"
+        },
+        {
+          "index": 653,
+          "floatBits": "c1a74b58"
+        },
+        {
+          "index": 657,
+          "floatBits": "3e753cfc"
+        },
+        {
+          "index": 662,
+          "floatBits": "3f2b1bd5"
+        },
+        {
+          "index": 670,
+          "floatBits": "3da03b8c"
+        },
+        {
+          "index": 673,
+          "floatBits": "bf0941de"
+        },
+        {
+          "index": 682,
+          "floatBits": "be5500b6"
+        },
+        {
+          "index": 690,
+          "floatBits": "bf2e4228"
+        },
+        {
+          "index": 694,
+          "floatBits": "be17cf31"
+        },
+        {
+          "index": 706,
+          "floatBits": "3e326466"
+        },
+        {
+          "index": 718,
+          "floatBits": "be2b520a"
+        },
+        {
+          "index": 728,
+          "floatBits": "bf28b674"
+        },
+        {
+          "index": 730,
+          "floatBits": "3e7dbcf0"
+        },
+        {
+          "index": 739,
+          "floatBits": "bf347bd8"
+        },
+        {
+          "index": 743,
+          "floatBits": "be908caa"
+        },
+        {
+          "index": 752,
+          "floatBits": "bf0907ba"
+        },
+        {
+          "index": 755,
+          "floatBits": "bda710da"
+        },
+        {
+          "index": 767,
+          "floatBits": "bec617aa"
+        }
+      ]
+    },
+    {
+      "path": "siglip2-large-v1/image.onnx",
+      "outputName": "pooler_output",
+      "outputSize": 1024,
+      "referenceSha256": "97990205e199b703c2781cc7eec03fd31a7c3b565fa8e37390502a95bdfd6b34",
+      "minimumNormRatio": 0.5,
+      "maximumNormRatio": 1.5,
+      "samples": [
+        {
+          "index": 0,
+          "floatBits": "bd71f9a0"
+        },
+        {
+          "index": 16,
+          "floatBits": "3d859192"
+        },
+        {
+          "index": 27,
+          "floatBits": "3f89065b"
+        },
+        {
+          "index": 32,
+          "floatBits": "bcad2a40"
+        },
+        {
+          "index": 42,
+          "floatBits": "3f8d22fe"
+        },
+        {
+          "index": 49,
+          "floatBits": "bed3bea4"
+        },
+        {
+          "index": 62,
+          "floatBits": "3fef22e0"
+        },
+        {
+          "index": 65,
+          "floatBits": "be07d9fd"
+        },
+        {
+          "index": 78,
+          "floatBits": "3fc88a55"
+        },
+        {
+          "index": 81,
+          "floatBits": "3e020da3"
+        },
+        {
+          "index": 97,
+          "floatBits": "3efca70c"
+        },
+        {
+          "index": 111,
+          "floatBits": "bfce420c"
+        },
+        {
+          "index": 114,
+          "floatBits": "398ca200"
+        },
+        {
+          "index": 130,
+          "floatBits": "3e646f06"
+        },
+        {
+          "index": 146,
+          "floatBits": "beb01856"
+        },
+        {
+          "index": 162,
+          "floatBits": "be75d660"
+        },
+        {
+          "index": 164,
+          "floatBits": "c016d06a"
+        },
+        {
+          "index": 179,
+          "floatBits": "bec41ce9"
+        },
+        {
+          "index": 195,
+          "floatBits": "3ed85980"
+        },
+        {
+          "index": 211,
+          "floatBits": "3eef59fe"
+        },
+        {
+          "index": 227,
+          "floatBits": "be5434e0"
+        },
+        {
+          "index": 231,
+          "floatBits": "bf9bd1c4"
+        },
+        {
+          "index": 242,
+          "floatBits": "4129bdb6"
+        },
+        {
+          "index": 244,
+          "floatBits": "3e564424"
+        },
+        {
+          "index": 255,
+          "floatBits": "3f8fc863"
+        },
+        {
+          "index": 260,
+          "floatBits": "be8e4490"
+        },
+        {
+          "index": 276,
+          "floatBits": "be0202a0"
+        },
+        {
+          "index": 292,
+          "floatBits": "3d0d0c0e"
+        },
+        {
+          "index": 309,
+          "floatBits": "3e634b1b"
+        },
+        {
+          "index": 325,
+          "floatBits": "bdd7b070"
+        },
+        {
+          "index": 341,
+          "floatBits": "3e05f30c"
+        },
+        {
+          "index": 357,
+          "floatBits": "3db733b8"
+        },
+        {
+          "index": 360,
+          "floatBits": "bfd66766"
+        },
+        {
+          "index": 367,
+          "floatBits": "bf93b4a6"
+        },
+        {
+          "index": 368,
+          "floatBits": "bfc64377"
+        },
+        {
+          "index": 373,
+          "floatBits": "3ead7a72"
+        },
+        {
+          "index": 390,
+          "floatBits": "bdb76730"
+        },
+        {
+          "index": 406,
+          "floatBits": "3cf53a70"
+        },
+        {
+          "index": 413,
+          "floatBits": "bf9e955b"
+        },
+        {
+          "index": 422,
+          "floatBits": "3e68a296"
+        },
+        {
+          "index": 432,
+          "floatBits": "bfa683d6"
+        },
+        {
+          "index": 434,
+          "floatBits": "c01784c6"
+        },
+        {
+          "index": 438,
+          "floatBits": "bd861e68"
+        },
+        {
+          "index": 449,
+          "floatBits": "41243a6c"
+        },
+        {
+          "index": 455,
+          "floatBits": "be2643d6"
+        },
+        {
+          "index": 471,
+          "floatBits": "3f091f0c"
+        },
+        {
+          "index": 487,
+          "floatBits": "3dacaf2c"
+        },
+        {
+          "index": 503,
+          "floatBits": "bee1964d"
+        },
+        {
+          "index": 520,
+          "floatBits": "bd0c4290"
+        },
+        {
+          "index": 536,
+          "floatBits": "be1d9570"
+        },
+        {
+          "index": 552,
+          "floatBits": "be83dcfd"
+        },
+        {
+          "index": 568,
+          "floatBits": "3d89c98c"
+        },
+        {
+          "index": 585,
+          "floatBits": "3ee89e9c"
+        },
+        {
+          "index": 597,
+          "floatBits": "bfdba39c"
+        },
+        {
+          "index": 601,
+          "floatBits": "3e7c54a8"
+        },
+        {
+          "index": 617,
+          "floatBits": "3e622c7b"
+        },
+        {
+          "index": 633,
+          "floatBits": "beb2af8c"
+        },
+        {
+          "index": 645,
+          "floatBits": "bfff723c"
+        },
+        {
+          "index": 650,
+          "floatBits": "be932f19"
+        },
+        {
+          "index": 666,
+          "floatBits": "3dc6b4b8"
+        },
+        {
+          "index": 682,
+          "floatBits": "3d8c8f4a"
+        },
+        {
+          "index": 698,
+          "floatBits": "3d3aa418"
+        },
+        {
+          "index": 711,
+          "floatBits": "c00cf8c7"
+        },
+        {
+          "index": 714,
+          "floatBits": "be1b39fa"
+        },
+        {
+          "index": 731,
+          "floatBits": "be398f32"
+        },
+        {
+          "index": 740,
+          "floatBits": "bf9f0569"
+        },
+        {
+          "index": 747,
+          "floatBits": "3e85e16d"
+        },
+        {
+          "index": 760,
+          "floatBits": "bff6d40c"
+        },
+        {
+          "index": 761,
+          "floatBits": "bf892906"
+        },
+        {
+          "index": 763,
+          "floatBits": "3e20b000"
+        },
+        {
+          "index": 779,
+          "floatBits": "bdb9171c"
+        },
+        {
+          "index": 789,
+          "floatBits": "bfa5e642"
+        },
+        {
+          "index": 796,
+          "floatBits": "be83dbb8"
+        },
+        {
+          "index": 812,
+          "floatBits": "be7a26a2"
+        },
+        {
+          "index": 816,
+          "floatBits": "bf9be1ec"
+        },
+        {
+          "index": 828,
+          "floatBits": "3ea73369"
+        },
+        {
+          "index": 844,
+          "floatBits": "3ea6a1b8"
+        },
+        {
+          "index": 856,
+          "floatBits": "c02afbd7"
+        },
+        {
+          "index": 861,
+          "floatBits": "bf65ae12"
+        },
+        {
+          "index": 877,
+          "floatBits": "be69ce98"
+        },
+        {
+          "index": 893,
+          "floatBits": "bdec235e"
+        },
+        {
+          "index": 897,
+          "floatBits": "c0709cda"
+        },
+        {
+          "index": 904,
+          "floatBits": "3fa4357c"
+        },
+        {
+          "index": 909,
+          "floatBits": "3f754c75"
+        },
+        {
+          "index": 926,
+          "floatBits": "4000589a"
+        },
+        {
+          "index": 942,
+          "floatBits": "3be13260"
+        },
+        {
+          "index": 944,
+          "floatBits": "bf8b902d"
+        },
+        {
+          "index": 946,
+          "floatBits": "3faae354"
+        },
+        {
+          "index": 958,
+          "floatBits": "bd096580"
+        },
+        {
+          "index": 974,
+          "floatBits": "bd69405c"
+        },
+        {
+          "index": 991,
+          "floatBits": "bf1e2d9e"
+        },
+        {
+          "index": 992,
+          "floatBits": "bfc8f827"
+        },
+        {
+          "index": 1003,
+          "floatBits": "bfcb845e"
+        },
+        {
+          "index": 1007,
+          "floatBits": "3e8b3e3f"
+        },
+        {
+          "index": 1023,
+          "floatBits": "3e8eb26c"
+        }
+      ]
+    },
+    {
+      "path": "siglip2-large-v1/text.onnx",
+      "outputName": "pooler_output",
+      "outputSize": 1024,
+      "referenceSha256": "178eca07466a8403b3391d660e782cdd1fcb9993779524bf8423f4997a1da175",
+      "minimumNormRatio": 0.5,
+      "maximumNormRatio": 1.5,
+      "samples": [
+        {
+          "index": 0,
+          "floatBits": "3f06fb6b"
+        },
+        {
+          "index": 16,
+          "floatBits": "3db26efd"
+        },
+        {
+          "index": 32,
+          "floatBits": "3f02e376"
+        },
+        {
+          "index": 49,
+          "floatBits": "3f0f218f"
+        },
+        {
+          "index": 65,
+          "floatBits": "bf7e579d"
+        },
+        {
+          "index": 75,
+          "floatBits": "3f9d85ac"
+        },
+        {
+          "index": 78,
+          "floatBits": "c14d38f0"
+        },
+        {
+          "index": 81,
+          "floatBits": "3dd94da8"
+        },
+        {
+          "index": 97,
+          "floatBits": "be21be8a"
+        },
+        {
+          "index": 111,
+          "floatBits": "3faae5fe"
+        },
+        {
+          "index": 114,
+          "floatBits": "bf439944"
+        },
+        {
+          "index": 130,
+          "floatBits": "bdcee2e5"
+        },
+        {
+          "index": 139,
+          "floatBits": "bfaf1ecc"
+        },
+        {
+          "index": 146,
+          "floatBits": "bf0138da"
+        },
+        {
+          "index": 162,
+          "floatBits": "bdf39098"
+        },
+        {
+          "index": 179,
+          "floatBits": "3c8a3794"
+        },
+        {
+          "index": 195,
+          "floatBits": "3f43a754"
+        },
+        {
+          "index": 205,
+          "floatBits": "40d41afd"
+        },
+        {
+          "index": 211,
+          "floatBits": "3f3ee0a3"
+        },
+        {
+          "index": 218,
+          "floatBits": "3f9bd515"
+        },
+        {
+          "index": 227,
+          "floatBits": "3e889203"
+        },
+        {
+          "index": 242,
+          "floatBits": "40487ad2"
+        },
+        {
+          "index": 244,
+          "floatBits": "c000e5e3"
+        },
+        {
+          "index": 255,
+          "floatBits": "4152febb"
+        },
+        {
+          "index": 260,
+          "floatBits": "bfaefb2c"
+        },
+        {
+          "index": 267,
+          "floatBits": "bf9bee1b"
+        },
+        {
+          "index": 276,
+          "floatBits": "bf5a27b2"
+        },
+        {
+          "index": 282,
+          "floatBits": "3fbd0d20"
+        },
+        {
+          "index": 292,
+          "floatBits": "3e38f070"
+        },
+        {
+          "index": 294,
+          "floatBits": "bfb00da6"
+        },
+        {
+          "index": 309,
+          "floatBits": "3c829c80"
+        },
+        {
+          "index": 325,
+          "floatBits": "beac93d3"
+        },
+        {
+          "index": 341,
+          "floatBits": "bf23eb56"
+        },
+        {
+          "index": 357,
+          "floatBits": "bf85e9f9"
+        },
+        {
+          "index": 373,
+          "floatBits": "be81e6fc"
+        },
+        {
+          "index": 380,
+          "floatBits": "3ff5fa4d"
+        },
+        {
+          "index": 390,
+          "floatBits": "3d8b40be"
+        },
+        {
+          "index": 406,
+          "floatBits": "bde4891d"
+        },
+        {
+          "index": 412,
+          "floatBits": "bf9d9616"
+        },
+        {
+          "index": 422,
+          "floatBits": "3d487ed6"
+        },
+        {
+          "index": 438,
+          "floatBits": "bf12bdb2"
+        },
+        {
+          "index": 449,
+          "floatBits": "4030ad53"
+        },
+        {
+          "index": 455,
+          "floatBits": "3f7d62d4"
+        },
+        {
+          "index": 471,
+          "floatBits": "3eea7012"
+        },
+        {
+          "index": 487,
+          "floatBits": "3f231518"
+        },
+        {
+          "index": 501,
+          "floatBits": "41e6a3ec"
+        },
+        {
+          "index": 503,
+          "floatBits": "3e3bee4a"
+        },
+        {
+          "index": 520,
+          "floatBits": "be18812e"
+        },
+        {
+          "index": 536,
+          "floatBits": "be967653"
+        },
+        {
+          "index": 552,
+          "floatBits": "3b29d400"
+        },
+        {
+          "index": 568,
+          "floatBits": "bdcb9340"
+        },
+        {
+          "index": 581,
+          "floatBits": "bfd64aa2"
+        },
+        {
+          "index": 585,
+          "floatBits": "3f0cc206"
+        },
+        {
+          "index": 600,
+          "floatBits": "3fa573c4"
+        },
+        {
+          "index": 601,
+          "floatBits": "be99598b"
+        },
+        {
+          "index": 617,
+          "floatBits": "bd0ec989"
+        },
+        {
+          "index": 629,
+          "floatBits": "c0236c70"
+        },
+        {
+          "index": 633,
+          "floatBits": "bf15f82e"
+        },
+        {
+          "index": 650,
+          "floatBits": "3e03e6e8"
+        },
+        {
+          "index": 663,
+          "floatBits": "3fb8a194"
+        },
+        {
+          "index": 666,
+          "floatBits": "3f3dbf30"
+        },
+        {
+          "index": 674,
+          "floatBits": "3fa38d57"
+        },
+        {
+          "index": 682,
+          "floatBits": "bb6b6808"
+        },
+        {
+          "index": 698,
+          "floatBits": "bf0cde56"
+        },
+        {
+          "index": 714,
+          "floatBits": "bd82c29e"
+        },
+        {
+          "index": 718,
+          "floatBits": "bfe44740"
+        },
+        {
+          "index": 731,
+          "floatBits": "3baac420"
+        },
+        {
+          "index": 747,
+          "floatBits": "bf90427e"
+        },
+        {
+          "index": 751,
+          "floatBits": "3faa5372"
+        },
+        {
+          "index": 757,
+          "floatBits": "bfbdaf6a"
+        },
+        {
+          "index": 763,
+          "floatBits": "c1ac4796"
+        },
+        {
+          "index": 779,
+          "floatBits": "bf100658"
+        },
+        {
+          "index": 796,
+          "floatBits": "3e1b09d6"
+        },
+        {
+          "index": 812,
+          "floatBits": "be5a1998"
+        },
+        {
+          "index": 828,
+          "floatBits": "bd491330"
+        },
+        {
+          "index": 844,
+          "floatBits": "bf84793e"
+        },
+        {
+          "index": 855,
+          "floatBits": "bfc307be"
+        },
+        {
+          "index": 856,
+          "floatBits": "3fff6ff2"
+        },
+        {
+          "index": 861,
+          "floatBits": "bf8761d7"
+        },
+        {
+          "index": 877,
+          "floatBits": "3f1431ba"
+        },
+        {
+          "index": 893,
+          "floatBits": "3e41247e"
+        },
+        {
+          "index": 897,
+          "floatBits": "3fc2e43d"
+        },
+        {
+          "index": 909,
+          "floatBits": "bf3aba70"
+        },
+        {
+          "index": 926,
+          "floatBits": "4010e48b"
+        },
+        {
+          "index": 942,
+          "floatBits": "3f303d5e"
+        },
+        {
+          "index": 950,
+          "floatBits": "3faa0bca"
+        },
+        {
+          "index": 958,
+          "floatBits": "bf2d8ac2"
+        },
+        {
+          "index": 974,
+          "floatBits": "bec020c4"
+        },
+        {
+          "index": 991,
+          "floatBits": "bc546f35"
+        },
+        {
+          "index": 1001,
+          "floatBits": "418d1f35"
+        },
+        {
+          "index": 1007,
+          "floatBits": "3e2b4f8f"
+        },
+        {
+          "index": 1023,
+          "floatBits": "beb1345c"
+        }
+      ]
+    },
+    {
+      "path": "ocr-mobile-det-v1/model.onnx",
+      "outputName": "fetch_name_0",
+      "outputSize": 15360,
+      "referenceSha256": "d3fdb679b15092425441b1682a595c608520fe5b97c7f69b3108861df25ee4f8",
+      "minimumNormRatio": 0.5,
+      "maximumNormRatio": 1.5,
+      "samples": [
+        {
+          "index": 0,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 244,
+          "floatBits": "35200000"
+        },
+        {
+          "index": 488,
+          "floatBits": "35200000"
+        },
+        {
+          "index": 639,
+          "floatBits": "35380000"
+        },
+        {
+          "index": 731,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 975,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 1219,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 1463,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 1707,
+          "floatBits": "35000000"
+        },
+        {
+          "index": 1950,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 2031,
+          "floatBits": "35480000"
+        },
+        {
+          "index": 2144,
+          "floatBits": "35380000"
+        },
+        {
+          "index": 2148,
+          "floatBits": "35380000"
+        },
+        {
+          "index": 2191,
+          "floatBits": "35480000"
+        },
+        {
+          "index": 2194,
+          "floatBits": "35380000"
+        },
+        {
+          "index": 2195,
+          "floatBits": "35480000"
+        },
+        {
+          "index": 2438,
+          "floatBits": "35200000"
+        },
+        {
+          "index": 2510,
+          "floatBits": "35480000"
+        },
+        {
+          "index": 2514,
+          "floatBits": "35480000"
+        },
+        {
+          "index": 2682,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 2835,
+          "floatBits": "35580000"
+        },
+        {
+          "index": 2879,
+          "floatBits": "35800000"
+        },
+        {
+          "index": 2926,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 3039,
+          "floatBits": "35600000"
+        },
+        {
+          "index": 3110,
+          "floatBits": "35480000"
+        },
+        {
+          "index": 3150,
+          "floatBits": "35400000"
+        },
+        {
+          "index": 3154,
+          "floatBits": "35400000"
+        },
+        {
+          "index": 3169,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 3199,
+          "floatBits": "35800000"
+        },
+        {
+          "index": 3413,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 3519,
+          "floatBits": "35400000"
+        },
+        {
+          "index": 3657,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 3839,
+          "floatBits": "35600000"
+        },
+        {
+          "index": 3901,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 4144,
+          "floatBits": "35200000"
+        },
+        {
+          "index": 4388,
+          "floatBits": "35180000"
+        },
+        {
+          "index": 4632,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 4876,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 5120,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 5363,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 5607,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 5851,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 6095,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 6339,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 6582,
+          "floatBits": "35200000"
+        },
+        {
+          "index": 6826,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 7070,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 7314,
+          "floatBits": "35200000"
+        },
+        {
+          "index": 7558,
+          "floatBits": "35200000"
+        },
+        {
+          "index": 7801,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 8045,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 8289,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 8533,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 8777,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 9020,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 9264,
+          "floatBits": "35200000"
+        },
+        {
+          "index": 9508,
+          "floatBits": "35200000"
+        },
+        {
+          "index": 9752,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 9996,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 10239,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 10483,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 10727,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 10971,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 11215,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 11458,
+          "floatBits": "35200000"
+        },
+        {
+          "index": 11702,
+          "floatBits": "35200000"
+        },
+        {
+          "index": 11946,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 12190,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 12433,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 12677,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 12921,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 13165,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 13409,
+          "floatBits": "35280000"
+        },
+        {
+          "index": 13442,
+          "floatBits": "35480000"
+        },
+        {
+          "index": 13600,
+          "floatBits": "35500000"
+        },
+        {
+          "index": 13602,
+          "floatBits": "35500000"
+        },
+        {
+          "index": 13652,
+          "floatBits": "35200000"
+        },
+        {
+          "index": 13896,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 13922,
+          "floatBits": "35400000"
+        },
+        {
+          "index": 14140,
+          "floatBits": "34f00000"
+        },
+        {
+          "index": 14384,
+          "floatBits": "35200000"
+        },
+        {
+          "index": 14399,
+          "floatBits": "35480000"
+        },
+        {
+          "index": 14628,
+          "floatBits": "35200000"
+        },
+        {
+          "index": 14717,
+          "floatBits": "35500000"
+        },
+        {
+          "index": 14720,
+          "floatBits": "35500000"
+        },
+        {
+          "index": 14722,
+          "floatBits": "35500000"
+        },
+        {
+          "index": 14871,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 14880,
+          "floatBits": "35680000"
+        },
+        {
+          "index": 14881,
+          "floatBits": "35780000"
+        },
+        {
+          "index": 14882,
+          "floatBits": "35940000"
+        },
+        {
+          "index": 14883,
+          "floatBits": "35900000"
+        },
+        {
+          "index": 15043,
+          "floatBits": "35500000"
+        },
+        {
+          "index": 15115,
+          "floatBits": "35080000"
+        },
+        {
+          "index": 15201,
+          "floatBits": "35580000"
+        },
+        {
+          "index": 15203,
+          "floatBits": "35940000"
+        },
+        {
+          "index": 15359,
+          "floatBits": "35280000"
+        }
+      ]
+    },
+    {
+      "path": "ocr-server-det-v1/model.onnx",
+      "outputName": "fetch_name_0",
+      "outputSize": 15360,
+      "referenceSha256": "71b6b1d58bcb26e9b14951fb736b1c7df7a99686e19a0878219cb68ddbb35c69",
+      "minimumNormRatio": 0.5,
+      "maximumNormRatio": 1.5,
+      "samples": [
+        {
+          "index": 0,
+          "floatBits": "39e19800"
+        },
+        {
+          "index": 244,
+          "floatBits": "3794e000"
+        },
+        {
+          "index": 488,
+          "floatBits": "39fae200"
+        },
+        {
+          "index": 731,
+          "floatBits": "38109000"
+        },
+        {
+          "index": 975,
+          "floatBits": "38ce9800"
+        },
+        {
+          "index": 1219,
+          "floatBits": "36838000"
+        },
+        {
+          "index": 1463,
+          "floatBits": "38e5f800"
+        },
+        {
+          "index": 1707,
+          "floatBits": "37080000"
+        },
+        {
+          "index": 1950,
+          "floatBits": "3988e600"
+        },
+        {
+          "index": 2194,
+          "floatBits": "376c0000"
+        },
+        {
+          "index": 2438,
+          "floatBits": "38cc3800"
+        },
+        {
+          "index": 2682,
+          "floatBits": "37fb0000"
+        },
+        {
+          "index": 2926,
+          "floatBits": "382d1000"
+        },
+        {
+          "index": 3169,
+          "floatBits": "381e0000"
+        },
+        {
+          "index": 3413,
+          "floatBits": "38810800"
+        },
+        {
+          "index": 3657,
+          "floatBits": "3898c800"
+        },
+        {
+          "index": 3901,
+          "floatBits": "38be7800"
+        },
+        {
+          "index": 4144,
+          "floatBits": "390d5400"
+        },
+        {
+          "index": 4388,
+          "floatBits": "387d5000"
+        },
+        {
+          "index": 4632,
+          "floatBits": "3900a400"
+        },
+        {
+          "index": 4876,
+          "floatBits": "38d69000"
+        },
+        {
+          "index": 5120,
+          "floatBits": "39141400"
+        },
+        {
+          "index": 5363,
+          "floatBits": "3922b000"
+        },
+        {
+          "index": 5607,
+          "floatBits": "38a13800"
+        },
+        {
+          "index": 5851,
+          "floatBits": "39b47200"
+        },
+        {
+          "index": 6095,
+          "floatBits": "3a149200"
+        },
+        {
+          "index": 6339,
+          "floatBits": "3991b000"
+        },
+        {
+          "index": 6582,
+          "floatBits": "39a8d800"
+        },
+        {
+          "index": 6826,
+          "floatBits": "39ac5600"
+        },
+        {
+          "index": 7070,
+          "floatBits": "39a74200"
+        },
+        {
+          "index": 7314,
+          "floatBits": "39f8c000"
+        },
+        {
+          "index": 7558,
+          "floatBits": "39936800"
+        },
+        {
+          "index": 7801,
+          "floatBits": "38f40800"
+        },
+        {
+          "index": 8045,
+          "floatBits": "38d14800"
+        },
+        {
+          "index": 8289,
+          "floatBits": "39765000"
+        },
+        {
+          "index": 8533,
+          "floatBits": "38b14800"
+        },
+        {
+          "index": 8777,
+          "floatBits": "3956d400"
+        },
+        {
+          "index": 9020,
+          "floatBits": "39056000"
+        },
+        {
+          "index": 9264,
+          "floatBits": "39c29a00"
+        },
+        {
+          "index": 9508,
+          "floatBits": "389ab800"
+        },
+        {
+          "index": 9752,
+          "floatBits": "392e2000"
+        },
+        {
+          "index": 9996,
+          "floatBits": "38739000"
+        },
+        {
+          "index": 10239,
+          "floatBits": "38fdd800"
+        },
+        {
+          "index": 10483,
+          "floatBits": "38fa0800"
+        },
+        {
+          "index": 10727,
+          "floatBits": "3889e000"
+        },
+        {
+          "index": 10971,
+          "floatBits": "395ad000"
+        },
+        {
+          "index": 10987,
+          "floatBits": "3ae67500"
+        },
+        {
+          "index": 11144,
+          "floatBits": "3af68380"
+        },
+        {
+          "index": 11145,
+          "floatBits": "3aebf080"
+        },
+        {
+          "index": 11146,
+          "floatBits": "3b0f3dc0"
+        },
+        {
+          "index": 11147,
+          "floatBits": "3b247180"
+        },
+        {
+          "index": 11148,
+          "floatBits": "3b26e100"
+        },
+        {
+          "index": 11149,
+          "floatBits": "3b0dd7c0"
+        },
+        {
+          "index": 11150,
+          "floatBits": "3b0170c0"
+        },
+        {
+          "index": 11151,
+          "floatBits": "3ae5eb00"
+        },
+        {
+          "index": 11152,
+          "floatBits": "3b055540"
+        },
+        {
+          "index": 11215,
+          "floatBits": "38d66000"
+        },
+        {
+          "index": 11304,
+          "floatBits": "3b124780"
+        },
+        {
+          "index": 11305,
+          "floatBits": "3afddf00"
+        },
+        {
+          "index": 11308,
+          "floatBits": "3b281400"
+        },
+        {
+          "index": 11309,
+          "floatBits": "3af58f80"
+        },
+        {
+          "index": 11312,
+          "floatBits": "3ae47400"
+        },
+        {
+          "index": 11458,
+          "floatBits": "3a5b2900"
+        },
+        {
+          "index": 11460,
+          "floatBits": "3af3fe80"
+        },
+        {
+          "index": 11464,
+          "floatBits": "3b4465c0"
+        },
+        {
+          "index": 11465,
+          "floatBits": "3b3286c0"
+        },
+        {
+          "index": 11468,
+          "floatBits": "3b453480"
+        },
+        {
+          "index": 11469,
+          "floatBits": "3b1cb4c0"
+        },
+        {
+          "index": 11472,
+          "floatBits": "3b023700"
+        },
+        {
+          "index": 11476,
+          "floatBits": "3af3b580"
+        },
+        {
+          "index": 11623,
+          "floatBits": "3b0d11c0"
+        },
+        {
+          "index": 11626,
+          "floatBits": "3b09b840"
+        },
+        {
+          "index": 11627,
+          "floatBits": "3b2a6a80"
+        },
+        {
+          "index": 11628,
+          "floatBits": "3aea0580"
+        },
+        {
+          "index": 11702,
+          "floatBits": "390aa000"
+        },
+        {
+          "index": 11784,
+          "floatBits": "3af62280"
+        },
+        {
+          "index": 11785,
+          "floatBits": "3af55b80"
+        },
+        {
+          "index": 11788,
+          "floatBits": "3b08ea40"
+        },
+        {
+          "index": 11944,
+          "floatBits": "3b009740"
+        },
+        {
+          "index": 11945,
+          "floatBits": "3afc7d00"
+        },
+        {
+          "index": 11946,
+          "floatBits": "3a97e580"
+        },
+        {
+          "index": 12190,
+          "floatBits": "3921d800"
+        },
+        {
+          "index": 12433,
+          "floatBits": "39f0c000"
+        },
+        {
+          "index": 12677,
+          "floatBits": "39554800"
+        },
+        {
+          "index": 12921,
+          "floatBits": "39dcb800"
+        },
+        {
+          "index": 13165,
+          "floatBits": "390dac00"
+        },
+        {
+          "index": 13409,
+          "floatBits": "391ccc00"
+        },
+        {
+          "index": 13652,
+          "floatBits": "3936f000"
+        },
+        {
+          "index": 13896,
+          "floatBits": "39334000"
+        },
+        {
+          "index": 14140,
+          "floatBits": "38fcc000"
+        },
+        {
+          "index": 14384,
+          "floatBits": "3a0bf900"
+        },
+        {
+          "index": 14628,
+          "floatBits": "3902d400"
+        },
+        {
+          "index": 14871,
+          "floatBits": "39514c00"
+        },
+        {
+          "index": 15115,
+          "floatBits": "39286400"
+        },
+        {
+          "index": 15356,
+          "floatBits": "3ae83480"
+        },
+        {
+          "index": 15359,
+          "floatBits": "392cf000"
+        }
+      ]
+    },
+    {
+      "path": "ocr-cyrillic-rec-v1/model.onnx",
+      "outputName": "fetch_name_0",
+      "outputSize": 34080,
+      "referenceSha256": "b9f600a1df7a7ddbc11b2b510b4f07f3af73392e61efffa5fb0c92cd55c11c0a",
+      "minimumNormRatio": 0.5,
+      "maximumNormRatio": 1.5,
+      "samples": [
+        {
+          "index": 0,
+          "floatBits": "3f773d17"
+        },
+        {
+          "index": 541,
+          "floatBits": "3443f7cc"
+        },
+        {
+          "index": 1082,
+          "floatBits": "3902b4ea"
+        },
+        {
+          "index": 1623,
+          "floatBits": "34733994"
+        },
+        {
+          "index": 1704,
+          "floatBits": "3f7ce904"
+        },
+        {
+          "index": 2164,
+          "floatBits": "3610a53a"
+        },
+        {
+          "index": 2705,
+          "floatBits": "37496ad3"
+        },
+        {
+          "index": 3246,
+          "floatBits": "36b96828"
+        },
+        {
+          "index": 3408,
+          "floatBits": "3f7d78ab"
+        },
+        {
+          "index": 3787,
+          "floatBits": "33e79028"
+        },
+        {
+          "index": 4327,
+          "floatBits": "3826fcc8"
+        },
+        {
+          "index": 4868,
+          "floatBits": "340a47a7"
+        },
+        {
+          "index": 5409,
+          "floatBits": "34636ba9"
+        },
+        {
+          "index": 5950,
+          "floatBits": "33e92096"
+        },
+        {
+          "index": 5964,
+          "floatBits": "3f7c6f6b"
+        },
+        {
+          "index": 6491,
+          "floatBits": "32b04763"
+        },
+        {
+          "index": 6816,
+          "floatBits": "3f7c3ac0"
+        },
+        {
+          "index": 7032,
+          "floatBits": "35b6a188"
+        },
+        {
+          "index": 7573,
+          "floatBits": "33c5b8e1"
+        },
+        {
+          "index": 7668,
+          "floatBits": "3f7c0b3a"
+        },
+        {
+          "index": 8114,
+          "floatBits": "349c57f3"
+        },
+        {
+          "index": 8520,
+          "floatBits": "3f7c62a1"
+        },
+        {
+          "index": 8655,
+          "floatBits": "33cb04b2"
+        },
+        {
+          "index": 9196,
+          "floatBits": "33cb04b2"
+        },
+        {
+          "index": 9372,
+          "floatBits": "3f7c6a33"
+        },
+        {
+          "index": 9737,
+          "floatBits": "33f0bb48"
+        },
+        {
+          "index": 10224,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 10278,
+          "floatBits": "38855f46"
+        },
+        {
+          "index": 10819,
+          "floatBits": "32d61117"
+        },
+        {
+          "index": 11076,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 11360,
+          "floatBits": "340827f1"
+        },
+        {
+          "index": 11901,
+          "floatBits": "33d53c1e"
+        },
+        {
+          "index": 11928,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 12442,
+          "floatBits": "36d7c88b"
+        },
+        {
+          "index": 12780,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 12982,
+          "floatBits": "33d53c1e"
+        },
+        {
+          "index": 13523,
+          "floatBits": "33d53c1e"
+        },
+        {
+          "index": 13632,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 14064,
+          "floatBits": "34a77745"
+        },
+        {
+          "index": 14484,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 14605,
+          "floatBits": "347b2901"
+        },
+        {
+          "index": 15146,
+          "floatBits": "33d53c1e"
+        },
+        {
+          "index": 15336,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 15687,
+          "floatBits": "33d53c1e"
+        },
+        {
+          "index": 16188,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 16228,
+          "floatBits": "3a247ff3"
+        },
+        {
+          "index": 16769,
+          "floatBits": "33b02461"
+        },
+        {
+          "index": 17040,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 17310,
+          "floatBits": "341ffe3c"
+        },
+        {
+          "index": 17851,
+          "floatBits": "33d53c1e"
+        },
+        {
+          "index": 17892,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 18392,
+          "floatBits": "37490f5d"
+        },
+        {
+          "index": 18744,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 18933,
+          "floatBits": "33d53c1e"
+        },
+        {
+          "index": 19474,
+          "floatBits": "33d53c1e"
+        },
+        {
+          "index": 19596,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 20015,
+          "floatBits": "33f9daae"
+        },
+        {
+          "index": 20448,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 20556,
+          "floatBits": "34003258"
+        },
+        {
+          "index": 21097,
+          "floatBits": "32e11f17"
+        },
+        {
+          "index": 21300,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 21637,
+          "floatBits": "33d53c1e"
+        },
+        {
+          "index": 22152,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 22178,
+          "floatBits": "388c4f26"
+        },
+        {
+          "index": 22719,
+          "floatBits": "33d53c1e"
+        },
+        {
+          "index": 23004,
+          "floatBits": "3f7c6e43"
+        },
+        {
+          "index": 23260,
+          "floatBits": "349bad18"
+        },
+        {
+          "index": 23801,
+          "floatBits": "33d53c1e"
+        },
+        {
+          "index": 23856,
+          "floatBits": "3f7c6863"
+        },
+        {
+          "index": 24342,
+          "floatBits": "36b4e357"
+        },
+        {
+          "index": 24708,
+          "floatBits": "3f7c628d"
+        },
+        {
+          "index": 24883,
+          "floatBits": "342d24f2"
+        },
+        {
+          "index": 25424,
+          "floatBits": "33d568e8"
+        },
+        {
+          "index": 25560,
+          "floatBits": "3f7c452a"
+        },
+        {
+          "index": 25965,
+          "floatBits": "33d7567f"
+        },
+        {
+          "index": 26412,
+          "floatBits": "3f7bf839"
+        },
+        {
+          "index": 26506,
+          "floatBits": "35def08d"
+        },
+        {
+          "index": 27047,
+          "floatBits": "33e19902"
+        },
+        {
+          "index": 27588,
+          "floatBits": "335b8b99"
+        },
+        {
+          "index": 28129,
+          "floatBits": "39104c56"
+        },
+        {
+          "index": 28670,
+          "floatBits": "34881e0c"
+        },
+        {
+          "index": 29211,
+          "floatBits": "34339581"
+        },
+        {
+          "index": 29752,
+          "floatBits": "33c57694"
+        },
+        {
+          "index": 29820,
+          "floatBits": "3f7cd471"
+        },
+        {
+          "index": 30292,
+          "floatBits": "371b3319"
+        },
+        {
+          "index": 30672,
+          "floatBits": "3f7f7363"
+        },
+        {
+          "index": 30833,
+          "floatBits": "329b5261"
+        },
+        {
+          "index": 31374,
+          "floatBits": "329b5261"
+        },
+        {
+          "index": 31524,
+          "floatBits": "3f7f5c17"
+        },
+        {
+          "index": 31915,
+          "floatBits": "2f6b5147"
+        },
+        {
+          "index": 32376,
+          "floatBits": "3f7fd47f"
+        },
+        {
+          "index": 32456,
+          "floatBits": "3551b5de"
+        },
+        {
+          "index": 32997,
+          "floatBits": "302976be"
+        },
+        {
+          "index": 33228,
+          "floatBits": "3f7e151c"
+        },
+        {
+          "index": 33538,
+          "floatBits": "36bcbe5c"
+        },
+        {
+          "index": 34079,
+          "floatBits": "37e7690d"
+        }
+      ]
+    },
+    {
+      "path": "yunet-v1/model.onnx",
+      "outputName": "cls_8",
+      "outputSize": 6400,
+      "referenceSha256": "5f115b26219ce6b8324e7f1b43893c8fbc4467b5e928f3d86d542994735dedfe",
+      "minimumNormRatio": 0.5,
+      "maximumNormRatio": 1.5,
+      "samples": [
+        {
+          "index": 0,
+          "floatBits": "3f1f485c"
+        },
+        {
+          "index": 102,
+          "floatBits": "3f2ae3be"
+        },
+        {
+          "index": 203,
+          "floatBits": "3f2bc05a"
+        },
+        {
+          "index": 305,
+          "floatBits": "3f37644f"
+        },
+        {
+          "index": 406,
+          "floatBits": "3f1fab1b"
+        },
+        {
+          "index": 508,
+          "floatBits": "3f44d0a0"
+        },
+        {
+          "index": 609,
+          "floatBits": "3f541360"
+        },
+        {
+          "index": 711,
+          "floatBits": "3f60c14e"
+        },
+        {
+          "index": 813,
+          "floatBits": "3f57b9f0"
+        },
+        {
+          "index": 914,
+          "floatBits": "3f5514f3"
+        },
+        {
+          "index": 1016,
+          "floatBits": "3f55df48"
+        },
+        {
+          "index": 1026,
+          "floatBits": "3f686c18"
+        },
+        {
+          "index": 1027,
+          "floatBits": "3f68bdfa"
+        },
+        {
+          "index": 1103,
+          "floatBits": "3f68e49e"
+        },
+        {
+          "index": 1104,
+          "floatBits": "3f6912dc"
+        },
+        {
+          "index": 1105,
+          "floatBits": "3f693146"
+        },
+        {
+          "index": 1106,
+          "floatBits": "3f6988fd"
+        },
+        {
+          "index": 1107,
+          "floatBits": "3f6996f8"
+        },
+        {
+          "index": 1117,
+          "floatBits": "3f3244fe"
+        },
+        {
+          "index": 1183,
+          "floatBits": "3f697362"
+        },
+        {
+          "index": 1184,
+          "floatBits": "3f699d5c"
+        },
+        {
+          "index": 1185,
+          "floatBits": "3f69b812"
+        },
+        {
+          "index": 1186,
+          "floatBits": "3f6a01d8"
+        },
+        {
+          "index": 1187,
+          "floatBits": "3f69ecec"
+        },
+        {
+          "index": 1188,
+          "floatBits": "3f685158"
+        },
+        {
+          "index": 1219,
+          "floatBits": "3f574ec2"
+        },
+        {
+          "index": 1263,
+          "floatBits": "3f6909f8"
+        },
+        {
+          "index": 1264,
+          "floatBits": "3f691f74"
+        },
+        {
+          "index": 1265,
+          "floatBits": "3f694073"
+        },
+        {
+          "index": 1266,
+          "floatBits": "3f699894"
+        },
+        {
+          "index": 1267,
+          "floatBits": "3f69a001"
+        },
+        {
+          "index": 1320,
+          "floatBits": "3f530405"
+        },
+        {
+          "index": 1343,
+          "floatBits": "3f68f684"
+        },
+        {
+          "index": 1344,
+          "floatBits": "3f68dd18"
+        },
+        {
+          "index": 1345,
+          "floatBits": "3f68f9c8"
+        },
+        {
+          "index": 1346,
+          "floatBits": "3f69653c"
+        },
+        {
+          "index": 1347,
+          "floatBits": "3f6980e1"
+        },
+        {
+          "index": 1422,
+          "floatBits": "3f6711b2"
+        },
+        {
+          "index": 1423,
+          "floatBits": "3f688cb6"
+        },
+        {
+          "index": 1424,
+          "floatBits": "3f685716"
+        },
+        {
+          "index": 1425,
+          "floatBits": "3f687ec3"
+        },
+        {
+          "index": 1426,
+          "floatBits": "3f6902cc"
+        },
+        {
+          "index": 1427,
+          "floatBits": "3f692330"
+        },
+        {
+          "index": 1507,
+          "floatBits": "3f687014"
+        },
+        {
+          "index": 1524,
+          "floatBits": "3f2f1e50"
+        },
+        {
+          "index": 1625,
+          "floatBits": "3f4d13ac"
+        },
+        {
+          "index": 1727,
+          "floatBits": "3f4b4662"
+        },
+        {
+          "index": 1828,
+          "floatBits": "3f61ba31"
+        },
+        {
+          "index": 1930,
+          "floatBits": "3f533a4e"
+        },
+        {
+          "index": 2031,
+          "floatBits": "3f4b2397"
+        },
+        {
+          "index": 2133,
+          "floatBits": "3f4b23a8"
+        },
+        {
+          "index": 2235,
+          "floatBits": "3f43404c"
+        },
+        {
+          "index": 2336,
+          "floatBits": "3f4d4986"
+        },
+        {
+          "index": 2438,
+          "floatBits": "3f4b23b4"
+        },
+        {
+          "index": 2539,
+          "floatBits": "3f54ef70"
+        },
+        {
+          "index": 2641,
+          "floatBits": "3f2a2e80"
+        },
+        {
+          "index": 2742,
+          "floatBits": "3f4a4128"
+        },
+        {
+          "index": 2844,
+          "floatBits": "3f4b23b4"
+        },
+        {
+          "index": 2946,
+          "floatBits": "3f623de9"
+        },
+        {
+          "index": 3047,
+          "floatBits": "3f4ead77"
+        },
+        {
+          "index": 3149,
+          "floatBits": "3f4b23b4"
+        },
+        {
+          "index": 3250,
+          "floatBits": "3f4b23b4"
+        },
+        {
+          "index": 3352,
+          "floatBits": "3f5d2332"
+        },
+        {
+          "index": 3453,
+          "floatBits": "3f521c94"
+        },
+        {
+          "index": 3555,
+          "floatBits": "3f4b23b4"
+        },
+        {
+          "index": 3657,
+          "floatBits": "3f4d90d1"
+        },
+        {
+          "index": 3758,
+          "floatBits": "3f2a7281"
+        },
+        {
+          "index": 3860,
+          "floatBits": "3f4baa8c"
+        },
+        {
+          "index": 3961,
+          "floatBits": "3f4b23b4"
+        },
+        {
+          "index": 4063,
+          "floatBits": "3f61870c"
+        },
+        {
+          "index": 4164,
+          "floatBits": "3f2bebae"
+        },
+        {
+          "index": 4266,
+          "floatBits": "3f4b21b6"
+        },
+        {
+          "index": 4368,
+          "floatBits": "3f4b1f7a"
+        },
+        {
+          "index": 4469,
+          "floatBits": "3f5f52ad"
+        },
+        {
+          "index": 4571,
+          "floatBits": "3f545370"
+        },
+        {
+          "index": 4672,
+          "floatBits": "3f4d6feb"
+        },
+        {
+          "index": 4774,
+          "floatBits": "3f5340a6"
+        },
+        {
+          "index": 4875,
+          "floatBits": "3f48bd18"
+        },
+        {
+          "index": 4977,
+          "floatBits": "3f62635e"
+        },
+        {
+          "index": 5023,
+          "floatBits": "3f684fea"
+        },
+        {
+          "index": 5026,
+          "floatBits": "3f685c7c"
+        },
+        {
+          "index": 5079,
+          "floatBits": "3f5e461f"
+        },
+        {
+          "index": 5103,
+          "floatBits": "3f687fa4"
+        },
+        {
+          "index": 5180,
+          "floatBits": "3f655052"
+        },
+        {
+          "index": 5282,
+          "floatBits": "3f2a57b3"
+        },
+        {
+          "index": 5383,
+          "floatBits": "3f58155e"
+        },
+        {
+          "index": 5485,
+          "floatBits": "3f587572"
+        },
+        {
+          "index": 5586,
+          "floatBits": "3f61ee64"
+        },
+        {
+          "index": 5688,
+          "floatBits": "3f419144"
+        },
+        {
+          "index": 5790,
+          "floatBits": "3f483882"
+        },
+        {
+          "index": 5891,
+          "floatBits": "3f420868"
+        },
+        {
+          "index": 5993,
+          "floatBits": "3f2e48fd"
+        },
+        {
+          "index": 6094,
+          "floatBits": "3f246608"
+        },
+        {
+          "index": 6196,
+          "floatBits": "3f0c9463"
+        },
+        {
+          "index": 6297,
+          "floatBits": "3ef86638"
+        },
+        {
+          "index": 6399,
+          "floatBits": "3f05e68b"
+        }
+      ]
+    },
+    {
+      "path": "sface-v1/model.onnx",
+      "outputName": "fc1",
+      "outputSize": 128,
+      "referenceSha256": "d64f60f83feedfa7a7c0cf5671769a41e7171c1806866868ed91c795452f085b",
+      "minimumNormRatio": 0.5,
+      "maximumNormRatio": 1.5,
+      "samples": [
+        {
+          "index": 0,
+          "floatBits": "3d282230"
+        },
+        {
+          "index": 1,
+          "floatBits": "3e82b227"
+        },
+        {
+          "index": 2,
+          "floatBits": "bcf57fc8"
+        },
+        {
+          "index": 4,
+          "floatBits": "3d18df74"
+        },
+        {
+          "index": 6,
+          "floatBits": "bee05a44"
+        },
+        {
+          "index": 8,
+          "floatBits": "3cf31510"
+        },
+        {
+          "index": 10,
+          "floatBits": "3d239aee"
+        },
+        {
+          "index": 11,
+          "floatBits": "bea39bf4"
+        },
+        {
+          "index": 12,
+          "floatBits": "be63228d"
+        },
+        {
+          "index": 14,
+          "floatBits": "3dcbd837"
+        },
+        {
+          "index": 16,
+          "floatBits": "3e4b34ca"
+        },
+        {
+          "index": 18,
+          "floatBits": "3c07af00"
+        },
+        {
+          "index": 20,
+          "floatBits": "be71c926"
+        },
+        {
+          "index": 22,
+          "floatBits": "be01fc04"
+        },
+        {
+          "index": 24,
+          "floatBits": "3e04a486"
+        },
+        {
+          "index": 26,
+          "floatBits": "bd063cd2"
+        },
+        {
+          "index": 28,
+          "floatBits": "3dd1f2a5"
+        },
+        {
+          "index": 29,
+          "floatBits": "be78bdcc"
+        },
+        {
+          "index": 30,
+          "floatBits": "be896dc8"
+        },
+        {
+          "index": 32,
+          "floatBits": "be03b80c"
+        },
+        {
+          "index": 33,
+          "floatBits": "bebdca38"
+        },
+        {
+          "index": 34,
+          "floatBits": "be1f240c"
+        },
+        {
+          "index": 36,
+          "floatBits": "3e7a345a"
+        },
+        {
+          "index": 37,
+          "floatBits": "3ebaa659"
+        },
+        {
+          "index": 38,
+          "floatBits": "3cda9400"
+        },
+        {
+          "index": 40,
+          "floatBits": "be9e12d0"
+        },
+        {
+          "index": 42,
+          "floatBits": "3cc775a8"
+        },
+        {
+          "index": 43,
+          "floatBits": "be9bda5d"
+        },
+        {
+          "index": 44,
+          "floatBits": "3dd90b0e"
+        },
+        {
+          "index": 45,
+          "floatBits": "3f0426ec"
+        },
+        {
+          "index": 46,
+          "floatBits": "bd92539b"
+        },
+        {
+          "index": 48,
+          "floatBits": "bd749fc4"
+        },
+        {
+          "index": 50,
+          "floatBits": "3e7cf32b"
+        },
+        {
+          "index": 52,
+          "floatBits": "3e78db8e"
+        },
+        {
+          "index": 54,
+          "floatBits": "bdf56d0e"
+        },
+        {
+          "index": 56,
+          "floatBits": "bde189a8"
+        },
+        {
+          "index": 57,
+          "floatBits": "3f1b277c"
+        },
+        {
+          "index": 58,
+          "floatBits": "3ea05385"
+        },
+        {
+          "index": 60,
+          "floatBits": "be5df26c"
+        },
+        {
+          "index": 62,
+          "floatBits": "3daa9bcc"
+        },
+        {
+          "index": 65,
+          "floatBits": "3da93382"
+        },
+        {
+          "index": 67,
+          "floatBits": "bd9c2f29"
+        },
+        {
+          "index": 68,
+          "floatBits": "3ed291ee"
+        },
+        {
+          "index": 69,
+          "floatBits": "be920b3c"
+        },
+        {
+          "index": 70,
+          "floatBits": "3e9fa14c"
+        },
+        {
+          "index": 71,
+          "floatBits": "bd9ce413"
+        },
+        {
+          "index": 73,
+          "floatBits": "bec74dbe"
+        },
+        {
+          "index": 74,
+          "floatBits": "3e7c413c"
+        },
+        {
+          "index": 75,
+          "floatBits": "3e15c208"
+        },
+        {
+          "index": 77,
+          "floatBits": "3e083edb"
+        },
+        {
+          "index": 79,
+          "floatBits": "3ea8909e"
+        },
+        {
+          "index": 80,
+          "floatBits": "3e87a670"
+        },
+        {
+          "index": 81,
+          "floatBits": "3e844421"
+        },
+        {
+          "index": 83,
+          "floatBits": "3e01fd1c"
+        },
+        {
+          "index": 85,
+          "floatBits": "3d457546"
+        },
+        {
+          "index": 87,
+          "floatBits": "3e57709c"
+        },
+        {
+          "index": 89,
+          "floatBits": "bd8323aa"
+        },
+        {
+          "index": 91,
+          "floatBits": "be081526"
+        },
+        {
+          "index": 93,
+          "floatBits": "bc3ee86a"
+        },
+        {
+          "index": 95,
+          "floatBits": "bda43264"
+        },
+        {
+          "index": 96,
+          "floatBits": "befc4a2e"
+        },
+        {
+          "index": 97,
+          "floatBits": "bcc5c9b8"
+        },
+        {
+          "index": 98,
+          "floatBits": "3e83c1fe"
+        },
+        {
+          "index": 99,
+          "floatBits": "bdf4aad5"
+        },
+        {
+          "index": 101,
+          "floatBits": "beb0aab2"
+        },
+        {
+          "index": 103,
+          "floatBits": "be686972"
+        },
+        {
+          "index": 105,
+          "floatBits": "3e8c7076"
+        },
+        {
+          "index": 107,
+          "floatBits": "bd88483c"
+        },
+        {
+          "index": 108,
+          "floatBits": "3e9e49b0"
+        },
+        {
+          "index": 109,
+          "floatBits": "be490d3e"
+        },
+        {
+          "index": 111,
+          "floatBits": "be9ffe55"
+        },
+        {
+          "index": 113,
+          "floatBits": "3d38c81f"
+        },
+        {
+          "index": 115,
+          "floatBits": "3eee0922"
+        },
+        {
+          "index": 117,
+          "floatBits": "3e7f4b3d"
+        },
+        {
+          "index": 119,
+          "floatBits": "3d7cbf60"
+        },
+        {
+          "index": 121,
+          "floatBits": "bea1f216"
+        },
+        {
+          "index": 123,
+          "floatBits": "bd43031a"
+        },
+        {
+          "index": 125,
+          "floatBits": "bcdded56"
+        },
+        {
+          "index": 127,
+          "floatBits": "bcbe7f00"
+        }
+      ]
+    },
+    {
+      "path": "sensitive-v1/model.onnx",
+      "outputName": "logits",
+      "outputSize": 2,
+      "referenceSha256": "83b82e4897e94ebf740eb26319cf3f0cc1bc0e08ce19157d1e7a0ffbe6efc5b7",
+      "minimumNormRatio": 0.5,
+      "maximumNormRatio": 1.5,
+      "samples": [
+        {
+          "index": 0,
+          "floatBits": "3f4b6cb7"
+        },
+        {
+          "index": 1,
+          "floatBits": "4007e187"
+        }
+      ]
     }
   ]
 }

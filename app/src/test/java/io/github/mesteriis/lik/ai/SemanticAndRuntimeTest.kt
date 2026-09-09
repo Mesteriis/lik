@@ -14,10 +14,14 @@ class SemanticAndRuntimeTest {
         val file = File.createTempFile("lik-smoke", ".f32").apply { writeBytes(bytes) }
         val sha = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
         val reference = SmokeReferenceSpec("model.onnx.smoke.f32", bytes.size.toLong(), sha,
-            "little-endian-float32-output-order", "allclose", .98f, .0001f, .001f)
+            "little-endian-float32-output-order", "allclose", .98f, .0001f, .001f, .5f, 1.5f,
+            listOf(SmokeExpectedSample(0, .25f), SmokeExpectedSample(1, .75f)))
         try {
             assertTrue(SmokeReferenceVerifier.matches(reference, floatArrayOf(.25f, .75f), file))
             assertFalse(SmokeReferenceVerifier.matches(reference, floatArrayOf(.30f, .70f), file))
+            assertTrue(SmokeReferenceVerifier.matchesExpectedSamples(reference, floatArrayOf(.25f, .75f)))
+            assertFalse(SmokeReferenceVerifier.matchesExpectedSamples(reference, floatArrayOf(.30f, .70f)))
+            assertFalse(SmokeReferenceVerifier.matchesExpectedSamples(reference, floatArrayOf(0f, 0f)))
             file.writeBytes(ByteArray(bytes.size))
             assertFalse(SmokeReferenceVerifier.matches(reference, floatArrayOf(.25f, .75f), file))
         } finally { file.delete() }

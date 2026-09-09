@@ -86,6 +86,29 @@ def validate_catalog(catalog):
             if file["path"] in paths:
                 raise ArtifactError(f"Duplicate artifact path: {file['path']}")
             paths.add(file["path"])
+    onnx_paths = {file["path"] for component in components.values() for file in component["artifacts"]
+                  if "onnx" in file}
+    activation = catalog.get("activationSmokeReferences", [])
+    if not isinstance(activation, list) or {entry.get("path") for entry in activation} != onnx_paths:
+        raise ArtifactError("Every ONNX graph needs one activation smoke reference")
+    if len(activation) != len(onnx_paths):
+        raise ArtifactError("Duplicate activation smoke reference")
+    for entry in activation:
+        if (not isinstance(entry.get("outputName"), str) or not entry["outputName"] or
+                not isinstance(entry.get("outputSize"), int) or entry["outputSize"] <= 0 or
+                not isinstance(entry.get("minimumNormRatio"), (int, float)) or
+                not isinstance(entry.get("maximumNormRatio"), (int, float)) or
+                not 0 < entry["minimumNormRatio"] <= 1 <= entry["maximumNormRatio"] or
+                not re.fullmatch(r"[a-f0-9]{64}", entry.get("referenceSha256", ""))):
+            raise ArtifactError("Invalid activation smoke reference contract")
+        samples = entry.get("samples")
+        if not isinstance(samples, list) or len(samples) < 2:
+            raise ArtifactError("Activation smoke reference needs expected samples")
+        indices = [sample.get("index") for sample in samples]
+        if (len(set(indices)) != len(indices) or any(not isinstance(index, int) or index < 0 or
+                                                    index >= entry["outputSize"] for index in indices) or
+                any(not re.fullmatch(r"[0-9a-f]{8}", sample.get("floatBits", "")) for sample in samples)):
+            raise ArtifactError("Invalid activation smoke samples")
     return [f for c in components.values() for f in c["artifacts"]]
 
 

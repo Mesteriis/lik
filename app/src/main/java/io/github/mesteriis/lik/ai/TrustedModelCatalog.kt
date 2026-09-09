@@ -9,6 +9,7 @@ import java.nio.ByteOrder
 import java.security.MessageDigest
 
 data class PipelineSpec(val feature: AiFeature, val fingerprint: String, val dimension: Int?)
+data class SmokeExpectedSample(val index: Int, val value: Float)
 data class SmokeReferenceSpec(
     val file: String,
     val size: Long,
@@ -18,16 +19,21 @@ data class SmokeReferenceSpec(
     val minimumCosine: Float,
     val atol: Float,
     val rtol: Float,
+    val minimumNormRatio: Float,
+    val maximumNormRatio: Float,
+    val expectedSamples: List<SmokeExpectedSample>,
 ) {
     init {
         require(file.isNotBlank() && '/' !in file && file != "." && file != "..")
         require(size > 0 && size % Float.SIZE_BYTES == 0L)
         require(sha256.matches(Regex("[a-f0-9]{64}")))
         require(format == "little-endian-float32-output-order")
+        require(minimumNormRatio in 0f..1f && maximumNormRatio >= 1f)
+        require(expectedSamples.size >= 2 && expectedSamples.map { it.index }.distinct().size == expectedSamples.size)
     }
 }
-data class GraphSmokeSpec(val artifactPath: String, val inputName: String, val inputType: String,
-                          val shape: IntArray, val smokeFill: Float,
+data class SmokeInputSpec(val name: String, val type: String, val shape: IntArray, val fill: Double)
+data class GraphSmokeSpec(val artifactPath: String, val inputs: List<SmokeInputSpec>,
                           val outputName: String, val outputShape: IntArray,
                           val referenceOffsetFloats: Int,
                           val reference: SmokeReferenceSpec)
@@ -67,6 +73,11 @@ class TrustedModelCatalog private constructor(
             val root = JSONObject(text)
             require(root.getInt("schemaVersion") == 1)
             require(root.getString("delivery") == "settings-download-from-huggingface")
+            val activation = root.getJSONArray("activationSmokeReferences").objects().associate { value ->
+                val path = value.getString("path")
+                require(path.isNotBlank() && !path.startsWith('/') && ".." !in path.split('/'))
+                path to value
+            }
             val components = buildMap {
                 val values = root.getJSONArray("components")
                 repeat(values.length()) { index ->
@@ -80,8 +91,11 @@ class TrustedModelCatalog private constructor(
                     val smoke = value.getJSONArray("artifacts").objects().mapNotNull { file ->
                         if (!file.getString("path").endsWith(".onnx")) return@mapNotNull null
                         val graph = file.getJSONObject("onnx")
-                        val input = graph.getJSONArray("inputs").getJSONObject(0)
-                        val shape = input.getJSONArray("smokeShape").let { values -> IntArray(values.length()) { values.getInt(it) } }
+                        val inputs = graph.getJSONArray("inputs").objects().map { input ->
+                            SmokeInputSpec(input.getString("name"), input.getString("type"),
+                                input.getJSONArray("smokeShape").let { values -> IntArray(values.length()) { values.getInt(it) } },
+                                input.getDouble("smokeFill"))
+                        }
                         val output = graph.optString("primaryOutput").takeIf(String::isNotBlank)
                             ?: graph.getJSONArray("outputs").getJSONObject(0).getString("name")
                         val outputs = graph.getJSONArray("outputs").objects()
@@ -93,11 +107,24 @@ class TrustedModelCatalog private constructor(
                             }
                         }
                         val reference = graph.getJSONObject("smokeReference")
-                        GraphSmokeSpec(file.getString("path"), input.getString("name"), input.getString("type"),
-                            shape, input.getDouble("smokeFill").toFloat(), output, outputShape, referenceOffset,
+                        val activationReference = activation.getValue(file.getString("path"))
+                        require(activationReference.getString("outputName") == output)
+                        val outputCount = outputShape.fold(1) { count, value -> Math.multiplyExact(count, value) }
+                        require(activationReference.getInt("outputSize") == outputCount &&
+                            activationReference.getString("referenceSha256") == reference.getString("sha256"))
+                        val samples = activationReference.getJSONArray("samples").objects().map { sample ->
+                            val index = sample.getInt("index")
+                            require(index in 0 until outputCount)
+                            val bits = sample.getString("floatBits")
+                            require(bits.matches(Regex("[0-9a-f]{8}")))
+                            SmokeExpectedSample(index, Float.fromBits(bits.toLong(16).toInt()))
+                        }
+                        GraphSmokeSpec(file.getString("path"), inputs, output, outputShape, referenceOffset,
                             SmokeReferenceSpec(reference.getString("file"), reference.getLong("size"), reference.getString("sha256"),
                                 reference.getString("format"), reference.getString("comparison"), reference.getDouble("minimumCosine").toFloat(),
-                                reference.getDouble("atol").toFloat(), reference.getDouble("rtol").toFloat()))
+                                reference.getDouble("atol").toFloat(), reference.getDouble("rtol").toFloat(),
+                                activationReference.getDouble("minimumNormRatio").toFloat(),
+                                activationReference.getDouble("maximumNormRatio").toFloat(), samples))
                     }
                     check(put(id, ComponentSpec(id, contract.getString("sourceRepo"), value.getString("fingerprint"), roles, artifacts, smoke)) == null)
                 }
@@ -122,6 +149,7 @@ class TrustedModelCatalog private constructor(
                 }
             }
             require(profiles.keys == ProfileId.entries.toSet())
+            require(components.values.flatMap { it.smokeGraphs }.map { it.artifactPath }.toSet() == activation.keys)
             val default = ProfileId.fromWire(root.getString("defaultProfile"))
             require(default == ProfileId.BALANCED)
             return TrustedModelCatalog(root.getString("catalogVersion"), default, components, profiles)
@@ -137,6 +165,26 @@ class TrustedModelCatalog private constructor(
 }
 
 object SmokeReferenceVerifier {
+    fun matchesExpectedSamples(reference: SmokeReferenceSpec, actual: FloatArray): Boolean {
+        if (!actual.all(Float::isFinite) || reference.expectedSamples.any { it.index !in actual.indices }) return false
+        val observed = reference.expectedSamples.map { actual[it.index] }
+        val expected = reference.expectedSamples.map { it.value }
+        val observedNorm = kotlin.math.sqrt(observed.sumOf { it.toDouble() * it })
+        val expectedNorm = kotlin.math.sqrt(expected.sumOf { it.toDouble() * it })
+        val ratio = observedNorm / expectedNorm
+        if (expectedNorm <= 0 || ratio < reference.minimumNormRatio || ratio > reference.maximumNormRatio) return false
+        return when (reference.comparison) {
+            "allclose" -> observed.indices.all { kotlin.math.abs(observed[it] - expected[it]) <=
+                reference.atol + reference.rtol * kotlin.math.abs(expected[it]) }
+            "cosine" -> {
+                var dot = 0.0; var left = 0.0; var right = 0.0
+                observed.indices.forEach { dot += observed[it] * expected[it]; left += observed[it] * observed[it]; right += expected[it] * expected[it] }
+                left > 0 && right > 0 && dot / kotlin.math.sqrt(left * right) >= reference.minimumCosine
+            }
+            else -> false
+        }
+    }
+
     fun matches(reference: SmokeReferenceSpec, actual: FloatArray, file: File, offsetFloats: Int = 0): Boolean = runCatching {
         if (!file.isFile || java.nio.file.Files.isSymbolicLink(file.toPath()) || file.length() != reference.size) return@runCatching false
         val bytes = file.readBytes()
