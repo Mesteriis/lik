@@ -18,7 +18,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     io.github.mesteriis.lik.similarity.ContentFingerprintRecord::class, io.github.mesteriis.lik.similarity.FingerprintFailureRecord::class,
     io.github.mesteriis.lik.similarity.FingerprintBandRecord::class,
     io.github.mesteriis.lik.similarity.SimilarityRelationRecord::class,
-    io.github.mesteriis.lik.similarity.SimilarityCheckpoint::class], version = 11, exportSchema = true)
+    io.github.mesteriis.lik.similarity.SimilarityScanRecord::class,
+    io.github.mesteriis.lik.similarity.SimilarityCheckpoint::class], version = 12, exportSchema = true)
 abstract class MediaDatabase : RoomDatabase() {
     abstract fun media(): MediaDao
     abstract fun organization(): OrganizationDao
@@ -31,8 +32,19 @@ abstract class MediaDatabase : RoomDatabase() {
 
         fun get(context: Context): MediaDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, MediaDatabase::class.java, "media.db")
-                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                .addMigrations(migration1To2(context), MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
                 .build().also { instance = it }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS similarity_scan (mediaId TEXT NOT NULL PRIMARY KEY, contentRevision INTEGER NOT NULL, accessEpoch INTEGER NOT NULL, fingerprintVersion INTEGER NOT NULL, afterMediaId TEXT NOT NULL, examined INTEGER NOT NULL, updatedAt INTEGER NOT NULL)")
+                // Version 2 uses a provably complete 16-nibble multi-index. Old hints and edges are regenerable.
+                db.execSQL("DELETE FROM fingerprint_band")
+                db.execSQL("DELETE FROM similarity_relation")
+                db.execSQL("UPDATE content_fingerprint SET relationsReady=0")
+                db.execSQL("UPDATE similarity_checkpoint SET status='IDLE', completed=0, total=0, checkpointMediaId=NULL, error=NULL")
+            }
         }
 
         val MIGRATION_10_11 = object : Migration(10, 11) {

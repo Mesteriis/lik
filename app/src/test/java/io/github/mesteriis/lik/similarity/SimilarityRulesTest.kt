@@ -28,28 +28,40 @@ class SimilarityRulesTest {
         val brighter = original.map { (it + 22).coerceAtMost(255) }.toIntArray()
         val crop = crop(original, 48, 40, 2, 2, 44, 36)
         val different = gradient(48, 40) { x, y -> if ((x / 5 + y / 5) % 2 == 0) 10 else 245 }
-        val a = PerceptualFingerprintV1.fromLuma(48, 40, original)
-        val b = PerceptualFingerprintV1.fromLuma(48, 40, brighter)
-        val c = PerceptualFingerprintV1.fromLuma(44, 36, crop)
-        val d = PerceptualFingerprintV1.fromLuma(48, 40, different)
-        assertTrue(PerceptualFingerprintV1.distance(a, b) <= PerceptualFingerprintV1.SIMILAR_DISTANCE)
-        assertTrue(PerceptualFingerprintV1.distance(a, c) <= PerceptualFingerprintV1.SIMILAR_DISTANCE)
-        assertTrue(PerceptualFingerprintV1.distance(a, d) > PerceptualFingerprintV1.SIMILAR_DISTANCE)
+        val a = PerceptualFingerprintV2.fromLuma(48, 40, original)
+        val b = PerceptualFingerprintV2.fromLuma(48, 40, brighter)
+        val c = PerceptualFingerprintV2.fromLuma(44, 36, crop)
+        val d = PerceptualFingerprintV2.fromLuma(48, 40, different)
+        assertTrue(PerceptualFingerprintV2.distance(a, b) <= PerceptualFingerprintV2.SIMILAR_DISTANCE)
+        assertTrue(PerceptualFingerprintV2.distance(a, c) <= PerceptualFingerprintV2.SIMILAR_DISTANCE)
+        assertTrue(PerceptualFingerprintV2.distance(a, d) > PerceptualFingerprintV2.SIMILAR_DISTANCE)
     }
 
     @Test fun thresholdIsInclusiveAndPairOrderCannotCreateDuplicates() {
-        assertTrue(SimilarityRules.isSimilar(PerceptualFingerprintV1.SIMILAR_DISTANCE))
-        assertFalse(SimilarityRules.isSimilar(PerceptualFingerprintV1.SIMILAR_DISTANCE + 1))
+        assertTrue(SimilarityRules.isSimilar(PerceptualFingerprintV2.SIMILAR_DISTANCE))
+        assertFalse(SimilarityRules.isSimilar(PerceptualFingerprintV2.SIMILAR_DISTANCE + 1))
         assertEquals(MediaPair("a", "z"), MediaPair.ordered("z", "a"))
         assertThrows(IllegalArgumentException::class.java) { MediaPair.ordered("a", "a") }
     }
 
-    @Test fun bandKeysBoundCandidateSearchWithoutLosingTypicalNearHash() {
+    @Test fun multiIndexBandsProvablyRetainEveryHashWithinDistanceFourteen() {
         val original=ByteArray(8)
-        val near=original.copyOf().also{it[0]=0x3f;it[3]=0x11}
+        val oneBitPerByte=original.copyOf().also{for(index in it.indices)it[index]=(1 shl (index%8)).toByte()}
+        val fourteenDifferentChunks=original.copyOf().also{bits->for(chunk in 0 until 14){val byte=chunk/2;val shift=(chunk%2)*4;bits[byte]=(bits[byte].toInt() or (1 shl shift)).toByte()}}
         val unrelated=ByteArray(8){0xff.toByte()}
-        assertTrue(FingerprintBands.keys(original).intersect(FingerprintBands.keys(near)).isNotEmpty())
+        assertEquals(16,FingerprintBands.keys(original).size)
+        assertEquals(8,PerceptualFingerprintV2.distance(original,oneBitPerByte))
+        assertTrue(FingerprintBands.keys(original).intersect(FingerprintBands.keys(oneBitPerByte)).isNotEmpty())
+        assertEquals(14,PerceptualFingerprintV2.distance(original,fourteenDifferentChunks))
+        assertTrue(FingerprintBands.keys(original).intersect(FingerprintBands.keys(fourteenDifferentChunks)).isNotEmpty())
         assertTrue(FingerprintBands.keys(original).intersect(FingerprintBands.keys(unrelated)).isEmpty())
+    }
+
+    @Test fun scaleBudgetsBoundEveryTransactionRunAndStoredVisualEdges() {
+        assertTrue(SimilarityBudgets.CANDIDATE_PAGE <= SimilarityBudgets.CANDIDATES_PER_ITEM_STEP)
+        assertTrue(SimilarityBudgets.CANDIDATES_PER_ITEM_STEP <= SimilarityBudgets.CANDIDATES_PER_RUN)
+        assertEquals(800_000L,SimilarityBudgets.maximumStoredVisualRelations(100_000))
+        assertEquals(8,SimilarityBudgets.maximumCandidatePagesPerRun())
     }
 
     @Test fun actionCapabilitiesNeverDeleteDeviceOriginalAndRequireCurrentSafeImportedCopy() {

@@ -47,14 +47,14 @@
   <string name="trash_title">Trash</string>
   <string name="ai_settings_title">AI settings</string>
   <string name="similarity_title">Duplicates and similar photos</string>
-  <string name="similarity_not_indexed">Similarity analysis has not run yet.</string>
   <string name="similarity_progress">Safe-photo progress: %1$d / %2$d</string>
   <string name="similarity_run">Analyze now</string>
   <string name="similarity_pause">Pause analysis</string>
   <string name="similarity_started">Similarity analysis started</string>
   <string name="similarity_paused">Similarity analysis paused</string>
   <string name="similarity_empty">No current exact duplicates or similar photos.</string>
-  <string name="similarity_exact">Exact duplicate</string>
+  <string name="similarity_exact_group">Exact copies: %1$d · %2$s</string>
+  <string name="similarity_exact_members">Exact-copy group</string>
   <string name="similarity_visual">Visually similar · distance %1$d</string>
   <string name="similarity_exact_reason">Exact file contents · perceptual distance %1$d</string>
   <string name="similarity_visual_reason">Visually similar · perceptual distance %1$d</string>

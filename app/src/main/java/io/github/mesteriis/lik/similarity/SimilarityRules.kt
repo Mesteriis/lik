@@ -22,8 +22,9 @@ object ContentDigest {
 }
 
 /** Versioned 63-bit DCT perceptual hash. It is a search hint and is never a media identity. */
-object PerceptualFingerprintV1 {
-    const val VERSION = 1
+object PerceptualFingerprintV2 {
+    /** Revision 2 keeps the DCT bits and replaces the incomplete byte-band index with 16 nibbles. */
+    const val VERSION = 2
     const val SIMILAR_DISTANCE = 14
     private const val SAMPLE = 32
     private const val LOW = 8
@@ -62,7 +63,25 @@ object PerceptualFingerprintV1 {
 }
 
 object FingerprintBands {
-    fun keys(bits:ByteArray):Set<Int>{require(bits.size==8);return bits.indices.mapTo(linkedSetOf()){index->(index shl 8) or (bits[index].toInt() and 0xff)}}
+    const val COUNT=16
+    fun keys(bits:ByteArray):Set<Int>{
+        require(bits.size==8)
+        return (0 until COUNT).mapTo(linkedSetOf()){index->
+            val value=(bits[index/2].toInt() ushr ((index%2)*4)) and 0x0f
+            (index shl 4) or value
+        }
+    }
+    fun records(mediaId:String,version:Int,bits:ByteArray)=keys(bits).map{key->FingerprintBandRecord(mediaId,version,key ushr 4,key and 0x0f)}
+}
+
+object SimilarityBudgets {
+    const val TOP_K=8
+    const val CANDIDATE_PAGE=128
+    const val CANDIDATES_PER_ITEM_STEP=512
+    const val CANDIDATES_PER_RUN=1024
+    const val FINGERPRINTS_PER_RUN=8
+    fun maximumStoredVisualRelations(mediaCount:Int)=mediaCount.toLong()*TOP_K
+    fun maximumCandidatePagesPerRun()=(CANDIDATES_PER_RUN+CANDIDATE_PAGE-1)/CANDIDATE_PAGE
 }
 
 data class MediaPair(val left: String, val right: String) {
@@ -77,7 +96,7 @@ data class MediaPair(val left: String, val right: String) {
 data class FingerprintToken(val mediaId: String, val contentRevision: Long, val accessEpoch: Long)
 
 object SimilarityRules {
-    fun isSimilar(distance: Int) = distance <= PerceptualFingerprintV1.SIMILAR_DISTANCE
+    fun isSimilar(distance: Int) = distance <= PerceptualFingerprintV2.SIMILAR_DISTANCE
     fun canPublish(current: MediaRecord, safe: Boolean, token: FingerprintToken) = safe &&
         current.mediaId == token.mediaId && current.contentRevision == token.contentRevision &&
         current.accessGrantEpoch == token.accessEpoch && current.availability == MediaAvailability.AVAILABLE &&

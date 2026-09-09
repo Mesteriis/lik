@@ -47,14 +47,14 @@
   <string name="trash_title">Корзина</string>
   <string name="ai_settings_title">Настройки ИИ</string>
   <string name="similarity_title">Дубликаты и похожие фото</string>
-  <string name="similarity_not_indexed">Анализ похожести ещё не запускался.</string>
   <string name="similarity_progress">Прогресс безопасных фото: %1$d / %2$d</string>
   <string name="similarity_run">Проанализировать сейчас</string>
   <string name="similarity_pause">Приостановить анализ</string>
   <string name="similarity_started">Анализ похожести запущен</string>
   <string name="similarity_paused">Анализ похожести приостановлен</string>
   <string name="similarity_empty">Текущих точных дубликатов и похожих фото нет.</string>
-  <string name="similarity_exact">Точный дубликат</string>
+  <string name="similarity_exact_group">Точные копии: %1$d · %2$s</string>
+  <string name="similarity_exact_members">Группа точных копий</string>
   <string name="similarity_visual">Визуально похожи · расстояние %1$d</string>
   <string name="similarity_exact_reason">Содержимое файлов совпадает · визуальное расстояние %1$d</string>
   <string name="similarity_visual_reason">Визуально похожи · расстояние %1$d</string>

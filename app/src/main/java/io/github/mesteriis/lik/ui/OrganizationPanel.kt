@@ -39,8 +39,11 @@ class OrganizationPanel(
     private var sourceIndex = 0
     private var semanticText = ""
     private var personId: String? = null
+    private var similaritySha: String? = null
+    private var similarityCursor = ""
+    private var similarityCursorStack = mutableListOf<String>()
     private var content: LinearLayout = container
-    private val privacyInvalidation=object:androidx.room.InvalidationTracker.Observer("media","ai_media_exposure","ai_ocr_result","ai_face_detection"){
+    private val privacyInvalidation=object:androidx.room.InvalidationTracker.Observer("media","ai_media_exposure","ai_ocr_result","ai_face_detection","content_fingerprint","fingerprint_failure","fingerprint_band","similarity_relation","similarity_scan","similarity_checkpoint"){
         override fun onInvalidated(tables:Set<String>){activity.runOnUiThread{refresh()}}
     }
     init { MediaDatabase.get(activity).invalidationTracker.addObserver(privacyInvalidation) }
@@ -53,6 +56,9 @@ class OrganizationPanel(
         sourceIndex = state.getInt("organization.source")
         resultTitle = state.getString("organization.title").orEmpty()
         personId = state.getString("organization.person")
+        similaritySha = state.getString("organization.similaritySha")
+        similarityCursor = state.getString("organization.similarityCursor").orEmpty()
+        similarityCursorStack = state.getStringArrayList("organization.similarityCursorStack")?.toMutableList() ?: mutableListOf()
         offset = state.getInt("organization.offset")
         val folder = state.getString("organization.volume")?.let {
             DeviceFolder(it, state.getString("organization.bucket").orEmpty(), state.getString("organization.path").orEmpty(), null, 0)
@@ -74,6 +80,9 @@ class OrganizationPanel(
         state.putInt("organization.source", sourceIndex)
         state.putString("organization.title", resultTitle)
         state.putString("organization.person", personId)
+        state.putString("organization.similaritySha", similaritySha)
+        state.putString("organization.similarityCursor", similarityCursor)
+        state.putStringArrayList("organization.similarityCursorStack",ArrayList(similarityCursorStack))
         state.putInt("organization.offset", offset)
         state.putString("organization.name", query.name)
         query.from?.let { state.putLong("organization.from", it) }
@@ -158,6 +167,7 @@ class OrganizationPanel(
             "person" -> person()
             "trash" -> trash()
             "similarity" -> similarity()
+            "similarity_exact" -> exactSimilarityGroup()
             "ai" -> {
                 activity.startActivity(Intent(activity, io.github.mesteriis.lik.settings.AiSettingsActivity::class.java))
                 screen = "more"
@@ -179,17 +189,33 @@ class OrganizationPanel(
         val db=MediaDatabase.get(activity)
         button(text(R.string.similarity_run),R.id.organization_similarity_run){io.github.mesteriis.lik.similarity.SimilarityWorker.enqueue(activity,manual=true);Toast.makeText(activity,R.string.similarity_started,Toast.LENGTH_SHORT).show()}
         button(text(R.string.similarity_pause)){io.github.mesteriis.lik.similarity.SimilarityWorker.pause(activity);Toast.makeText(activity,R.string.similarity_paused,Toast.LENGTH_SHORT).show()}
-        load({db.similarity().checkpoint() to io.github.mesteriis.lik.similarity.SimilarityRepository(activity).pairs(61,offset)}){(checkpoint,pairs)->
-            label(checkpoint?.let{activity.getString(R.string.similarity_progress,it.completed,it.total)}?:text(R.string.similarity_not_indexed))
-            if(pairs.isEmpty())label(text(R.string.similarity_empty))
+        load({val repository=io.github.mesteriis.lik.similarity.SimilarityRepository(activity);Triple(repository.progress(),repository.exactGroups(61,offset),repository.visualPairs(61,offset))}){(progress,groups,pairs)->
+            label(activity.getString(R.string.similarity_progress,progress.completed,progress.eligible))
+            if(groups.isEmpty()&&pairs.isEmpty())label(text(R.string.similarity_empty))
+            groups.take(60).forEach{group->button(activity.getString(R.string.similarity_exact_group,group.memberCount,group.sha256.take(12))){similaritySha=group.sha256;similarityCursor="";similarityCursorStack.clear();screen="similarity_exact";render()}}
             pairs.take(60).forEach{pair->
-                val reason=if(pair.relation.kind==io.github.mesteriis.lik.similarity.SimilarityKind.EXACT)text(R.string.similarity_exact) else activity.getString(R.string.similarity_visual,pair.relation.distance)
+                val reason=activity.getString(R.string.similarity_visual,pair.relation.distance)
                 button("$reason · ${pair.left.media.displayName?:pair.left.media.mediaId.takeLast(8)} / ${pair.right.media.displayName?:pair.right.media.mediaId.takeLast(8)}"){
                     activity.startActivity(Intent(activity,io.github.mesteriis.lik.similarity.ComparisonActivity::class.java).putExtra(io.github.mesteriis.lik.similarity.ComparisonActivity.EXTRA_LEFT,pair.relation.leftMediaId).putExtra(io.github.mesteriis.lik.similarity.ComparisonActivity.EXTRA_RIGHT,pair.relation.rightMediaId))
                 }
             }
             if(offset>0)button(text(R.string.previous_page)){offset=(offset-60).coerceAtLeast(0);render()}
             if(pairs.size>60)button(text(R.string.next_page)){offset+=60;render()}
+        }
+    }
+
+    private fun exactSimilarityGroup(){
+        val sha=similaritySha?:run{screen="similarity";render();return}
+        root(text(R.string.similarity_exact_members));button(text(R.string.back)){screen="similarity";offset=0;render()}
+        val repository=io.github.mesteriis.lik.similarity.SimilarityRepository(activity)
+        load({repository.exactMembers(sha,"",1).firstOrNull() to repository.exactMembers(sha,similarityCursor,61)}){(reference,members)->
+            if(reference==null||members.isEmpty()){label(text(R.string.similarity_pair_unavailable));return@load}
+            members.take(60).forEach{member->
+                val title="${member.displayName?:member.mediaId.takeLast(12)} · ${text(if(member.source==MediaSource.DEVICE)R.string.source_device else R.string.source_google)}"
+                if(member.mediaId==reference.mediaId)label(title) else button(title){activity.startActivity(Intent(activity,io.github.mesteriis.lik.similarity.ComparisonActivity::class.java).putExtra(io.github.mesteriis.lik.similarity.ComparisonActivity.EXTRA_LEFT,reference.mediaId).putExtra(io.github.mesteriis.lik.similarity.ComparisonActivity.EXTRA_RIGHT,member.mediaId))}
+            }
+            if(similarityCursorStack.isNotEmpty())button(text(R.string.previous_page)){similarityCursor=similarityCursorStack.removeAt(similarityCursorStack.lastIndex);render()}
+            if(members.size>60)button(text(R.string.next_page)){similarityCursorStack+=similarityCursor;similarityCursor=members[59].mediaId;render()}
         }
     }
 

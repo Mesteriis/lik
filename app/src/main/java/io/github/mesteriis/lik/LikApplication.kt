@@ -5,10 +5,14 @@ import io.github.mesteriis.lik.catalog.TrashMaintenance
 import io.github.mesteriis.lik.ai.*
 
 class LikApplication : Application() {
+    private val similarityEligibilityObserver=object:androidx.room.InvalidationTracker.Observer("media","ai_media_exposure"){
+        override fun onInvalidated(tables:Set<String>){io.github.mesteriis.lik.similarity.SimilarityWorker.enqueue(this@LikApplication)}
+    }
     override fun onCreate() {
         super.onCreate()
         if (android.os.Process.isIsolated()) return
         TrashMaintenance.schedule(this)
+        io.github.mesteriis.lik.catalog.MediaDatabase.get(this).invalidationTracker.addObserver(similarityEligibilityObserver)
         io.github.mesteriis.lik.similarity.SimilarityWorker.schedule(this)
         Thread({
             ModelMaintenance.recover(this)

@@ -25,7 +25,7 @@ class SimilarityFingerprintEngine(private val context:Context):FingerprintCalcul
         return bitmap.useBitmap {
             val pixels=IntArray(width*height);getPixels(pixels,0,width,0,0,width,height)
             val luma=IntArray(pixels.size){i->val color=pixels[i];((android.graphics.Color.red(color)*299+android.graphics.Color.green(color)*587+android.graphics.Color.blue(color)*114)/1000)}
-            CalculatedFingerprint(sha,PerceptualFingerprintV1.fromLuma(width,height,luma))
+            CalculatedFingerprint(sha,PerceptualFingerprintV2.fromLuma(width,height,luma))
         }
     }
 
@@ -50,57 +50,62 @@ class SimilarityFingerprintEngine(private val context:Context):FingerprintCalcul
     private inline fun <T> Bitmap.useBitmap(block:Bitmap.()->T):T=try{block()}finally{recycle()}
 }
 
+enum class SimilarityRunOutcome { COMPLETE, MORE_WORK, BLOCKED_BY_FAILURE }
+
 class SimilarityProcessor(
     private val database:MediaDatabase,
     private val engine:FingerprintCalculator,
     private val stopped:()->Boolean,
     private val progress:(Int,Int)->Unit={_,_->},
 ) {
-    fun run() {
-        val dao=database.similarity();val total=dao.eligibleCount();var completed=dao.processedCount();var checkpoint:String?=dao.checkpoint()?.checkpointMediaId
-        dao.saveCheckpoint(SimilarityCheckpoint(checkpointMediaId=checkpoint,completed=completed,total=total,status=SimilarityWorkStatus.RUNNING,updatedAt=System.currentTimeMillis()))
-        try {
-            while(true){
+    fun run():SimilarityRunOutcome {
+        val dao=database.similarity();var fingerprintsLeft=SimilarityBudgets.FINGERPRINTS_PER_RUN;var candidatesLeft=SimilarityBudgets.CANDIDATES_PER_RUN;var checkpoint=dao.checkpoint()?.checkpointMediaId
+        dao.commitProgress(checkpoint)
+        try{
+            while(fingerprintsLeft>0||candidatesLeft>0){
                 if(stopped())throw InterruptedException("Similarity indexing cancelled")
-                // Restart from the first unfinished row. This finds insertions before an old checkpoint.
-                val batch=dao.pendingSafe(null,BATCH)
-                if(batch.isEmpty())break
-                for(row in batch){
-                    if(stopped())throw InterruptedException("Similarity indexing cancelled")
-                    val token=FingerprintToken(row.mediaId,row.contentRevision,row.accessGrantEpoch)
-                    val existing=dao.fingerprint(row.mediaId)
-                    if(existing?.let{it.contentRevision==token.contentRevision&&it.accessEpoch==token.accessEpoch&&it.perceptualVersion==PerceptualFingerprintV1.VERSION&&!it.relationsReady}==true){
-                        SimilarityRelationBuilder.rebuildFor(database,existing,stopped)
-                    }else try{
+                val row=dao.pendingSafe(null,1).firstOrNull()?:break
+                val token=FingerprintToken(row.mediaId,row.contentRevision,row.accessGrantEpoch)
+                var current=dao.fingerprint(row.mediaId)?.takeIf{it.contentRevision==token.contentRevision&&it.accessEpoch==token.accessEpoch&&it.perceptualVersion==PerceptualFingerprintV2.VERSION}
+                if(current==null){
+                    if(fingerprintsLeft==0)break
+                    try{
                         val result=engine.calculate(row,stopped)
-                        val record=ContentFingerprintRecord(row.mediaId,row.contentRevision,row.accessGrantEpoch,result.sha256,PerceptualFingerprintV1.VERSION,result.perceptualBits,System.currentTimeMillis())
-                        if(dao.publishIfCurrent(record))SimilarityRelationBuilder.rebuildFor(database,record,stopped)
+                        val record=ContentFingerprintRecord(row.mediaId,row.contentRevision,row.accessGrantEpoch,result.sha256,PerceptualFingerprintV2.VERSION,result.perceptualBits,System.currentTimeMillis())
+                        if(dao.publishIfCurrent(record))current=record
                     }catch(error:InterruptedException){throw error}catch(error:Exception){
-                        dao.failIfCurrent(FingerprintFailureRecord(row.mediaId,row.contentRevision,row.accessGrantEpoch,PerceptualFingerprintV1.VERSION,error.javaClass.simpleName.take(80),System.currentTimeMillis()))
+                        dao.failIfCurrent(FingerprintFailureRecord(row.mediaId,row.contentRevision,row.accessGrantEpoch,PerceptualFingerprintV2.VERSION,error.javaClass.simpleName.take(80),System.currentTimeMillis()))
                     }
-                    checkpoint=row.mediaId;completed=dao.processedCount()
-                    val currentTotal=dao.eligibleCount();dao.saveCheckpoint(SimilarityCheckpoint(checkpointMediaId=checkpoint,completed=completed,total=currentTotal,status=SimilarityWorkStatus.RUNNING,updatedAt=System.currentTimeMillis()));progress(completed,currentTotal)
+                    fingerprintsLeft--
                 }
+                if(current!=null&&!current.relationsReady){
+                    if(candidatesLeft==0)break
+                    val allowance=minOf(SimilarityBudgets.CANDIDATES_PER_ITEM_STEP,candidatesLeft)
+                    val scanned=SimilarityRelationScanner.step(database,row.mediaId,allowance,stopped)
+                    candidatesLeft-=scanned.examined
+                    if(!scanned.complete&&scanned.examined==0)break
+                }
+                checkpoint=row.mediaId
+                val live=dao.commitProgress(checkpoint);progress(live.completed,live.eligible)
             }
-            val finalTotal=dao.eligibleCount();dao.saveCheckpoint(SimilarityCheckpoint(checkpointMediaId=checkpoint,completed=finalTotal,total=finalTotal,status=SimilarityWorkStatus.COMPLETE,updatedAt=System.currentTimeMillis()))
-        }catch(error:InterruptedException){
-            dao.saveCheckpoint(SimilarityCheckpoint(checkpointMediaId=checkpoint,completed=completed,total=dao.eligibleCount(),status=SimilarityWorkStatus.PAUSED,updatedAt=System.currentTimeMillis()));throw error
-        }catch(error:Exception){
-            dao.saveCheckpoint(SimilarityCheckpoint(checkpointMediaId=checkpoint,completed=completed,total=dao.eligibleCount(),status=SimilarityWorkStatus.ERROR,updatedAt=System.currentTimeMillis(),error=error.javaClass.simpleName.take(80)));throw error
+            val final=dao.commitProgress(checkpoint)
+            return when{final.complete->SimilarityRunOutcome.COMPLETE;final.failures>0&&dao.pendingSafe(null,1).isEmpty()->SimilarityRunOutcome.BLOCKED_BY_FAILURE;else->SimilarityRunOutcome.MORE_WORK}
+        }catch(error:InterruptedException){dao.commitProgress(checkpoint,paused=true);throw error}
+        catch(error:Exception){
+            val live=dao.progress();dao.saveCheckpoint(SimilarityCheckpoint(checkpointMediaId=checkpoint,completed=live.completed,total=live.eligible,status=SimilarityWorkStatus.ERROR,updatedAt=System.currentTimeMillis(),error=error.javaClass.simpleName.take(80)));throw error
         }
     }
-    companion object{private const val BATCH=8}
 }
 
 class SimilarityWorker(context:Context,parameters:WorkerParameters):Worker(context,parameters){
     override fun doWork():Result{
         val manual=inputData.getBoolean(MANUAL,false)
         if(!manual&&applicationContext.getSystemService(PowerManager::class.java).currentThermalStatus>=PowerManager.THERMAL_STATUS_SEVERE)return Result.retry()
-        return runCatching{SimilarityProcessor(MediaDatabase.get(applicationContext),SimilarityFingerprintEngine(applicationContext),{isStopped}){done,total->setProgressAsync(workDataOf(COMPLETED to done,TOTAL to total))}.run()}.fold({Result.success()},{if(it is InterruptedException)Result.retry()else Result.failure(workDataOf(ERROR to it.javaClass.simpleName.take(80)))})
+        return runCatching{SimilarityProcessor(MediaDatabase.get(applicationContext),SimilarityFingerprintEngine(applicationContext),{isStopped}){done,total->setProgressAsync(workDataOf(COMPLETED to done,TOTAL to total))}.run()}.fold({outcome->if(outcome==SimilarityRunOutcome.MORE_WORK){enqueue(applicationContext,manual,continuation=true);Result.success()}else Result.success()},{if(it is InterruptedException)Result.retry()else Result.failure(workDataOf(ERROR to it.javaClass.simpleName.take(80)))})
     }
     companion object{
         private const val MANUAL="manual";private const val COMPLETED="completed";private const val TOTAL="total";private const val ERROR="error";private const val WORK="photo-similarity"
-        fun enqueue(context:Context,manual:Boolean=false){val constraints=Constraints.Builder().setRequiresStorageNotLow(true).setRequiresBatteryNotLow(true).apply{if(!manual)setRequiresCharging(true)}.build();val request=OneTimeWorkRequestBuilder<SimilarityWorker>().setInputData(workDataOf(MANUAL to manual)).setConstraints(constraints).build();WorkManager.getInstance(context).enqueueUniqueWork(WORK,if(manual)ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP,request)}
+        fun enqueue(context:Context,manual:Boolean=false,continuation:Boolean=false){val constraints=Constraints.Builder().setRequiresStorageNotLow(true).setRequiresBatteryNotLow(true).apply{if(!manual)setRequiresCharging(true)}.build();val request=OneTimeWorkRequestBuilder<SimilarityWorker>().setInputData(workDataOf(MANUAL to manual)).setConstraints(constraints).build();val policy=when{continuation->ExistingWorkPolicy.APPEND_OR_REPLACE;manual->ExistingWorkPolicy.REPLACE;else->ExistingWorkPolicy.KEEP};WorkManager.getInstance(context).enqueueUniqueWork(WORK,policy,request)}
         fun pause(context:Context)=WorkManager.getInstance(context).cancelUniqueWork(WORK)
         fun schedule(context:Context){enqueue(context);val constraints=Constraints.Builder().setRequiresCharging(true).setRequiresBatteryNotLow(true).setRequiresStorageNotLow(true).build();WorkManager.getInstance(context).enqueueUniquePeriodicWork("$WORK-periodic",ExistingPeriodicWorkPolicy.KEEP,PeriodicWorkRequestBuilder<SimilarityWorker>(24,TimeUnit.HOURS).setConstraints(constraints).build())}
     }
